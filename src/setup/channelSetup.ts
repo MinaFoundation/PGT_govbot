@@ -1,48 +1,7 @@
-import { Client, GatewayIntentBits, Interaction, TextChannel, ChannelType, EmbedBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle, CategoryChannel } from 'discord.js';
-import dotenv from 'dotenv';
-import { initializeDatabase } from './database';
-import { handleAdminInteractions } from './interactions/adminInteractions';
-import { CONSTANTS } from './constants';
-import { handleButtonInteraction, handleModalSubmit, handleStringSelectMenu } from './interactions/modalHandlers';
+import { Client, TextChannel, ChannelType, EmbedBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle, CategoryChannel } from 'discord.js';
+import { CONSTANTS } from '../constants';
 
-dotenv.config();
-
-const client: Client = new Client({
-  intents: [
-    GatewayIntentBits.Guilds,
-    GatewayIntentBits.GuildMessages,
-    GatewayIntentBits.MessageContent,
-  ],
-});
-
-client.once('ready', async (): Promise<void> => {
-  console.log('Bot is ready!');
-  await initializeDatabase();
-  await setupAdminChannel(client);
-});
-
-client.on('interactionCreate', async (interaction: Interaction): Promise<void> => {
-  try {
-    if (interaction.isButton()) {
-      if (interaction.customId.includes('next') || interaction.customId.includes('prev')) {
-        await handleButtonInteraction(interaction);
-      } else {
-        await handleAdminInteractions(interaction);
-      }
-    } else if (interaction.isModalSubmit()) {
-      await handleModalSubmit(interaction);
-    } else if (interaction.isStringSelectMenu()) {
-      await handleStringSelectMenu(interaction);
-    }
-  } catch (error) {
-    console.error('Error handling interaction:', error);
-    if (interaction.isRepliable() && !interaction.replied && !interaction.deferred) {
-      await interaction.reply({ content: 'An error occurred while processing your request. Please try again.', ephemeral: true });
-    }
-  }
-});
-
-async function setupAdminChannel(client: Client): Promise<void> {
+export async function setupAdminChannel(client: Client): Promise<void> {
   const guild = client.guilds.cache.get(process.env.GUILD_ID!);
   if (!guild) {
     console.error('Guild not found');
@@ -72,7 +31,7 @@ async function setupAdminChannel(client: Client): Promise<void> {
     .setDescription('Manage SMEs and Proposal Topics here.')
     .setColor(0x0099FF);
 
-  const row: ActionRowBuilder<ButtonBuilder> = new ActionRowBuilder<ButtonBuilder>()
+  const row1: ActionRowBuilder<ButtonBuilder> = new ActionRowBuilder<ButtonBuilder>()
     .addComponents(
       new ButtonBuilder()
         .setCustomId(CONSTANTS.CUSTOM_IDS.ADD_SME_CATEGORY)
@@ -85,7 +44,11 @@ async function setupAdminChannel(client: Client): Promise<void> {
       new ButtonBuilder()
         .setCustomId(CONSTANTS.CUSTOM_IDS.REMOVE_SME)
         .setLabel('Remove SME')
-        .setStyle(ButtonStyle.Danger),
+        .setStyle(ButtonStyle.Danger)
+    );
+
+  const row2: ActionRowBuilder<ButtonBuilder> = new ActionRowBuilder<ButtonBuilder>()
+    .addComponents(
       new ButtonBuilder()
         .setCustomId(CONSTANTS.CUSTOM_IDS.ADD_PROPOSAL_TOPIC)
         .setLabel('Add Proposal Topic')
@@ -96,7 +59,7 @@ async function setupAdminChannel(client: Client): Promise<void> {
         .setStyle(ButtonStyle.Danger)
     );
 
-  const row2: ActionRowBuilder<ButtonBuilder> = new ActionRowBuilder<ButtonBuilder>()
+  const row3: ActionRowBuilder<ButtonBuilder> = new ActionRowBuilder<ButtonBuilder>()
     .addComponents(
       new ButtonBuilder()
         .setCustomId(CONSTANTS.CUSTOM_IDS.SET_PROPOSAL_TOPIC_COMMITTEE)
@@ -108,7 +71,5 @@ async function setupAdminChannel(client: Client): Promise<void> {
         .setStyle(ButtonStyle.Secondary)
     );
 
-  await adminChannel.send({ embeds: [embed], components: [row, row2] });
+  await adminChannel.send({ embeds: [embed], components: [row1, row2, row3] });
 }
-
-client.login(process.env.DISCORD_TOKEN);
