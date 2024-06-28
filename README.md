@@ -46,3 +46,12 @@ In order to add an admin to the bot, you can run the following command:
 ```
 npm run manage addAdmin [discord_user_id]
 ```
+
+## Contributions
+
+To make a contribution, follow these steps:
+
+1. Make an issue that includes a user story for what the user should be able to do.
+2. Get that issue tested by: es92, Remigiusz-antczak or Cristina Echeverry.
+3. Get that issue approved by the product owners: es92, Remigiusz-antczak or Cristina Echeverry.
+4. Write a PR and get it approved by the code owners and Mina devops: Es92, illya (developer), johnmarcou & Smorci (Mina devops). Each PR must correspond to an approved issue. By default, PRs should be merged by the PR submitter, though in some cases if changes are needed, they can be merged by code owners.
