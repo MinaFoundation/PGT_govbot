@@ -1,43 +1,51 @@
-import { Model, Optional } from 'sequelize';
+import { Optional } from 'sequelize';
 
 export interface CoreAttributes {
   id: number;
-  createdAt: Date;
-  updatedAt: Date;
 }
 
 export interface UserAttributes extends CoreAttributes {
   duid: number;
 }
 
-export interface UserCreationAttributes extends Optional<UserAttributes, 'id' | 'createdAt' | 'updatedAt'> {}
+export interface UserCreationAttributes extends Optional<UserAttributes, 'id'> {}
 
-export interface SMEGroupAttributes extends CoreAttributes {
+export interface SMEGroupAttributes extends CoreAttributes{
+  id: number;
   name: string;
   description: string;
 }
 
-export interface SMEGroupCreationAttributes extends Optional<SMEGroupAttributes, 'id' | 'createdAt' | 'updatedAt'> {}
+export interface SMEGroupCreationAttributes extends Omit<SMEGroupAttributes, 'id'> {}
+
+export interface SMEGroupMembershipAttributes extends CoreAttributes {
+  id: number;
+  smeGroupId: number;
+  duid: string;
+}
+
+export interface SMEGroupMembershipCreationAttributes extends Omit<SMEGroupMembershipAttributes, 'id'> {}
+
 
 export interface AdminUserAttributes extends CoreAttributes {
   duid: number;
 }
 
-export interface AdminUserCreationAttributes extends Optional<AdminUserAttributes, 'id' | 'createdAt' | 'updatedAt'> {}
+export interface AdminUserCreationAttributes extends Optional<AdminUserAttributes, 'id'> {}
 
 export interface UserPublicKeyAttributes extends CoreAttributes {
   duid: number;
   publicKey: string;
 }
 
-export interface UserPublicKeyCreationAttributes extends Optional<UserPublicKeyAttributes, 'id' | 'createdAt' | 'updatedAt'> {}
+export interface UserPublicKeyCreationAttributes extends Optional<UserPublicKeyAttributes, 'id'> {}
 
 export interface TopicAttributes extends CoreAttributes {
   name: string;
   description: string;
 }
 
-export interface TopicCreationAttributes extends Optional<TopicAttributes, 'id' | 'createdAt' | 'updatedAt'> {}
+export interface TopicCreationAttributes extends Optional<TopicAttributes, 'id'> {}
 
 export interface TopicCommitteeAttributes extends CoreAttributes {
   topicId: number;
@@ -45,21 +53,21 @@ export interface TopicCommitteeAttributes extends CoreAttributes {
   numUsers: number;
 }
 
-export interface TopicCommitteeCreationAttributes extends Optional<TopicCommitteeAttributes, 'id' | 'createdAt' | 'updatedAt'> {}
+export interface TopicCommitteeCreationAttributes extends Optional<TopicCommitteeAttributes, 'id'> {}
 
 export interface FundingRoundConsiderationVoteAllowedSMEGroupsAttributes extends CoreAttributes {
   fundingRoundId: number;
   smeGroupId: number;
 }
 
-export interface FundingRoundConsiderationVoteAllowedSMEGroupsCreationAttributes extends Optional<FundingRoundConsiderationVoteAllowedSMEGroupsAttributes, 'id' | 'createdAt' | 'updatedAt'> {}
+export interface FundingRoundConsiderationVoteAllowedSMEGroupsCreationAttributes extends Optional<FundingRoundConsiderationVoteAllowedSMEGroupsAttributes, 'id'> {}
 
 export interface TopicSMEGroupProposalCreationLimiterAttributes extends CoreAttributes {
   topicId: number;
   smeGroupId: number;
 }
 
-export interface TopicSMEGroupProposalCreationLimiterCreationAttributes extends Optional<TopicSMEGroupProposalCreationLimiterAttributes, 'id' | 'createdAt' | 'updatedAt'> {}
+export interface TopicSMEGroupProposalCreationLimiterCreationAttributes extends Optional<TopicSMEGroupProposalCreationLimiterAttributes, 'id'> {}
 
 export enum FundingRoundStatus {
   DRAFT = 'VOTING',
@@ -80,7 +88,7 @@ export interface FundingRoundAttributes extends CoreAttributes {
   endAt: Date;
 }
 
-export interface FundingRoundCreationAttributes extends Optional<FundingRoundAttributes, 'id' | 'createdAt' | 'updatedAt'> {}
+export interface FundingRoundCreationAttributes extends Optional<FundingRoundAttributes, 'id'> {}
 
 export interface FundingRoundPhaseAttributes extends CoreAttributes {
   fundingRoundId: number;
@@ -88,7 +96,7 @@ export interface FundingRoundPhaseAttributes extends CoreAttributes {
   endAt: Date;
 }
 
-export interface FundingRoundPhaseCreationAttributes extends Optional<FundingRoundPhaseAttributes, 'id' | 'createdAt' | 'updatedAt'> {}
+export interface FundingRoundPhaseCreationAttributes extends Optional<FundingRoundPhaseAttributes, 'id'> {}
 
 export interface ConsiderationPhaseAttributes extends FundingRoundPhaseAttributes {}
 export interface ConsiderationPhaseCreationAttributes extends FundingRoundPhaseCreationAttributes {}
@@ -115,38 +123,38 @@ export interface ProposalAttributes extends CoreAttributes {
   status: ProposalStatus;
 }
 
-export interface ProposalCreationAttributes extends Optional<ProposalAttributes, 'id' | 'createdAt' | 'updatedAt'> {}
+export interface ProposalCreationAttributes extends Optional<ProposalAttributes, 'id'> {}
 
 export interface FundingRoundDeliberationCommitteeSelectionAttributes extends CoreAttributes {
   duid: number;
   fundingRoundId: number;
 }
 
-export interface FundingRoundDeliberationCommitteeSelectionCreationAttributes extends Optional<FundingRoundDeliberationCommitteeSelectionAttributes, 'id' | 'createdAt' | 'updatedAt'> {}
+export interface FundingRoundDeliberationCommitteeSelectionCreationAttributes extends Optional<FundingRoundDeliberationCommitteeSelectionAttributes, 'id'> {}
 
 export interface VoteLogAttributes extends CoreAttributes {
   duid: number;
 }
 
-export interface VoteLogCreationAttributes extends Optional<VoteLogAttributes, 'id' | 'createdAt' | 'updatedAt'> {}
+export interface VoteLogCreationAttributes extends Optional<VoteLogAttributes, 'id'> {}
 
 export interface ProjectVoteLogAttributes extends VoteLogAttributes {
   proposalId: number;
 }
 
-export interface ProjectVoteLogCreationAttributes extends Optional<ProjectVoteLogAttributes, 'id' | 'createdAt' | 'updatedAt'> {}
+export interface ProjectVoteLogCreationAttributes extends Optional<ProjectVoteLogAttributes, 'id'> {}
 
 export interface SMEConsiderationVoteLogAttributes extends ProjectVoteLogAttributes {
   isPass: boolean;
 }
 
-export interface SMEConsiderationVoteLogCreationAttributes extends Optional<SMEConsiderationVoteLogAttributes, 'id' | 'createdAt' | 'updatedAt'> {}
+export interface SMEConsiderationVoteLogCreationAttributes extends Optional<SMEConsiderationVoteLogAttributes, 'id'> {}
 
 export interface GPTSummarizerVoteLogAttributes extends ProjectVoteLogAttributes {
   why: string;
 }
 
-export interface GPTSummarizerVoteLogCreationAttributes extends Optional<GPTSummarizerVoteLogAttributes, 'id' | 'createdAt' | 'updatedAt'> {}
+export interface GPTSummarizerVoteLogCreationAttributes extends Optional<GPTSummarizerVoteLogAttributes, 'id'> {}
 
 export enum CommitteeDeliberationVoteChoice {
   APPROVED = 'APPROVED',
@@ -159,23 +167,23 @@ export interface CommitteeDeliberationVoteLogAttributes extends ProjectVoteLogAt
   uri: string;
 }
 
-export interface CommitteeDeliberationVoteLogCreationAttributes extends Optional<CommitteeDeliberationVoteLogAttributes, 'id' | 'createdAt' | 'updatedAt'> {}
+export interface CommitteeDeliberationVoteLogCreationAttributes extends Optional<CommitteeDeliberationVoteLogAttributes, 'id'> {}
 
 export interface CommitteeDeliberationProjectSelectionAttributes extends CoreAttributes {
   proposalId: number;
   fundingRoundId: number;
 }
 
-export interface CommitteeDeliberationProjectSelectionCreationAttributes extends Optional<CommitteeDeliberationProjectSelectionAttributes, 'id' | 'createdAt' | 'updatedAt'> {}
+export interface CommitteeDeliberationProjectSelectionCreationAttributes extends Optional<CommitteeDeliberationProjectSelectionAttributes, 'id'> {}
 
 export interface FundingRoundVoteLogAttributes extends VoteLogAttributes {
   fundingRoundId: number;
 }
 
-export interface FundingRoundVoteLogCreationAttributes extends Optional<FundingRoundVoteLogAttributes, 'id' | 'createdAt' | 'updatedAt'> {}
+export interface FundingRoundVoteLogCreationAttributes extends Optional<FundingRoundVoteLogAttributes, 'id'> {}
 
 export interface FundingRoundApprovalVoteAttributes extends FundingRoundVoteLogAttributes {
   isPass: boolean;
 }
 
-export interface FundingRoundApprovalVoteCreationAttributes extends Optional<FundingRoundApprovalVoteAttributes, 'id' | 'createdAt' | 'updatedAt'> {}
+export interface FundingRoundApprovalVoteCreationAttributes extends Optional<FundingRoundApprovalVoteAttributes, 'id'> {}
