@@ -3,7 +3,6 @@ import {
   UserAttributes,
   UserCreationAttributes,
   SMEGroupAttributes,
-  SMEGroupCreationAttributes,
   AdminUserAttributes,
   AdminUserCreationAttributes,
   UserPublicKeyAttributes,
@@ -41,9 +40,12 @@ import {
   ProposalStatus,
   CommitteeDeliberationVoteChoice,
   FundingRoundStatus,
+  SMEGroupCreationAttributes,
+  SMEGroupMembershipAttributes,
+  SMEGroupMembershipCreationAttributes,
 } from '../types';
 
-const sequelize = new Sequelize({
+const sequelize: Sequelize = new Sequelize({
   dialect: 'sqlite',
   storage: 'database.sqlite',
   logging: false,
@@ -68,8 +70,6 @@ User.init(
       allowNull: false,
       unique: true,
     },
-    createdAt: DataTypes.DATE,
-    updatedAt: DataTypes.DATE,
   },
   {
     sequelize,
@@ -81,8 +81,6 @@ class SMEGroup extends Model<SMEGroupAttributes, SMEGroupCreationAttributes> imp
   public id!: number;
   public name!: string;
   public description!: string;
-  public readonly createdAt!: Date;
-  public readonly updatedAt!: Date;
 }
 
 SMEGroup.init(
@@ -101,14 +99,53 @@ SMEGroup.init(
       type: DataTypes.STRING(255),
       allowNull: false,
     },
-    createdAt: DataTypes.DATE,
-    updatedAt: DataTypes.DATE,
   },
   {
     sequelize,
     tableName: 'sme_groups',
   }
 );
+
+
+class SMEGroupMembership extends Model<SMEGroupMembershipAttributes, SMEGroupMembershipCreationAttributes> implements SMEGroupMembershipAttributes {
+  public id!: number;
+  public smeGroupId!: number;
+  public duid!: string;
+  public readonly createdAt!: Date;
+  public readonly updatedAt!: Date;
+}
+
+SMEGroupMembership.init(
+  {
+    id: {
+      type: DataTypes.INTEGER,
+      autoIncrement: true,
+      primaryKey: true,
+    },
+    smeGroupId: {
+      type: DataTypes.INTEGER,
+      allowNull: false,
+      references: {
+        model: SMEGroup,
+        key: 'id',
+      },
+    },
+    duid: {
+      type: DataTypes.STRING,
+      allowNull: false,
+    },
+  },
+  {
+    sequelize,
+    tableName: 'sme_group_memberships',
+    indexes: [
+      {
+        unique: true,
+        fields: ['smeGroupId', 'duid'],
+      },
+    ],
+  }
+); 
 
 class AdminUser extends Model<AdminUserAttributes, AdminUserCreationAttributes> implements AdminUserAttributes {
   public id!: number;
@@ -129,8 +166,6 @@ AdminUser.init(
       allowNull: false,
       unique: true,
     },
-    createdAt: DataTypes.DATE,
-    updatedAt: DataTypes.DATE,
   },
   {
     sequelize,
@@ -161,8 +196,6 @@ UserPublicKey.init(
       type: DataTypes.STRING(255),
       allowNull: false,
     },
-    createdAt: DataTypes.DATE,
-    updatedAt: DataTypes.DATE,
   },
   {
     sequelize,
@@ -194,16 +227,12 @@ Topic.init(
       type: DataTypes.STRING(255),
       allowNull: false,
     },
-    createdAt: DataTypes.DATE,
-    updatedAt: DataTypes.DATE,
   },
   {
     sequelize,
     tableName: 'topics',
   }
 );
-
-// Continuing in src/models/index.ts
 
 class TopicCommittee extends Model<TopicCommitteeAttributes, TopicCommitteeCreationAttributes> implements TopicCommitteeAttributes {
   public id!: number;
@@ -241,8 +270,6 @@ TopicCommittee.init(
       type: DataTypes.INTEGER,
       allowNull: false,
     },
-    createdAt: DataTypes.DATE,
-    updatedAt: DataTypes.DATE,
   },
   {
     sequelize,
@@ -319,8 +346,6 @@ FundingRound.init(
       type: DataTypes.DATE,
       allowNull: false,
     },
-    createdAt: DataTypes.DATE,
-    updatedAt: DataTypes.DATE,
   },
   {
     sequelize,
@@ -359,8 +384,6 @@ FundingRoundConsiderationVoteAllowedSMEGroups.init(
         key: 'id',
       },
     },
-    createdAt: DataTypes.DATE,
-    updatedAt: DataTypes.DATE,
   },
   {
     sequelize,
@@ -405,8 +428,6 @@ TopicSMEGroupProposalCreationLimiter.init(
         key: 'id',
       },
     },
-    createdAt: DataTypes.DATE,
-    updatedAt: DataTypes.DATE,
   },
   {
     sequelize,
@@ -453,8 +474,6 @@ ConsiderationPhase.init(
       type: DataTypes.DATE,
       allowNull: false,
     },
-    createdAt: DataTypes.DATE,
-    updatedAt: DataTypes.DATE,
   },
   {
     sequelize,
@@ -495,8 +514,6 @@ DeliberationPhase.init(
       type: DataTypes.DATE,
       allowNull: false,
     },
-    createdAt: DataTypes.DATE,
-    updatedAt: DataTypes.DATE,
   },
   {
     sequelize,
@@ -537,8 +554,6 @@ FundingVotingPhase.init(
       type: DataTypes.DATE,
       allowNull: false,
     },
-    createdAt: DataTypes.DATE,
-    updatedAt: DataTypes.DATE,
   },
   {
     sequelize,
@@ -594,8 +609,6 @@ Proposal.init(
       allowNull: false,
       defaultValue: ProposalStatus.DRAFT,
     },
-    createdAt: DataTypes.DATE,
-    updatedAt: DataTypes.DATE,
   },
   {
     sequelize,
@@ -630,8 +643,6 @@ FundingRoundDeliberationCommitteeSelection.init(
         key: 'id',
       },
     },
-    createdAt: DataTypes.DATE,
-    updatedAt: DataTypes.DATE,
   },
   {
     sequelize,
@@ -677,8 +688,6 @@ SMEConsiderationVoteLog.init(
       type: DataTypes.BOOLEAN,
       allowNull: false,
     },
-    createdAt: DataTypes.DATE,
-    updatedAt: DataTypes.DATE,
   },
   {
     sequelize,
@@ -718,8 +727,6 @@ GPTSummarizerVoteLog.init(
       type: DataTypes.TEXT,
       allowNull: false,
     },
-    createdAt: DataTypes.DATE,
-    updatedAt: DataTypes.DATE,
   },
   {
     sequelize,
@@ -764,8 +771,6 @@ CommitteeDeliberationVoteLog.init(
       type: DataTypes.STRING(255),
       allowNull: false,
     },
-    createdAt: DataTypes.DATE,
-    updatedAt: DataTypes.DATE,
   },
   {
     sequelize,
@@ -804,8 +809,6 @@ CommitteeDeliberationProjectSelection.init(
         key: 'id',
       },
     },
-    createdAt: DataTypes.DATE,
-    updatedAt: DataTypes.DATE,
   },
   {
     sequelize,
@@ -851,8 +854,6 @@ FundingRoundApprovalVote.init(
       type: DataTypes.BOOLEAN,
       allowNull: false,
     },
-    createdAt: DataTypes.DATE,
-    updatedAt: DataTypes.DATE,
   },
   {
     sequelize,
@@ -863,6 +864,9 @@ FundingRoundApprovalVote.init(
 // Define associations
 User.hasMany(UserPublicKey, { foreignKey: 'duid' });
 UserPublicKey.belongsTo(User, { foreignKey: 'duid' });
+
+SMEGroup.hasMany(SMEGroupMembership, { foreignKey: 'smeGroupId' });
+SMEGroupMembership.belongsTo(SMEGroup, { foreignKey: 'smeGroupId' });
 
 Topic.hasMany(TopicCommittee, { foreignKey: 'topicId' });
 TopicCommittee.belongsTo(Topic, { foreignKey: 'topicId' });
@@ -922,6 +926,7 @@ FundingRoundApprovalVote.belongsTo(FundingRound, { foreignKey: 'fundingRoundId' 
 export {
   User,
   SMEGroup,
+  SMEGroupMembership,
   AdminUser,
   UserPublicKey,
   Topic,
