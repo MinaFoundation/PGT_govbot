@@ -1,5 +1,6 @@
+// DashboardManager.ts
 import { AnyInteraction, AnyNamedChannelInteraction } from '../types/common';
-import { Dashboard } from './BaseClasses';
+import { Dashboard, TrackedInteraction } from './BaseClasses';
 
 export class DashboardManager {
   private dashboards: Map<string, Dashboard> = new Map();
@@ -9,20 +10,21 @@ export class DashboardManager {
   }
 
   async handleInteraction(interaction: AnyInteraction): Promise<void> {
+    const trackedInteratction: TrackedInteraction = new TrackedInteraction(interaction);
     const channelName = this.isNamedChannelInteraction(interaction) ? interaction.channel.name : undefined;
     
     if (!channelName) {
-      await interaction.reply({ content: 'Error: Unable to determine the channel.', ephemeral: true });
+      await trackedInteratction.respond({ content: 'Error: Unable to determine the channel.', ephemeral: true });
       return;
     }
 
     const dashboard = this.dashboards.get(channelName);
     if (!dashboard) {
-      await interaction.reply({ content: 'Error: No dashboard found for this channel.', ephemeral: true });
+      await trackedInteratction.respond({ content: 'Error: No dashboard found for this channel.', ephemeral: true });
       return;
     }
 
-    await dashboard.render(interaction);
+    await dashboard.handleInteraction(trackedInteratction)
   }
 
   private isNamedChannelInteraction(interaction: AnyInteraction): interaction is AnyNamedChannelInteraction {
