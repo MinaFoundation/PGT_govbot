@@ -1,6 +1,6 @@
 // src/channels/admin/screens/ManageSMEGroupsScreen.ts
 
-import { Screen, Action, Dashboard, Permission, TrackedInteraction, RenderAgrs } from '../../../core/BaseClasses';
+import { Screen, Action, Dashboard, Permission, TrackedInteraction, RenderArgs } from '../../../core/BaseClasses';
 import { ActionRowBuilder, ButtonBuilder, ButtonStyle, EmbedBuilder, StringSelectMenuBuilder, MessageActionRowComponentBuilder, ModalBuilder, TextInputBuilder, TextInputStyle, UserSelectMenuBuilder } from 'discord.js';
 import { SMEGroup, SMEGroupMembership, User } from '../../../models';
 import { CustomIDOracle } from '../../../CustomIDOracle';
@@ -218,7 +218,7 @@ export class ManageSMEGroupsScreen extends Screen {
     ];
   }
 
-  protected async getResponse(interaction: TrackedInteraction, args?: RenderAgrs): Promise<any> {
+  protected async getResponse(interaction: TrackedInteraction, args?: RenderArgs): Promise<any> {
     const currentPage = this.paginationAction.getCurrentPage(interaction);
     const totalPages = await this.paginationAction.getTotalPages(interaction);
     const groups = await this.paginationAction.getItemsForPage(interaction, currentPage);
@@ -226,12 +226,12 @@ export class ManageSMEGroupsScreen extends Screen {
     return this.buildGroupListResponse(interaction, groups, currentPage, totalPages, args);
   }
 
-  public async renderGroupList(interaction: TrackedInteraction, groups: any[], currentPage: number, totalPages: number, args?: RenderAgrs): Promise<void> {
+  public async renderGroupList(interaction: TrackedInteraction, groups: any[], currentPage: number, totalPages: number, args?: RenderArgs): Promise<void> {
     const response = this.buildGroupListResponse(interaction, groups, currentPage, totalPages, args);
     await interaction.update(response);
   }
 
-  private buildGroupListResponse(interaction: TrackedInteraction, groups: any[], currentPage: number, totalPages: number, args?: RenderAgrs): any {
+  private buildGroupListResponse(interaction: TrackedInteraction, groups: any[], currentPage: number, totalPages: number, args?: RenderArgs): any {
     const embed = new EmbedBuilder()
       .setColor('#0099ff')
       .setTitle('Manage SME Groups')

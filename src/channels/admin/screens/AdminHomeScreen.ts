@@ -4,6 +4,7 @@ import { Screen, Dashboard, Permission, Action } from '../../../core/BaseClasses
 import { IHomeScreen, RenderOptions } from '../../../types/common';
 import { ActionRowBuilder, ButtonBuilder, ButtonStyle, EmbedBuilder, TextChannel } from 'discord.js';
 import { ManageSMEGroupsScreen } from './ManageSMEGroupsScreen';
+import { ManageTopicsScreen } from './ManageTopicLogicScreen';
 
 
 export class AdminHomeScreen extends Screen implements IHomeScreen {
@@ -11,6 +12,8 @@ export class AdminHomeScreen extends Screen implements IHomeScreen {
 
   protected permissions: Permission[] = []; // access allowed for all
   protected manageSMEGroupsScreen: ManageSMEGroupsScreen =  new ManageSMEGroupsScreen(this.dashboard, ManageSMEGroupsScreen.ID);
+  protected manageTopicsScreen: ManageTopicsScreen = new ManageTopicsScreen(this.dashboard, ManageTopicsScreen.ID);
+
 
   async renderToTextChannel(channel: TextChannel): Promise<void> {
     const embed = this.createEmbed();
@@ -38,6 +41,7 @@ export class AdminHomeScreen extends Screen implements IHomeScreen {
   protected allSubScreens(): Screen[] {
     return [
       this.manageSMEGroupsScreen,
+      this.manageTopicsScreen,
     ]
   }
   protected allActions(): Action[] {
@@ -64,8 +68,8 @@ export class AdminHomeScreen extends Screen implements IHomeScreen {
           .setLabel('SME Management')
           .setStyle(ButtonStyle.Primary)
           .setEmoji('👥'),
-        new ButtonBuilder()
-          .setCustomId('aaaa') // TODO: replace with correct custom id
+          new ButtonBuilder()
+          .setCustomId(this.manageTopicsScreen.fullCustomId)
           .setLabel('Topic Management')
           .setStyle(ButtonStyle.Primary)
           .setEmoji('📋'),
