@@ -4,7 +4,7 @@ import { InteractionResponse, Message, MessageComponentInteraction } from 'disco
 import { CustomIDOracle } from '../CustomIDOracle';
 import { AnyModalMessageComponent, AnyInteraction, HomeScreen } from '../types/common';
 
-export interface RenderAgrs {
+export interface RenderArgs {
     successMessage?: string,
     errorMessage?: string,
 }
@@ -184,13 +184,13 @@ export abstract class Screen {
     }
 
     // TODO: define 'any' type clearly
-    protected abstract getResponse(interaction: TrackedInteraction, args?:RenderAgrs): Promise<any>;
+    protected abstract getResponse(interaction: TrackedInteraction, args?:RenderArgs): Promise<any>;
 
     /**
      * Send a response to an interaction on the `Screen`. This method must be used for sending custom responses to any interactions
      * on the screen. This ensures that all of the responses of the screen are cleared when the screen is cleared.
      */
-    public async render(interaction: TrackedInteraction, args?:RenderAgrs): Promise<void> {
+    public async render(interaction: TrackedInteraction, args?:RenderArgs): Promise<void> {
         const responseArgs = await this.getResponse(interaction, args);
 
         try {
@@ -201,7 +201,7 @@ export abstract class Screen {
         return;
     }
 
-    public async reRender(interaction: TrackedInteraction, args?: RenderAgrs): Promise<void> {
+    public async reRender(interaction: TrackedInteraction, args?: RenderArgs): Promise<void> {
         const responseArgs = await this.getResponse(interaction, args);
 
         try {
