@@ -1,4 +1,4 @@
-import { Sequelize, DataTypes, Model } from 'sequelize';
+import { Sequelize, DataTypes, Model, Association } from 'sequelize';
 import {
   UserAttributes,
   UserCreationAttributes,
@@ -203,12 +203,23 @@ UserPublicKey.init(
   }
 );
 
+export type TopicCommitteeModel = Model<TopicCommitteeAttributes, TopicCommitteeCreationAttributes> & TopicCommitteeAttributes;
+export type FundingRoundModel = Model<FundingRoundAttributes, FundingRoundCreationAttributes> & FundingRoundAttributes;
+export type TopicSMEGroupProposalCreationLimiterModel = Model<TopicSMEGroupProposalCreationLimiterAttributes, TopicSMEGroupProposalCreationLimiterCreationAttributes> & TopicSMEGroupProposalCreationLimiterAttributes;
+
+
 class Topic extends Model<TopicAttributes, TopicCreationAttributes> implements TopicAttributes {
   public id!: number;
   public name!: string;
   public description!: string;
   public readonly createdAt!: Date;
   public readonly updatedAt!: Date;
+
+  // Associations
+  public static associations: {
+    fundingRounds: Association<Topic, FundingRoundModel>;
+    topicSMEGroupProposalCreationLimiters: Association<Topic, TopicSMEGroupProposalCreationLimiterModel>;
+  };
 }
 
 Topic.init(
@@ -234,54 +245,6 @@ Topic.init(
   }
 );
 
-class TopicCommittee extends Model<TopicCommitteeAttributes, TopicCommitteeCreationAttributes> implements TopicCommitteeAttributes {
-  public id!: number;
-  public topicId!: number;
-  public smeGroupId!: number;
-  public numUsers!: number;
-  public readonly createdAt!: Date;
-  public readonly updatedAt!: Date;
-}
-
-TopicCommittee.init(
-  {
-    id: {
-      type: DataTypes.INTEGER,
-      autoIncrement: true,
-      primaryKey: true,
-    },
-    topicId: {
-      type: DataTypes.INTEGER,
-      allowNull: false,
-      references: {
-        model: Topic,
-        key: 'id',
-      },
-    },
-    smeGroupId: {
-      type: DataTypes.INTEGER,
-      allowNull: false,
-      references: {
-        model: SMEGroup,
-        key: 'id',
-      },
-    },
-    numUsers: {
-      type: DataTypes.INTEGER,
-      allowNull: false,
-    },
-  },
-  {
-    sequelize,
-    tableName: 'topic_committees',
-    indexes: [
-      {
-        unique: true,
-        fields: ['topicId', 'smeGroupId'],
-      },
-    ],
-  }
-);
 
 class FundingRound extends Model<FundingRoundAttributes, FundingRoundCreationAttributes> implements FundingRoundAttributes {
   public id!: number;
@@ -861,30 +824,29 @@ FundingRoundApprovalVote.init(
   }
 );
 
-// Define associations
+// Associations
+
+// Users & Groups
 User.hasMany(UserPublicKey, { foreignKey: 'duid' });
 UserPublicKey.belongsTo(User, { foreignKey: 'duid' });
 
 SMEGroup.hasMany(SMEGroupMembership, { foreignKey: 'smeGroupId' });
 SMEGroupMembership.belongsTo(SMEGroup, { foreignKey: 'smeGroupId' });
 
-Topic.hasMany(TopicCommittee, { foreignKey: 'topicId' });
-TopicCommittee.belongsTo(Topic, { foreignKey: 'topicId' });
 
-SMEGroup.hasMany(TopicCommittee, { foreignKey: 'smeGroupId' });
-TopicCommittee.belongsTo(SMEGroup, { foreignKey: 'smeGroupId' });
-
+// Topic
 Topic.hasMany(FundingRound, { foreignKey: 'topicId' });
 FundingRound.belongsTo(Topic, { foreignKey: 'topicId' });
+
+Topic.hasMany(TopicSMEGroupProposalCreationLimiter, { foreignKey: 'topicId' });
+TopicSMEGroupProposalCreationLimiter.belongsTo(Topic, { foreignKey: 'topicId' });
+
 
 FundingRound.hasMany(FundingRoundConsiderationVoteAllowedSMEGroups, { foreignKey: 'fundingRoundId' });
 FundingRoundConsiderationVoteAllowedSMEGroups.belongsTo(FundingRound, { foreignKey: 'fundingRoundId' });
 
 SMEGroup.hasMany(FundingRoundConsiderationVoteAllowedSMEGroups, { foreignKey: 'smeGroupId' });
 FundingRoundConsiderationVoteAllowedSMEGroups.belongsTo(SMEGroup, { foreignKey: 'smeGroupId' });
-
-Topic.hasMany(TopicSMEGroupProposalCreationLimiter, { foreignKey: 'topicId' });
-TopicSMEGroupProposalCreationLimiter.belongsTo(Topic, { foreignKey: 'topicId' });
 
 SMEGroup.hasMany(TopicSMEGroupProposalCreationLimiter, { foreignKey: 'smeGroupId' });
 TopicSMEGroupProposalCreationLimiter.belongsTo(SMEGroup, { foreignKey: 'smeGroupId' });
@@ -930,7 +892,6 @@ export {
   AdminUser,
   UserPublicKey,
   Topic,
-  TopicCommittee,
   FundingRound,
   FundingRoundConsiderationVoteAllowedSMEGroups,
   TopicSMEGroupProposalCreationLimiter,
