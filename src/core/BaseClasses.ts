@@ -3,6 +3,7 @@
 import { InteractionResponse, Message, MessageComponentInteraction } from 'discord.js';
 import { CustomIDOracle } from '../CustomIDOracle';
 import { AnyModalMessageComponent, AnyInteraction, HomeScreen } from '../types/common';
+import { InteractionProperties } from './Interaction';
 
 export interface RenderArgs {
     successMessage?: string,
@@ -12,6 +13,7 @@ export interface RenderArgs {
 export class TrackedInteraction {
     public readonly interaction: AnyInteraction;
     public interactionReplies: Message<boolean>[] = [];
+    public Context: Map<string, string> = new Map();
 
     constructor(interaction: AnyInteraction) {
         this.interaction = interaction;
@@ -19,6 +21,10 @@ export class TrackedInteraction {
 
     get customId(): string {
         return this.interaction.customId;
+    }
+
+    get hasResponses(): boolean {
+        return this.interactionReplies.length > 0;
     }
 
     public async respond(args: any): Promise<Message<boolean>> {
@@ -43,12 +49,12 @@ export class TrackedInteraction {
     }
 
     public async update(args: any) {
-        if(this.interaction.isMessageComponent()) {
-            const messageComponentInteraction = this.interaction as MessageComponentInteraction;
-            return await messageComponentInteraction.update(args);
+        const parsedInteraction = InteractionProperties.toUpdateableOrUndefined(this.interaction);
+        if (parsedInteraction) {
+            return await parsedInteraction.update(args);
         } else {
-            throw new Error('Interaction is not a message component, so unable to update');
-        }
+            throw new Error('Interaction is not updatable, so unable to update');
+        } 
     }
 
 }

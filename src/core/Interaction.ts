@@ -1,7 +1,7 @@
 import { ModalSubmitInteraction } from "discord.js";
-import { AnyInteraction, AnyInteractionWithDefinedChannel, AnyInteractionWithShowModal, AnyInteractionWithUpdate, AnyInteractionWithValues } from "../types/common";
+import { AnyInteraction, AnyInteractionWithDefinedChannel, AnyInteractionWithShowModal, AnyInteractionWithUpdate, AnyInteractionWithValues, AnyIntreactionWithFields } from "../types/common";
 
-export class InteractionProperties {
+export class InteractionProperties<T> {
 
     static isNamedChannelInteraction(interaction: AnyInteraction): boolean {
         return interaction.channel !== null && typeof interaction.channel === 'object' && 'name' in interaction.channel;
@@ -26,11 +26,18 @@ export class InteractionProperties {
         }
     }
 
-    static toShowModalOrUndefined(interaction: AnyInteraction): AnyInteractionWithShowModal | undefined {
+    static toShowModalOrUndefined<T extends AnyInteraction>(interaction: T): AnyInteractionWithShowModal & T | undefined {
         if (interaction !== null && typeof interaction === 'object' && 'showModal' in interaction) {
-            return interaction as AnyInteractionWithShowModal;
+            return interaction as AnyInteractionWithShowModal & T;
         }
     }
+
+    static toInteractionWithFieldsOrUndefined<T extends AnyInteraction>(interaction: AnyInteraction): AnyIntreactionWithFields & T | undefined {
+        if (interaction !== null && typeof interaction === 'object' && 'fields' in interaction) {
+            return interaction as AnyIntreactionWithFields & T;
+        }
+    }
+
 
     static toModalSubmitInteractionOrUndefined(interaction: AnyInteraction): ModalSubmitInteraction | undefined {
         // if the interaction is of type ModalSubmitInteraction, then cast it and return, otherwise, return undefined
