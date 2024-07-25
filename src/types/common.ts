@@ -9,6 +9,7 @@ type NonDMChannel = TextChannel | NewsChannel | ThreadChannel;
 export type AnyNamedChannelInteraction = AnyInteraction & { channel: NonDMChannel };
 export type AnyInteractionWithUpdate = AnyInteraction & { update(...args: any[]): any };
 export type AnyInteractionWithShowModal = AnyInteraction & { showModal(...args: any[]): any };
+export type AnyIntreactionWithFields = AnyInteraction & { fields: any };
 export type AnyInteractionWithDefinedChannel = AnyInteraction & { channel: NonDMChannel };
 export type AnyInteractionWithValues = StringSelectMenuInteraction;
 

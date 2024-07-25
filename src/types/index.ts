@@ -5,7 +5,7 @@ export interface CoreAttributes {
 }
 
 export interface UserAttributes extends CoreAttributes {
-  duid: number;
+  duid: string;
 }
 
 export interface UserCreationAttributes extends Optional<UserAttributes, 'id'> {}
@@ -28,13 +28,13 @@ export interface SMEGroupMembershipCreationAttributes extends Omit<SMEGroupMembe
 
 
 export interface AdminUserAttributes extends CoreAttributes {
-  duid: number;
+  duid: string;
 }
 
 export interface AdminUserCreationAttributes extends Optional<AdminUserAttributes, 'id'> {}
 
 export interface UserPublicKeyAttributes extends CoreAttributes {
-  duid: number;
+  duid: string;
   publicKey: string;
 }
 
@@ -43,6 +43,18 @@ export interface UserPublicKeyCreationAttributes extends Optional<UserPublicKeyA
 export interface TopicAttributes extends CoreAttributes {
   name: string;
   description: string;
+}
+
+export interface TopicCommitteeCreationAttributes extends Optional<TopicCommitteeAttributes, 'id'> {}
+
+export interface TopicCommitteeWithSMEGroupAttributes extends TopicCommitteeAttributes {
+  SMEGroup?: {
+    name: string;
+  }
+}
+
+export interface TopicWithCommitteesAttributes extends TopicAttributes {
+  committees?: TopicCommitteeWithSMEGroupAttributes[];
 }
 
 export interface TopicCreationAttributes extends Optional<TopicAttributes, 'id'> {}
@@ -83,12 +95,13 @@ export interface FundingRoundAttributes extends CoreAttributes {
   budget: number;
   votingAddress: string;
   status: FundingRoundStatus;
-  votingOpenUntil: Date;
-  startAt: Date;
-  endAt: Date;
+  votingOpenUntil: Date | null;
+  startAt: Date | null;
+  endAt: Date | null;
 }
 
-export interface FundingRoundCreationAttributes extends Optional<FundingRoundAttributes, 'id'> {}
+export interface FundingRoundCreationAttributes extends Optional<FundingRoundAttributes, 'id' | 'status' | 'votingOpenUntil' | 'startAt' | 'endAt'> {}
+
 
 export interface FundingRoundPhaseAttributes extends CoreAttributes {
   fundingRoundId: number;
@@ -116,7 +129,7 @@ export enum ProposalStatus {
 
 export interface ProposalAttributes extends CoreAttributes {
   name: string;
-  proposerDuid: number;
+  proposerDuid: string;
   budget: number;
   uri: string;
   fundingRoundId: number | null;
@@ -126,14 +139,14 @@ export interface ProposalAttributes extends CoreAttributes {
 export interface ProposalCreationAttributes extends Optional<ProposalAttributes, 'id'> {}
 
 export interface FundingRoundDeliberationCommitteeSelectionAttributes extends CoreAttributes {
-  duid: number;
+  duid: string;
   fundingRoundId: number;
 }
 
 export interface FundingRoundDeliberationCommitteeSelectionCreationAttributes extends Optional<FundingRoundDeliberationCommitteeSelectionAttributes, 'id'> {}
 
 export interface VoteLogAttributes extends CoreAttributes {
-  duid: number;
+  duid: string;
 }
 
 export interface VoteLogCreationAttributes extends Optional<VoteLogAttributes, 'id'> {}
@@ -187,3 +200,10 @@ export interface FundingRoundApprovalVoteAttributes extends FundingRoundVoteLogA
 }
 
 export interface FundingRoundApprovalVoteCreationAttributes extends Optional<FundingRoundApprovalVoteAttributes, 'id'> {}
+
+
+export type FundingRoundPhase = {
+  phase: 'consideration' | 'deliberation' | 'voting'; // Assuming these are the possible phases
+  startDate: Date;
+  endDate: Date;
+};

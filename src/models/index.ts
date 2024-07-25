@@ -53,7 +53,7 @@ const sequelize: Sequelize = new Sequelize({
 
 class User extends Model<UserAttributes, UserCreationAttributes> implements UserAttributes {
   public id!: number;
-  public duid!: number;
+  public duid!: string;
   public readonly createdAt!: Date;
   public readonly updatedAt!: Date;
 }
@@ -66,7 +66,7 @@ User.init(
       primaryKey: true,
     },
     duid: {
-      type: DataTypes.INTEGER,
+      type: DataTypes.STRING,
       allowNull: false,
       unique: true,
     },
@@ -81,6 +81,10 @@ class SMEGroup extends Model<SMEGroupAttributes, SMEGroupCreationAttributes> imp
   public id!: number;
   public name!: string;
   public description!: string;
+
+  public static associations: {
+    memberships: Association<SMEGroup, SMEGroupMembership>;
+  };
 }
 
 SMEGroup.init(
@@ -149,7 +153,7 @@ SMEGroupMembership.init(
 
 class AdminUser extends Model<AdminUserAttributes, AdminUserCreationAttributes> implements AdminUserAttributes {
   public id!: number;
-  public duid!: number;
+  public duid!: string;
   public readonly createdAt!: Date;
   public readonly updatedAt!: Date;
 }
@@ -162,7 +166,7 @@ AdminUser.init(
       primaryKey: true,
     },
     duid: {
-      type: DataTypes.INTEGER,
+      type: DataTypes.STRING,
       allowNull: false,
       unique: true,
     },
@@ -175,7 +179,7 @@ AdminUser.init(
 
 class UserPublicKey extends Model<UserPublicKeyAttributes, UserPublicKeyCreationAttributes> implements UserPublicKeyAttributes {
   public id!: number;
-  public duid!: number;
+  public duid!: string;
   public publicKey!: string;
   public readonly createdAt!: Date;
   public readonly updatedAt!: Date;
@@ -189,7 +193,7 @@ UserPublicKey.init(
       primaryKey: true,
     },
     duid: {
-      type: DataTypes.INTEGER,
+      type: DataTypes.STRING,
       allowNull: false,
     },
     publicKey: {
@@ -217,6 +221,7 @@ class Topic extends Model<TopicAttributes, TopicCreationAttributes> implements T
 
   // Associations
   public static associations: {
+    topicCommittees: Association<Topic, TopicCommitteeModel>;
     fundingRounds: Association<Topic, FundingRoundModel>;
     topicSMEGroupProposalCreationLimiters: Association<Topic, TopicSMEGroupProposalCreationLimiterModel>;
   };
@@ -245,6 +250,44 @@ Topic.init(
   }
 );
 
+class TopicCommittee extends Model<TopicCommitteeAttributes, TopicCommitteeCreationAttributes> implements TopicCommitteeAttributes {
+  public id!: number;
+  public topicId!: number;
+  public smeGroupId!: number;
+  public numUsers!: number;
+  public readonly createdAt!: Date;
+  public readonly updatedAt!: Date;
+}
+
+TopicCommittee.init(
+  {
+    id: {
+      type: DataTypes.INTEGER,
+      autoIncrement: true,
+      primaryKey: true,
+    },
+    topicId: {
+      type: DataTypes.INTEGER,
+      allowNull: false,
+    },
+    smeGroupId: {
+      type: DataTypes.INTEGER,
+      allowNull: false,
+      references: {
+        model: SMEGroup,
+        key: 'id',
+      }
+    },
+    numUsers: {
+      type: DataTypes.INTEGER,
+      allowNull: false,
+    },
+  },
+  {
+    sequelize,
+    tableName: 'topic_committees',
+  }
+);
 
 class FundingRound extends Model<FundingRoundAttributes, FundingRoundCreationAttributes> implements FundingRoundAttributes {
   public id!: number;
@@ -259,6 +302,21 @@ class FundingRound extends Model<FundingRoundAttributes, FundingRoundCreationAtt
   public endAt!: Date;
   public readonly createdAt!: Date;
   public readonly updatedAt!: Date;
+
+  public static associations: {
+    topic: Association<FundingRound, Topic>;
+    considerationPhase: Association<FundingRound, ConsiderationPhase>;
+    deliberationPhase: Association<FundingRound, DeliberationPhase>;
+    fundingVotingPhase: Association<FundingRound, FundingVotingPhase>;
+  };
+
+  public getTopic!: () => Promise<Topic>;
+  public getConsiderationPhase!: () => Promise<ConsiderationPhase | null>;
+  public getDeliberationPhase!: () => Promise<DeliberationPhase | null>;
+  public getFundingVotingPhase!: () => Promise<FundingVotingPhase | null>;
+  public createConsiderationPhase!: (phase: ConsiderationPhase) => Promise<ConsiderationPhase>;
+  public createDeliberationPhase!: (phase: DeliberationPhase) => Promise<DeliberationPhase>;
+  public createFundingVotingPhase!: (phase: FundingVotingPhase) => Promise<FundingVotingPhase>;
 }
 
 FundingRound.init(
@@ -299,15 +357,15 @@ FundingRound.init(
     },
     votingOpenUntil: {
       type: DataTypes.DATE,
-      allowNull: false,
+      allowNull: true,
     },
     startAt: {
       type: DataTypes.DATE,
-      allowNull: false,
+      allowNull: true,
     },
     endAt: {
       type: DataTypes.DATE,
-      allowNull: false,
+      allowNull: true,
     },
   },
   {
@@ -527,7 +585,7 @@ FundingVotingPhase.init(
 class Proposal extends Model<ProposalAttributes, ProposalCreationAttributes> implements ProposalAttributes {
   public id!: number;
   public name!: string;
-  public proposerDuid!: number;
+  public proposerDuid!: string;
   public budget!: number;
   public uri!: string;
   public fundingRoundId!: number | null;
@@ -548,7 +606,7 @@ Proposal.init(
       allowNull: false,
     },
     proposerDuid: {
-      type: DataTypes.INTEGER,
+      type: DataTypes.STRING,
       allowNull: false,
     },
     budget: {
@@ -581,7 +639,7 @@ Proposal.init(
 
 class FundingRoundDeliberationCommitteeSelection extends Model<FundingRoundDeliberationCommitteeSelectionAttributes, FundingRoundDeliberationCommitteeSelectionCreationAttributes> implements FundingRoundDeliberationCommitteeSelectionAttributes {
   public id!: number;
-  public duid!: number;
+  public duid!: string;
   public fundingRoundId!: number;
   public readonly createdAt!: Date;
   public readonly updatedAt!: Date;
@@ -595,7 +653,7 @@ FundingRoundDeliberationCommitteeSelection.init(
       primaryKey: true,
     },
     duid: {
-      type: DataTypes.INTEGER,
+      type: DataTypes.STRING,
       allowNull: false,
     },
     fundingRoundId: {
@@ -621,7 +679,7 @@ FundingRoundDeliberationCommitteeSelection.init(
 
 class SMEConsiderationVoteLog extends Model<SMEConsiderationVoteLogAttributes, SMEConsiderationVoteLogCreationAttributes> implements SMEConsiderationVoteLogAttributes {
   public id!: number;
-  public duid!: number;
+  public duid!: string;
   public proposalId!: number;
   public isPass!: boolean;
   public readonly createdAt!: Date;
@@ -636,7 +694,7 @@ SMEConsiderationVoteLog.init(
       primaryKey: true,
     },
     duid: {
-      type: DataTypes.INTEGER,
+      type: DataTypes.STRING,
       allowNull: false,
     },
     proposalId: {
@@ -660,7 +718,7 @@ SMEConsiderationVoteLog.init(
 
 class GPTSummarizerVoteLog extends Model<GPTSummarizerVoteLogAttributes, GPTSummarizerVoteLogCreationAttributes> implements GPTSummarizerVoteLogAttributes {
   public id!: number;
-  public duid!: number;
+  public duid!: string;
   public proposalId!: number;
   public why!: string;
   public readonly createdAt!: Date;
@@ -675,7 +733,7 @@ GPTSummarizerVoteLog.init(
       primaryKey: true,
     },
     duid: {
-      type: DataTypes.INTEGER,
+      type: DataTypes.STRING,
       allowNull: false,
     },
     proposalId: {
@@ -699,7 +757,7 @@ GPTSummarizerVoteLog.init(
 
 class CommitteeDeliberationVoteLog extends Model<CommitteeDeliberationVoteLogAttributes, CommitteeDeliberationVoteLogCreationAttributes> implements CommitteeDeliberationVoteLogAttributes {
   public id!: number;
-  public duid!: number;
+  public duid!: string;
   public proposalId!: number;
   public vote!: CommitteeDeliberationVoteChoice;
   public uri!: string;
@@ -715,7 +773,7 @@ CommitteeDeliberationVoteLog.init(
       primaryKey: true,
     },
     duid: {
-      type: DataTypes.INTEGER,
+      type: DataTypes.STRING,
       allowNull: false,
     },
     proposalId: {
@@ -787,7 +845,7 @@ CommitteeDeliberationProjectSelection.init(
 
 class FundingRoundApprovalVote extends Model<FundingRoundApprovalVoteAttributes, FundingRoundApprovalVoteCreationAttributes> implements FundingRoundApprovalVoteAttributes {
   public id!: number;
-  public duid!: number;
+  public duid!: string;
   public fundingRoundId!: number;
   public isPass!: boolean;
   public readonly createdAt!: Date;
@@ -802,7 +860,7 @@ FundingRoundApprovalVote.init(
       primaryKey: true,
     },
     duid: {
-      type: DataTypes.INTEGER,
+      type: DataTypes.STRING,
       allowNull: false,
     },
     fundingRoundId: {
@@ -830,16 +888,20 @@ FundingRoundApprovalVote.init(
 User.hasMany(UserPublicKey, { foreignKey: 'duid' });
 UserPublicKey.belongsTo(User, { foreignKey: 'duid' });
 
-SMEGroup.hasMany(SMEGroupMembership, { foreignKey: 'smeGroupId' });
+SMEGroup.hasMany(SMEGroupMembership, { foreignKey: 'smeGroupId', as: 'memberships' });
 SMEGroupMembership.belongsTo(SMEGroup, { foreignKey: 'smeGroupId' });
 
 
 // Topic
 Topic.hasMany(FundingRound, { foreignKey: 'topicId' });
-FundingRound.belongsTo(Topic, { foreignKey: 'topicId' });
-
+FundingRound.belongsTo(Topic, { foreignKey: 'topicId', as: 'topic'});
 Topic.hasMany(TopicSMEGroupProposalCreationLimiter, { foreignKey: 'topicId' });
 TopicSMEGroupProposalCreationLimiter.belongsTo(Topic, { foreignKey: 'topicId' });
+Topic.hasMany(TopicCommittee, { foreignKey: 'topicId', as: 'topicCommittees' });
+
+// TopicCommittee 
+TopicCommittee.belongsTo(Topic, { foreignKey: 'topicId' });
+TopicCommittee.belongsTo(SMEGroup, { foreignKey: 'smeGroupId'});
 
 
 FundingRound.hasMany(FundingRoundConsiderationVoteAllowedSMEGroups, { foreignKey: 'fundingRoundId' });
@@ -851,13 +913,13 @@ FundingRoundConsiderationVoteAllowedSMEGroups.belongsTo(SMEGroup, { foreignKey: 
 SMEGroup.hasMany(TopicSMEGroupProposalCreationLimiter, { foreignKey: 'smeGroupId' });
 TopicSMEGroupProposalCreationLimiter.belongsTo(SMEGroup, { foreignKey: 'smeGroupId' });
 
-FundingRound.hasOne(ConsiderationPhase, { foreignKey: 'fundingRoundId' });
+FundingRound.hasOne(ConsiderationPhase, { foreignKey: 'fundingRoundId',  as: 'considerationPhase' });
 ConsiderationPhase.belongsTo(FundingRound, { foreignKey: 'fundingRoundId' });
 
-FundingRound.hasOne(DeliberationPhase, { foreignKey: 'fundingRoundId' });
+FundingRound.hasOne(DeliberationPhase, { foreignKey: 'fundingRoundId', as: 'deliberationPhase' });
 DeliberationPhase.belongsTo(FundingRound, { foreignKey: 'fundingRoundId' });
 
-FundingRound.hasOne(FundingVotingPhase, { foreignKey: 'fundingRoundId' });
+FundingRound.hasOne(FundingVotingPhase, { foreignKey: 'fundingRoundId', as: 'fundingVotingPhase' });
 FundingVotingPhase.belongsTo(FundingRound, { foreignKey: 'fundingRoundId' });
 
 FundingRound.hasMany(Proposal, { foreignKey: 'fundingRoundId' });
@@ -892,6 +954,7 @@ export {
   AdminUser,
   UserPublicKey,
   Topic,
+  TopicCommittee,
   FundingRound,
   FundingRoundConsiderationVoteAllowedSMEGroups,
   TopicSMEGroupProposalCreationLimiter,
