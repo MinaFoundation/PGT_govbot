@@ -5,6 +5,7 @@ import { IHomeScreen, RenderOptions } from '../../../types/common';
 import { ActionRowBuilder, ButtonBuilder, ButtonStyle, EmbedBuilder, TextChannel } from 'discord.js';
 import { ManageSMEGroupsScreen } from './ManageSMEGroupsScreen';
 import { ManageTopicsScreen } from './ManageTopicLogicScreen';
+import { ManageFundingRoundsScreen } from './ManageFundingRoundsScreen';
 
 
 export class AdminHomeScreen extends Screen implements IHomeScreen {
@@ -13,7 +14,7 @@ export class AdminHomeScreen extends Screen implements IHomeScreen {
   protected permissions: Permission[] = []; // access allowed for all
   protected manageSMEGroupsScreen: ManageSMEGroupsScreen =  new ManageSMEGroupsScreen(this.dashboard, ManageSMEGroupsScreen.ID);
   protected manageTopicsScreen: ManageTopicsScreen = new ManageTopicsScreen(this.dashboard, ManageTopicsScreen.ID);
-
+  protected manageFundingRoundsScreen: ManageFundingRoundsScreen = new ManageFundingRoundsScreen(this.dashboard, ManageFundingRoundsScreen.ID);
 
   async renderToTextChannel(channel: TextChannel): Promise<void> {
     const embed = this.createEmbed();
@@ -74,7 +75,7 @@ export class AdminHomeScreen extends Screen implements IHomeScreen {
           .setStyle(ButtonStyle.Primary)
           .setEmoji('📋'),
         new ButtonBuilder()
-          .setCustomId('aaaaa') // TODO: replace with correct custom id
+          .setCustomId(this.manageFundingRoundsScreen.fullCustomId)
           .setLabel('Funding Round Management')
           .setStyle(ButtonStyle.Primary)
           .setEmoji('💰')
