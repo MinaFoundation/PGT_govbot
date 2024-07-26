@@ -15,6 +15,7 @@ export class ManageFundingRoundsScreen extends Screen {
     public readonly createFundingRoundAction: CreateFundingRoundAction;
     public readonly modifyFundingRoundAction: ModifyFundingRoundAction;
     public readonly setFundingRoundCommitteeAction: SetFundingRoundCommitteeAction;
+    public readonly removeFundingRoundCommitteeAction: RemoveFundingRoundCommitteeAction;
     public readonly approveFundingRoundAction: ApproveFundingRoundAction;
   
     constructor(dashboard: Dashboard, screenId: string) {
@@ -22,6 +23,7 @@ export class ManageFundingRoundsScreen extends Screen {
       this.createFundingRoundAction = new CreateFundingRoundAction(this, CreateFundingRoundAction.ID);
       this.modifyFundingRoundAction = new ModifyFundingRoundAction(this, ModifyFundingRoundAction.ID);
       this.setFundingRoundCommitteeAction = new SetFundingRoundCommitteeAction(this, SetFundingRoundCommitteeAction.ID);
+      this.removeFundingRoundCommitteeAction = new RemoveFundingRoundCommitteeAction(this, RemoveFundingRoundCommitteeAction.ID);
       this.approveFundingRoundAction = new ApproveFundingRoundAction(this, ApproveFundingRoundAction.ID);
     }
   
@@ -34,6 +36,7 @@ export class ManageFundingRoundsScreen extends Screen {
         this.createFundingRoundAction,
         this.modifyFundingRoundAction,
         this.setFundingRoundCommitteeAction,
+        this.removeFundingRoundCommitteeAction,
         this.approveFundingRoundAction,
       ];
     }
@@ -46,13 +49,20 @@ export class ManageFundingRoundsScreen extends Screen {
   
       const createButton = this.createFundingRoundAction.getComponent();
       const modifyButton = this.modifyFundingRoundAction.getComponent();
-      const setCommitteeButton = this.setFundingRoundCommitteeAction.getComponent();
+      const addCommitteeButton = this.setFundingRoundCommitteeAction.getComponent();
+      const removeCommitteeButton = this.removeFundingRoundCommitteeAction.getComponent();
       const approveButton = this.approveFundingRoundAction.getComponent();
   
-      const row = new ActionRowBuilder<MessageActionRowComponentBuilder>()
-        .addComponents(createButton, modifyButton, setCommitteeButton, approveButton);
+      const row1 = new ActionRowBuilder<MessageActionRowComponentBuilder>()
+        .addComponents(createButton, modifyButton);
+      
+      const row2 = new ActionRowBuilder<MessageActionRowComponentBuilder>()
+        .addComponents(addCommitteeButton, removeCommitteeButton);
+      
+      const row3 = new ActionRowBuilder<MessageActionRowComponentBuilder>()
+        .addComponents(approveButton);
   
-      const components = [row];
+      const components = [row1, row2, row3];
   
       if (args?.successMessage) {
         const successEmbed = new EmbedBuilder()
@@ -1281,5 +1291,223 @@ export class ApproveFundingRoundAction extends Action {
             .setCustomId(CustomIDOracle.addArgumentsToAction(this, ApproveFundingRoundAction.OPERATIONS.SHOW_FUNDING_ROUNDS))
             .setLabel('Approve/Reject Funding Round')
             .setStyle(ButtonStyle.Primary);
+    }
+}
+
+export class RemoveFundingRoundCommitteeAction extends PaginationComponent {
+    public static readonly ID = 'removeFundingRoundCommittee';
+
+    public static readonly OPERATIONS = {
+        SHOW_FUNDING_ROUNDS: 'showFundingRounds',
+        SELECT_FUNDING_ROUND: 'selectFundingRound',
+        SELECT_MEMBERS_TO_REMOVE: 'selectMembersToRemove',
+        CONFIRM_REMOVAL: 'confirmRemoval',
+        REMOVE_ALL_MEMBERS: 'removeAllMembers',
+    };
+
+    protected async getTotalPages(interaction: TrackedInteraction, fundingRoundId?: number): Promise<number> {
+        let parsedFundingRoundId: number;
+        if (fundingRoundId === undefined) {
+            const fundingRoundIdFromCustomId = CustomIDOracle.getNamedArgument(interaction.customId, 'fundingRoundId');
+            if (!fundingRoundIdFromCustomId) {
+                throw new Error('Invalid funding round ID');
+            }
+            parsedFundingRoundId = parseInt(fundingRoundIdFromCustomId);
+        } else {
+            parsedFundingRoundId = fundingRoundId;
+        }
+
+        const committeeMembers = await FundingRoundLogic.getFundingRoundCommitteeMembers(parsedFundingRoundId);
+        return Math.ceil(committeeMembers.length / 25);
+    }
+
+    protected async getItemsForPage(interaction: TrackedInteraction, page: number, fundingRoundId?: number): Promise<string[]> {
+        let parsedFundingRoundId: number;
+        if (fundingRoundId === undefined) {
+            const fundingRoundIdFromCustomId = CustomIDOracle.getNamedArgument(interaction.customId, 'fundingRoundId');
+            if (!fundingRoundIdFromCustomId) {
+                throw new Error('Invalid funding round ID');
+            }
+            parsedFundingRoundId = parseInt(fundingRoundIdFromCustomId);
+        } else {
+            parsedFundingRoundId = fundingRoundId;
+        }
+
+        const committeeMembers = await FundingRoundLogic.getFundingRoundCommitteeMembers(parsedFundingRoundId);
+        return committeeMembers.slice(page * 25, (page + 1) * 25);
+    }
+
+    protected async handleOperation(interaction: TrackedInteraction, operationId: string): Promise<void> {
+        switch (operationId) {
+            case RemoveFundingRoundCommitteeAction.OPERATIONS.SHOW_FUNDING_ROUNDS:
+                await this.handleShowFundingRounds(interaction);
+                break;
+            case RemoveFundingRoundCommitteeAction.OPERATIONS.SELECT_FUNDING_ROUND:
+                await this.handleSelectFundingRound(interaction);
+                break;
+            case RemoveFundingRoundCommitteeAction.OPERATIONS.SELECT_MEMBERS_TO_REMOVE:
+                await this.handleSelectMembersToRemove(interaction);
+                break;
+            case RemoveFundingRoundCommitteeAction.OPERATIONS.REMOVE_ALL_MEMBERS:
+                await this.handleRemoveAllMembers(interaction);
+                break;
+            default:
+                await this.handleInvalidOperation(interaction, operationId);
+        }
+    }
+
+    private async handleShowFundingRounds(interaction: TrackedInteraction): Promise<void> {
+        const fundingRounds = await FundingRoundLogic.getPresentAndFutureFundingRounds();
+
+        const selectMenu = new StringSelectMenuBuilder()
+            .setCustomId(CustomIDOracle.addArgumentsToAction(this, RemoveFundingRoundCommitteeAction.OPERATIONS.SELECT_FUNDING_ROUND))
+            .setPlaceholder('Select a Funding Round')
+            .addOptions(fundingRounds.map(fr => ({
+                label: fr.name,
+                value: fr.id.toString(),
+                description: `Status: ${fr.status}`
+            })));
+
+        const row = new ActionRowBuilder<StringSelectMenuBuilder>().addComponents(selectMenu);
+
+        await interaction.update({ components: [row] });
+    }
+
+    private async handleSelectFundingRound(interaction: TrackedInteraction): Promise<void> {
+        const interactionWithValues = InteractionProperties.toInteractionWithValuesOrUndefined(interaction.interaction);
+        if (!interactionWithValues) {
+            await interaction.respond({ content: 'Invalid interaction type.', ephemeral: true });
+            return;
+        }
+
+        const fundingRoundId = interactionWithValues.values[0];
+        await this.showMemberRemovalSelection(interaction, parseInt(fundingRoundId));
+    }
+
+    private async showMemberRemovalSelection(interaction: TrackedInteraction, fundingRoundId: number): Promise<void> {
+        const currentPage = this.getCurrentPage(interaction);
+        const totalPages = await this.getTotalPages(interaction, fundingRoundId);
+        const members = await this.getItemsForPage(interaction, currentPage, fundingRoundId);
+
+        if (members.length === 0) {
+            await interaction.respond({ content: 'This funding round does not have any committee members.', ephemeral: true });
+            return;
+        }
+
+        const userSelect = new UserSelectMenuBuilder()
+            .setCustomId(CustomIDOracle.addArgumentsToAction(this, RemoveFundingRoundCommitteeAction.OPERATIONS.SELECT_MEMBERS_TO_REMOVE, 'fundingRoundId', fundingRoundId.toString()))
+            .setPlaceholder('Select members to remove')
+            .setMaxValues(25);
+
+        const removeAllButton = new ButtonBuilder()
+            .setCustomId(CustomIDOracle.addArgumentsToAction(this, RemoveFundingRoundCommitteeAction.OPERATIONS.REMOVE_ALL_MEMBERS, 'fundingRoundId', fundingRoundId.toString()))
+            .setLabel('Remove All Members')
+            .setStyle(ButtonStyle.Danger);
+
+        const components: ActionRowBuilder<MessageActionRowComponentBuilder>[] = [
+            new ActionRowBuilder<UserSelectMenuBuilder>().addComponents(userSelect),
+            new ActionRowBuilder<ButtonBuilder>().addComponents(removeAllButton)
+        ];
+
+        if (totalPages > 1) {
+            const paginationRow = this.getPaginationRow(interaction, currentPage, totalPages);
+            components.push(paginationRow);
+        }
+
+        await interaction.update({ components });
+    }
+
+    private async handleSelectMembersToRemove(interaction: TrackedInteraction): Promise<void> {
+        const interactionWithValues = InteractionProperties.toInteractionWithValuesOrUndefined(interaction.interaction);
+        if (!interactionWithValues) {
+            await interaction.respond({ content: 'Invalid interaction type.', ephemeral: true });
+            return;
+        }
+
+        const fundingRoundId = CustomIDOracle.getNamedArgument(interaction.customId, 'fundingRoundId');
+        if (!fundingRoundId) {
+            await interaction.respond({ content: 'Invalid funding round ID.', ephemeral: true });
+            return;
+        }
+
+        const selectedMembers = interactionWithValues.values;
+        
+        const numRemovedRecords = await FundingRoundLogic.removeFundingRoundCommitteeMembers(parseInt(fundingRoundId), selectedMembers);
+
+        await this.showCommitteeStatus(interaction, parseInt(fundingRoundId), numRemovedRecords);
+    }
+
+    private async handleRemoveAllMembers(interaction: TrackedInteraction): Promise<void> {
+        const fundingRoundId = CustomIDOracle.getNamedArgument(interaction.customId, 'fundingRoundId');
+        if (!fundingRoundId) {
+            await interaction.respond({ content: 'Invalid funding round ID.', ephemeral: true });
+            return;
+        }
+
+        const numRemovedRecords = await FundingRoundLogic.removeAllFundingRoundCommitteeMembers(parseInt(fundingRoundId));
+
+        await this.showCommitteeStatus(interaction, parseInt(fundingRoundId), numRemovedRecords);
+    }
+
+    private async showCommitteeStatus(interaction: TrackedInteraction, fundingRoundId: number, numRemovedRecords: number): Promise<void> {
+        const fundingRound = await FundingRoundLogic.getFundingRoundById(fundingRoundId);
+        if (!fundingRound) {
+            await interaction.respond({ content: 'Funding round not found.', ephemeral: true });
+            return;
+        }
+
+        const topicCommittees = await TopicCommittee.findAll({
+            where: { topicId: fundingRound.topicId }
+        });
+
+        let isComplete = true;
+        const committeeCounts: { [key: number]: number } = {};
+
+        for (const committee of topicCommittees) {
+            const smeGroup = await SMEGroup.findByPk(committee.smeGroupId);
+            if (smeGroup) {
+                const numMembersFromGroupInCommittee = await FundingRoundLogic.countSMEMembersInDeliberationCommittee(fundingRoundId, smeGroup.id);
+                committeeCounts[committee.id] = numMembersFromGroupInCommittee;
+                if (numMembersFromGroupInCommittee < committee.numUsers) {
+                    isComplete = false;
+                }
+            }
+        }
+
+        const embed = new EmbedBuilder()
+            .setColor(isComplete ? '#00FF00' : '#FF0000')
+            .setTitle(`Committee Status For ${fundingRound.name}`)
+            .setDescription(`Members removed: ${numRemovedRecords}. ${isComplete ? 'The committee meets all requirements.' : 'The committee does not meet all requirements.'}`);
+
+        for (const committee of topicCommittees) {
+            const smeGroup = await SMEGroup.findByPk(committee.smeGroupId);
+            if (smeGroup) {
+                embed.addFields({
+                    name: smeGroup.name,
+                    value: `Required: ${committee.numUsers}, Current: ${committeeCounts[committee.id] || 0}`,
+                    inline: true
+                });
+            }
+        }
+
+        const backButton = new ButtonBuilder()
+            .setCustomId(CustomIDOracle.addArgumentsToAction(this, RemoveFundingRoundCommitteeAction.OPERATIONS.SHOW_FUNDING_ROUNDS))
+            .setLabel('Back To Funding Rounds')
+            .setStyle(ButtonStyle.Primary);
+
+        const row = new ActionRowBuilder<ButtonBuilder>().addComponents(backButton);
+
+        await interaction.update({ embeds: [embed], components: [row] });
+    }
+
+    public allSubActions(): Action[] {
+        return [];
+    }
+
+    getComponent(): ButtonBuilder {
+        return new ButtonBuilder()
+            .setCustomId(CustomIDOracle.addArgumentsToAction(this, RemoveFundingRoundCommitteeAction.OPERATIONS.SHOW_FUNDING_ROUNDS))
+            .setLabel('Remove From Funding Round Committee')
+            .setStyle(ButtonStyle.Danger);
     }
 }
