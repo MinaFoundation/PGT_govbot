@@ -35,7 +35,14 @@ export class CustomIDOracle {
       throw new Error('Arguments must be key-value pairs');
     }
     const customId = this.generateCustomId(action.screen.dashboard, action.screen, action, operation);
-    return `${customId}${this.SEPARATOR}${args.join(this.SEPARATOR)}`;
+
+    const outputCustomId: string = `${customId}${this.SEPARATOR}${args.join(this.SEPARATOR)}`;
+
+    if (outputCustomId.length > this.MAX_LENGTH) {
+      throw new Error(`Custom ID exceeds maximum length of ${this.MAX_LENGTH} characters by ${outputCustomId.length - this.MAX_LENGTH} characters`);
+    }
+
+    return outputCustomId;
   }
 
   static getNamedArgument(customId: string, argName: string): string | undefined {
