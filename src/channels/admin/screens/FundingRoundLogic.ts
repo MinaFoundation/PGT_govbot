@@ -1,5 +1,5 @@
 import sequelize from '../../../config/database';
-import { FundingRound, Topic, ConsiderationPhase, DeliberationPhase, FundingVotingPhase, SMEGroup, SMEGroupMembership, FundingRoundDeliberationCommitteeSelection } from '../../../models';
+import { FundingRound, Topic, ConsiderationPhase, DeliberationPhase, FundingVotingPhase, SMEGroup, SMEGroupMembership, FundingRoundDeliberationCommitteeSelection, FundingRoundApprovalVote } from '../../../models';
 import { FundingRoundAttributes, FundingRoundStatus, FundingRoundPhase } from '../../../types';
 import { Op, Transaction } from 'sequelize';
 
@@ -16,7 +16,7 @@ export class FundingRoundLogic {
             topicId: topic.id,
             budget,
             votingAddress,
-            status: FundingRoundStatus.DRAFT,
+            status: FundingRoundStatus.VOTING,
         });
     }
 
@@ -293,5 +293,141 @@ export class FundingRoundLogic {
 
         return result;
     }
+
+    static async createDraftFundingRound(topicId: number, name: string, description: string, budget: number, votingAddress: string, votingOpenUntil: Date): Promise<FundingRound> {
+        return await FundingRound.create({
+            topicId,
+            name,
+            description,
+            budget,
+            votingAddress,
+            votingOpenUntil,
+            status: FundingRoundStatus.VOTING,
+        });
+    }
+
+    static async getEligibleVotingRounds(): Promise<FundingRound[]> {
+        const now = new Date();
+        return await FundingRound.findAll({
+            where: {
+                status: FundingRoundStatus.VOTING,
+                votingOpenUntil: {
+                    [Op.gte]: now,
+                },
+            },
+            include: [
+                { model: ConsiderationPhase, required: true, as : 'considerationPhase' },
+                { model: DeliberationPhase, required: true, as: 'deliberationPhase' },
+                { model: FundingVotingPhase, required: true, as: 'fundingVotingPhase'},
+            ],
+        });
+    }
+
+    static async hasUserVotedOnFundingRound(userId: string, fundingRoundId: number): Promise<boolean> {
+        const vote = await FundingRoundApprovalVote.findOne({
+            where: {
+                duid: userId,
+                fundingRoundId,
+            },
+        });
+        return !!vote;
+    }
+
+    static async voteFundingRound(userId: string, fundingRoundId: number): Promise<void> {
+        const fundingRound = await this.getFundingRoundById(fundingRoundId);
+        if (!fundingRound) {
+            throw new Error('Funding round not found');
+        }
+
+        if (fundingRound.status !== FundingRoundStatus.VOTING) {
+            throw new Error('This funding round is not open for voting');
+        }
+
+        if (fundingRound.votingOpenUntil < new Date()) {
+            throw new Error('Voting period for this funding round has ended');
+        }
+
+        await FundingRoundApprovalVote.upsert({
+            duid: userId,
+            fundingRoundId,
+            isPass: true,
+        });
+    }
+
+    static async unvoteFundingRound(userId: string, fundingRoundId: number): Promise<void> {
+        const fundingRound: FundingRound | null = await this.getFundingRoundById(fundingRoundId);
+
+        if (!fundingRound) {
+            throw new Error('Funding round not found');
+        }
+
+        if (fundingRound.status !== FundingRoundStatus.VOTING) {
+            throw new Error('This funding round is not open for voting');
+        }
+
+        if (fundingRound.votingOpenUntil < new Date()) {
+            throw new Error('Voting period for this funding round has ended');
+        }
+
+        await FundingRoundApprovalVote.upsert({
+            duid: userId,
+            fundingRoundId,
+            isPass: false,
+        });
+    }
+
+    static async getLatestVote(userId: string, fundingRoundId: number): Promise<FundingRoundApprovalVote | null> {
+        return await FundingRoundApprovalVote.findOne({
+            where: {
+                duid: userId,
+                fundingRoundId,
+            },
+            order: [['createdAt', 'DESC']],
+        });
+    }
+
+    static async canChangeVote(userId: string, fundingRoundId: number): Promise<boolean> {
+        const fundingRound = await this.getFundingRoundById(fundingRoundId);
+        if (!fundingRound) {
+            throw new Error('Funding round not found');
+        }
+
+        if (fundingRound.status !== FundingRoundStatus.VOTING) {
+            return false;
+        }
+
+        if (fundingRound.votingOpenUntil < new Date()) {
+            return false;
+        }
+
+        return true;
+    }
+
+    static async createApproveVote(userId: string, fundingRoundId: number, reason: string): Promise<void> {
+        if (!(await this.canChangeVote(userId, fundingRoundId))) {
+            throw new Error('Voting is not allowed at this time');
+        }
+
+        await FundingRoundApprovalVote.create({
+            duid: userId,
+            fundingRoundId,
+            isPass: true,
+            reason,
+        });
+    }
+
+    static async createRejectVote(userId: string, fundingRoundId: number, reason: string): Promise<void> {
+        if (!(await this.canChangeVote(userId, fundingRoundId))) {
+            throw new Error('Voting is not allowed at this time');
+        }
+
+        await FundingRoundApprovalVote.create({
+            duid: userId,
+            fundingRoundId,
+            isPass: false,
+            reason,
+        });
+    }
+
 
 }
