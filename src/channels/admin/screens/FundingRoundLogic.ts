@@ -1,6 +1,6 @@
 import sequelize from '../../../config/database';
-import { FundingRound, Topic, ConsiderationPhase, DeliberationPhase, FundingVotingPhase, SMEGroup, SMEGroupMembership, FundingRoundDeliberationCommitteeSelection, FundingRoundApprovalVote } from '../../../models';
-import { FundingRoundAttributes, FundingRoundStatus, FundingRoundPhase } from '../../../types';
+import { FundingRound, Topic, ConsiderationPhase, DeliberationPhase, FundingVotingPhase, SMEGroup, SMEGroupMembership, FundingRoundDeliberationCommitteeSelection, FundingRoundApprovalVote, TopicSMEGroupProposalCreationLimiter, Proposal } from '../../../models';
+import { FundingRoundAttributes, FundingRoundStatus, FundingRoundPhase, ProposalStatus } from '../../../types';
 import { Op, Transaction } from 'sequelize';
 
 export class FundingRoundLogic {
@@ -71,7 +71,7 @@ export class FundingRoundLogic {
         return phases;
     }
 
-    static async setFundingRoundPhase(fundingRoundId: number, phase: 'consideration' | 'deliberation' | 'voting', startDate: Date, endDate: Date): Promise<void> {
+    static async setFundingRoundPhase(fundingRoundId: number, phase: 'consideration' | 'deliberation' | 'voting' | 'round', startDate: Date, endDate: Date): Promise<void> {
         const fundingRound = await this.getFundingRoundById(fundingRoundId);
         if (!fundingRound) {
             throw new Error('Funding round not found');
@@ -95,6 +95,12 @@ export class FundingRoundLogic {
             case 'voting':
                 await FundingVotingPhase.upsert({
                     fundingRoundId,
+                    startAt: startDate,
+                    endAt: endDate,
+                });
+                break;
+            case 'round':
+                await fundingRound.update({
                     startAt: startDate,
                     endAt: endDate,
                 });
@@ -429,5 +435,127 @@ export class FundingRoundLogic {
         });
     }
 
+    static async getEligibleFundingRoundsForProposal(proposalId: number, userId: string): Promise<FundingRound[]> {
+        const proposal: Proposal | null = await Proposal.findByPk(proposalId);
+        if (!proposal) {
+          throw new Error('Proposal not found');
+        }
+    
+        const now: Date = new Date();
+        const eligibleFundingRounds: FundingRound[] = await FundingRound.findAll({
+          where: {
+            status: FundingRoundStatus.APPROVED,
+            startAt: { [Op.lte]: now },
+            endAt: { [Op.gt]: now }
+          },
+
+          include: [
+            {
+              model: ConsiderationPhase,
+              where: {
+                startAt: { [Op.lte]: now },
+                endAt: { [Op.gt]: now }
+              },
+              as: 'considerationPhase'
+            }
+          ]
+        });
+    
+        const userSMEGroups: SMEGroupMembership[] = await SMEGroupMembership.findAll({
+          where: { duid: userId }
+        });
+    
+        const userSMEGroupIds: number[] = userSMEGroups.map(membership => membership.smeGroupId);
+    
+        return eligibleFundingRounds.filter(async (fundingRound: FundingRound) => {
+          const limitations: TopicSMEGroupProposalCreationLimiter[] = await TopicSMEGroupProposalCreationLimiter.findAll({
+            where: { topicId: fundingRound.topicId }
+          });
+    
+          if (limitations.length === 0) {
+            return true;
+          }
+    
+          const allowedSMEGroupIds: number[] = limitations.map(limitation => limitation.smeGroupId);
+          return userSMEGroupIds.some(id => allowedSMEGroupIds.includes(id));
+        });
+      }
+    
+      static async getFundingRoundsWithUserProposals(duid: string): Promise<FundingRound[]> {
+        const userProposals: Proposal[] = await Proposal.findAll({
+          where: { proposerDuid: duid },
+          attributes: ['fundingRoundId'],
+          group: ['fundingRoundId'],
+        });
+    
+        const fundingRoundIds: (number | null)[] = userProposals.map(proposal => proposal.fundingRoundId);
+    
+        return FundingRound.findAll({
+          where: {
+            id: {
+              [Op.in]: fundingRoundIds.filter((id): id is number => id !== null)
+            }
+          },
+          order: [['endAt', 'DESC']]
+        });
+      }
+
+      static async isProposalActiveForFundingRound(proposal: Proposal, fundingRound: FundingRound): Promise<boolean> {
+        const now: Date = new Date();
+
+        if (fundingRound.status !== FundingRoundStatus.APPROVED) {
+            return false;
+        }
+
+        if (proposal.status === ProposalStatus.CANCELLED || proposal.status === ProposalStatus.DRAFT) {
+            return false;
+        }
+    
+        const considerationPhase: ConsiderationPhase | null = await ConsiderationPhase.findOne({
+          where: { fundingRoundId: fundingRound.id }
+        });
+    
+        const deliberationPhase: DeliberationPhase | null = await DeliberationPhase.findOne({
+          where: { fundingRoundId: fundingRound.id }
+        });
+    
+        const fundingVotingPhase: FundingVotingPhase | null = await FundingVotingPhase.findOne({
+          where: { fundingRoundId: fundingRound.id }
+        });
+    
+        if (considerationPhase && now >= considerationPhase.startAt && now <= considerationPhase.endAt) {
+          return proposal.status === ProposalStatus.CONSIDERATION_PHASE;
+        }
+    
+        if (deliberationPhase && now >= deliberationPhase.startAt && now <= deliberationPhase.endAt) {
+          return proposal.status === ProposalStatus.DELIBERATION_PHASE;
+        }
+    
+        if (fundingVotingPhase && now >= fundingVotingPhase.startAt && now <= fundingVotingPhase.endAt) {
+          return proposal.status === ProposalStatus.FUNDING_VOTING_PHASE;
+        }
+    
+        return false;
+      }
+    
+      static async getProposalsWithActivityStatus(fundingRoundId: number): Promise<{ proposal: Proposal; isActive: boolean }[]> {
+        const fundingRound: FundingRound | null = await FundingRound.findByPk(fundingRoundId);
+        if (!fundingRound) {
+          throw new Error('Funding round not found');
+        }
+    
+        const proposals: Proposal[] = await Proposal.findAll({
+          where: { fundingRoundId }
+        });
+    
+        const result: { proposal: Proposal; isActive: boolean }[] = [];
+    
+        for (const proposal of proposals) {
+          const isActive: boolean = await this.isProposalActiveForFundingRound(proposal, fundingRound);
+          result.push({ proposal, isActive });
+        }
+    
+        return result;
+      }
 
 }
