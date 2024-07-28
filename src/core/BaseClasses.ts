@@ -28,21 +28,25 @@ export class TrackedInteraction {
     }
 
     public async respond(args: any): Promise<Message<boolean>> {
-        try {
-
-        if (this.interactionReplies.length === 0) {
-            // initial reply
-            const response: Message<boolean> = await this.interaction.reply(args);
-            this.interactionReplies.push(response);
-            return response;
-        } else {
-            const lastResponse = this.interactionReplies[this.interactionReplies.length - 1];
-            const response: Message<boolean> = await this.interaction.followUp(args);
-            this.interactionReplies.push(response);
-            return response;
+        if (!('ephemeral' in args)) {
+            args['ephemeral'] = true;
         }
 
-        } catch(error) {
+        try {
+
+            if (this.interactionReplies.length === 0) {
+            
+                const response: Message<boolean> = await this.interaction.reply(args);
+                this.interactionReplies.push(response);
+                return response;
+            } else {
+                const lastResponse = this.interactionReplies[this.interactionReplies.length - 1];
+                const response: Message<boolean> = await this.interaction.followUp(args);
+                this.interactionReplies.push(response);
+                return response;
+            }
+
+        } catch (error) {
             console.log('Error in respond: ', error);
             throw error;
         }
@@ -54,7 +58,7 @@ export class TrackedInteraction {
             return await parsedInteraction.update(args);
         } else {
             throw new Error('Interaction is not updatable, so unable to update');
-        } 
+        }
     }
 
 }
@@ -190,13 +194,13 @@ export abstract class Screen {
     }
 
     // TODO: define 'any' type clearly
-    protected abstract getResponse(interaction: TrackedInteraction, args?:RenderArgs): Promise<any>;
+    protected abstract getResponse(interaction: TrackedInteraction, args?: RenderArgs): Promise<any>;
 
     /**
      * Send a response to an interaction on the `Screen`. This method must be used for sending custom responses to any interactions
      * on the screen. This ensures that all of the responses of the screen are cleared when the screen is cleared.
      */
-    public async render(interaction: TrackedInteraction, args?:RenderArgs): Promise<void> {
+    public async render(interaction: TrackedInteraction, args?: RenderArgs): Promise<void> {
         const responseArgs = await this.getResponse(interaction, args);
 
         try {
@@ -220,7 +224,7 @@ export abstract class Screen {
             console.log('Error in re-render:\n', error);
         }
     }
-    
+
     /**
      * Checks if the intreaction meets all of the requried permissions.
      * You're unlikely to need to override this.
@@ -350,7 +354,7 @@ export abstract class Dashboard {
         if (!screenId) {
             throw new Error(`Failed to add screen to dashboard ${this.ID}. Screen ID not set.`);
         }
-        
+
         this.screens.set(screenId, screen);
     }
 }
