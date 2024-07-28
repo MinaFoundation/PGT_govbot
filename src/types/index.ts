@@ -82,10 +82,11 @@ export interface TopicSMEGroupProposalCreationLimiterAttributes extends CoreAttr
 export interface TopicSMEGroupProposalCreationLimiterCreationAttributes extends Optional<TopicSMEGroupProposalCreationLimiterAttributes, 'id'> {}
 
 export enum FundingRoundStatus {
-  DRAFT = 'VOTING',
+  VOTING = 'VOTING',
   APPROVED = 'APPROVED',
   REJECTED = 'REJECTED',
   CANCELLED = 'CANCELLED',
+  COMPLETED = 'COMPLETED',
 }
 
 export interface FundingRoundAttributes extends CoreAttributes {
@@ -125,6 +126,8 @@ export enum ProposalStatus {
   CONSIDERATION_PHASE = 'CONSIDERATION_VOTE',
   DELIBERATION_PHASE = 'DELIBERATION_VOTE',
   FUNDING_VOTING_PHASE = 'FUNDING_VOTE',
+  FUNDED = 'FUNDED',  // proposal has made its way throughout all of the round and has beeen funded.  
+  CANCELLED = 'CANCELLED',  // proposals that are cancelled by the proposer after being assigned to a FR
 }
 
 export interface ProposalAttributes extends CoreAttributes {
@@ -159,12 +162,14 @@ export interface ProjectVoteLogCreationAttributes extends Optional<ProjectVoteLo
 
 export interface SMEConsiderationVoteLogAttributes extends ProjectVoteLogAttributes {
   isPass: boolean;
+  reason: string | null;
 }
 
 export interface SMEConsiderationVoteLogCreationAttributes extends Optional<SMEConsiderationVoteLogAttributes, 'id'> {}
 
 export interface GPTSummarizerVoteLogAttributes extends ProjectVoteLogAttributes {
   why: string;
+  reason: string | null;
 }
 
 export interface GPTSummarizerVoteLogCreationAttributes extends Optional<GPTSummarizerVoteLogAttributes, 'id'> {}
@@ -178,6 +183,7 @@ export enum CommitteeDeliberationVoteChoice {
 export interface CommitteeDeliberationVoteLogAttributes extends ProjectVoteLogAttributes {
   vote: CommitteeDeliberationVoteChoice;
   uri: string;
+  reason: string | null;
 }
 
 export interface CommitteeDeliberationVoteLogCreationAttributes extends Optional<CommitteeDeliberationVoteLogAttributes, 'id'> {}
@@ -197,6 +203,7 @@ export interface FundingRoundVoteLogCreationAttributes extends Optional<FundingR
 
 export interface FundingRoundApprovalVoteAttributes extends FundingRoundVoteLogAttributes {
   isPass: boolean;
+  reason: string | null;
 }
 
 export interface FundingRoundApprovalVoteCreationAttributes extends Optional<FundingRoundApprovalVoteAttributes, 'id'> {}

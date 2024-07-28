@@ -353,7 +353,7 @@ FundingRound.init(
     status: {
       type: DataTypes.ENUM(...Object.values(FundingRoundStatus) as string[]),
       allowNull: false,
-      defaultValue: FundingRoundStatus.DRAFT,
+      defaultValue: FundingRoundStatus.VOTING,
     },
     votingOpenUntil: {
       type: DataTypes.DATE,
@@ -682,6 +682,7 @@ class SMEConsiderationVoteLog extends Model<SMEConsiderationVoteLogAttributes, S
   public duid!: string;
   public proposalId!: number;
   public isPass!: boolean;
+  public reason!: string | null;
   public readonly createdAt!: Date;
   public readonly updatedAt!: Date;
 }
@@ -708,7 +709,11 @@ SMEConsiderationVoteLog.init(
     isPass: {
       type: DataTypes.BOOLEAN,
       allowNull: false,
-    },
+    }, 
+    reason : {
+      type: DataTypes.TEXT,
+      allowNull: true,
+    }
   },
   {
     sequelize,
@@ -721,6 +726,7 @@ class GPTSummarizerVoteLog extends Model<GPTSummarizerVoteLogAttributes, GPTSumm
   public duid!: string;
   public proposalId!: number;
   public why!: string;
+  public reason!: string | null;
   public readonly createdAt!: Date;
   public readonly updatedAt!: Date;
 }
@@ -748,6 +754,10 @@ GPTSummarizerVoteLog.init(
       type: DataTypes.TEXT,
       allowNull: false,
     },
+    reason: {
+      type: DataTypes.TEXT,
+      allowNull: true,
+    }
   },
   {
     sequelize,
@@ -761,6 +771,7 @@ class CommitteeDeliberationVoteLog extends Model<CommitteeDeliberationVoteLogAtt
   public proposalId!: number;
   public vote!: CommitteeDeliberationVoteChoice;
   public uri!: string;
+  public reason! : string | null;
   public readonly createdAt!: Date;
   public readonly updatedAt!: Date;
 }
@@ -792,6 +803,10 @@ CommitteeDeliberationVoteLog.init(
       type: DataTypes.STRING(255),
       allowNull: false,
     },
+    reason: {
+      type: DataTypes.TEXT,
+      allowNull: true,
+    }
   },
   {
     sequelize,
@@ -848,6 +863,7 @@ class FundingRoundApprovalVote extends Model<FundingRoundApprovalVoteAttributes,
   public duid!: string;
   public fundingRoundId!: number;
   public isPass!: boolean;
+  public reason!: string | null;
   public readonly createdAt!: Date;
   public readonly updatedAt!: Date;
 }
@@ -874,6 +890,10 @@ FundingRoundApprovalVote.init(
     isPass: {
       type: DataTypes.BOOLEAN,
       allowNull: false,
+    },
+    reason: {
+      type: DataTypes.TEXT,
+      allowNull: true,
     },
   },
   {
@@ -904,7 +924,7 @@ TopicCommittee.belongsTo(Topic, { foreignKey: 'topicId' });
 TopicCommittee.belongsTo(SMEGroup, { foreignKey: 'smeGroupId'});
 
 
-FundingRound.hasMany(FundingRoundConsiderationVoteAllowedSMEGroups, { foreignKey: 'fundingRoundId' });
+FundingRound.hasMany(FundingRoundConsiderationVoteAllowedSMEGroups, { foreignKey: 'fundingRoundId'});
 FundingRoundConsiderationVoteAllowedSMEGroups.belongsTo(FundingRound, { foreignKey: 'fundingRoundId' });
 
 SMEGroup.hasMany(FundingRoundConsiderationVoteAllowedSMEGroups, { foreignKey: 'smeGroupId' });
