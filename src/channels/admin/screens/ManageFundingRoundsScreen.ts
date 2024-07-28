@@ -9,88 +9,88 @@ import { FundingRoundPhase } from '../../../types';
 
 export class ManageFundingRoundsScreen extends Screen {
     public static readonly ID = 'manageFundingRounds';
-  
+
     protected permissions: Permission[] = []; // TODO: Implement proper admin permissions
-  
+
     public readonly createFundingRoundAction: CreateFundingRoundAction;
     public readonly modifyFundingRoundAction: ModifyFundingRoundAction;
     public readonly setFundingRoundCommitteeAction: SetFundingRoundCommitteeAction;
     public readonly removeFundingRoundCommitteeAction: RemoveFundingRoundCommitteeAction;
     public readonly approveFundingRoundAction: ApproveFundingRoundAction;
-  
+
     constructor(dashboard: Dashboard, screenId: string) {
-      super(dashboard, screenId);
-      this.createFundingRoundAction = new CreateFundingRoundAction(this, CreateFundingRoundAction.ID);
-      this.modifyFundingRoundAction = new ModifyFundingRoundAction(this, ModifyFundingRoundAction.ID);
-      this.setFundingRoundCommitteeAction = new SetFundingRoundCommitteeAction(this, SetFundingRoundCommitteeAction.ID);
-      this.removeFundingRoundCommitteeAction = new RemoveFundingRoundCommitteeAction(this, RemoveFundingRoundCommitteeAction.ID);
-      this.approveFundingRoundAction = new ApproveFundingRoundAction(this, ApproveFundingRoundAction.ID);
+        super(dashboard, screenId);
+        this.createFundingRoundAction = new CreateFundingRoundAction(this, CreateFundingRoundAction.ID);
+        this.modifyFundingRoundAction = new ModifyFundingRoundAction(this, ModifyFundingRoundAction.ID);
+        this.setFundingRoundCommitteeAction = new SetFundingRoundCommitteeAction(this, SetFundingRoundCommitteeAction.ID);
+        this.removeFundingRoundCommitteeAction = new RemoveFundingRoundCommitteeAction(this, RemoveFundingRoundCommitteeAction.ID);
+        this.approveFundingRoundAction = new ApproveFundingRoundAction(this, ApproveFundingRoundAction.ID);
     }
-  
+
     protected allSubScreens(): Screen[] {
-      return [];
+        return [];
     }
-  
+
     protected allActions(): Action[] {
-      return [
-        this.createFundingRoundAction,
-        this.modifyFundingRoundAction,
-        this.setFundingRoundCommitteeAction,
-        this.removeFundingRoundCommitteeAction,
-        this.approveFundingRoundAction,
-      ];
+        return [
+            this.createFundingRoundAction,
+            this.modifyFundingRoundAction,
+            this.setFundingRoundCommitteeAction,
+            this.removeFundingRoundCommitteeAction,
+            this.approveFundingRoundAction,
+        ];
     }
-  
+
     protected async getResponse(interaction: TrackedInteraction, args?: RenderArgs): Promise<any> {
-      const embed = new EmbedBuilder()
-        .setColor('#0099ff')
-        .setTitle('Manage Funding Rounds')
-        .setDescription('Select an action to manage funding rounds:');
-  
-      const createButton = this.createFundingRoundAction.getComponent();
-      const modifyButton = this.modifyFundingRoundAction.getComponent();
-      const addCommitteeButton = this.setFundingRoundCommitteeAction.getComponent();
-      const removeCommitteeButton = this.removeFundingRoundCommitteeAction.getComponent();
-      const approveButton = this.approveFundingRoundAction.getComponent();
-  
-      const row1 = new ActionRowBuilder<MessageActionRowComponentBuilder>()
-        .addComponents(createButton, modifyButton);
-      
-      const row2 = new ActionRowBuilder<MessageActionRowComponentBuilder>()
-        .addComponents(addCommitteeButton, removeCommitteeButton);
-      
-      const row3 = new ActionRowBuilder<MessageActionRowComponentBuilder>()
-        .addComponents(approveButton);
-  
-      const components = [row1, row2, row3];
-  
-      if (args?.successMessage) {
-        const successEmbed = new EmbedBuilder()
-          .setColor('#28a745')
-          .setDescription(args.successMessage);
+        const embed = new EmbedBuilder()
+            .setColor('#0099ff')
+            .setTitle('Manage Funding Rounds')
+            .setDescription('Select an action to manage funding rounds:');
+
+        const createButton = this.createFundingRoundAction.getComponent();
+        const modifyButton = this.modifyFundingRoundAction.getComponent();
+        const addCommitteeButton = this.setFundingRoundCommitteeAction.getComponent();
+        const removeCommitteeButton = this.removeFundingRoundCommitteeAction.getComponent();
+        const approveButton = this.approveFundingRoundAction.getComponent();
+
+        const row1 = new ActionRowBuilder<MessageActionRowComponentBuilder>()
+            .addComponents(createButton, modifyButton);
+
+        const row2 = new ActionRowBuilder<MessageActionRowComponentBuilder>()
+            .addComponents(addCommitteeButton, removeCommitteeButton);
+
+        const row3 = new ActionRowBuilder<MessageActionRowComponentBuilder>()
+            .addComponents(approveButton);
+
+        const components = [row1, row2, row3];
+
+        if (args?.successMessage) {
+            const successEmbed = new EmbedBuilder()
+                .setColor('#28a745')
+                .setDescription(args.successMessage);
+            return {
+                embeds: [embed, successEmbed],
+                components,
+                ephemeral: true
+            };
+        } else if (args?.errorMessage) {
+            const errorEmbed = new EmbedBuilder()
+                .setColor('#dc3545')
+                .setDescription(args.errorMessage);
+            return {
+                embeds: [embed, errorEmbed],
+                components,
+                ephemeral: true
+            };
+        }
+
         return {
-          embeds: [embed, successEmbed],
-          components,
-          ephemeral: true
+            embeds: [embed],
+            components,
+            ephemeral: true
         };
-      } else if (args?.errorMessage) {
-        const errorEmbed = new EmbedBuilder()
-          .setColor('#dc3545')
-          .setDescription(args.errorMessage);
-        return {
-          embeds: [embed, errorEmbed],
-          components,
-          ephemeral: true
-        };
-      }
-  
-      return {
-        embeds: [embed],
-        components,
-        ephemeral: true
-      };
     }
-  }
+}
 
 export class CreateFundingRoundAction extends Action {
     public static readonly ID = 'createFundingRound';
@@ -110,12 +110,15 @@ export class CreateFundingRoundAction extends Action {
         VOTING_ADDRESS: 'votingAddress',
         START_DATE: 'startDate',
         END_DATE: 'endDate',
+        ROUND_START_DATE: 'rSD',
+        ROUND_END_DATE: 'rED',
     };
 
     private static readonly PHASE_NAMES = {
         CONSIDERATION: 'Consideration',
         DELIBERATION: 'Deliberation',
         VOTING: 'Voting',
+        ROUND: 'Round',
     };
 
     protected async handleOperation(interaction: TrackedInteraction, operationId: string): Promise<void> {
@@ -346,7 +349,7 @@ export class CreateFundingRoundAction extends Action {
                     return;
                 }
             }
-            
+
             const lowerPase: string = phase.toLowerCase();
             if ((lowerPase !== 'consideration') && (lowerPase !== 'deliberation') && (lowerPase !== 'voting')) {
                 await interaction.respond({ content: 'Invalid phase.', ephemeral: true });
@@ -368,6 +371,10 @@ export class CreateFundingRoundAction extends Action {
                 .addFields(
                     { name: 'Name', value: fundingRound.name },
                     { name: 'Description', value: fundingRound.description },
+                    { name: 'Budget', value: fundingRound.budget.toString() },
+                    { name: 'Voting Address', value: fundingRound.votingAddress },
+                    { name: 'Start Date', value: fundingRound.startAt ? fundingRound.startAt.toISOString() : '❌ Not set' },
+                    { name: 'End Date', value: fundingRound.endAt ? fundingRound.endAt.toISOString() : '❌ Not set' },
                     ...updatedPhases.map(p => ({ name: `${p.phase} Phase`, value: `Start: ${p.startDate.toISOString()}\nEnd: ${p.endDate.toISOString()}`, inline: true }))
                 );
 
@@ -479,6 +486,8 @@ export class ModifyFundingRoundAction extends Action {
         VOTING_ADDRESS: 'votingAddress',
         START_DATE: 'startDate',
         END_DATE: 'endDate',
+        ROUND_START_DATE: 'rSD',
+        ROUND_END_DATE: 'rED',
     };
 
     public static readonly PHASE_NAMES = {
@@ -549,9 +558,11 @@ export class ModifyFundingRoundAction extends Action {
 
 
         const updatedPhases = await FundingRoundLogic.getFundingRoundPhases(fundingRoundId);
-        const allPhasesSet = ['consideration', 'deliberation', 'voting']
+        let allPhasesSet: boolean = ['consideration', 'deliberation', 'voting']
             .every(phaseName => updatedPhases.some((p: FundingRoundPhase) => p.phase === phaseName));
-    
+
+        allPhasesSet = allPhasesSet && (fundingRound.startAt !== null) && (fundingRound.endAt !== null);
+
 
         const embed = new EmbedBuilder()
             .setColor('#0099ff')
@@ -561,31 +572,42 @@ export class ModifyFundingRoundAction extends Action {
                 { name: 'Description', value: fundingRound.description },
                 { name: 'Budget', value: fundingRound.budget.toString() },
                 { name: 'Status', value: fundingRound.status },
-                {name: 'Voting Address', value: fundingRound.votingAddress},
-              ...updatedPhases.map((p: FundingRoundPhase) => ({ name: `${p.phase.charAt(0).toUpperCase() + p.phase.slice(1)} Phase`, value: `Start: ${this.formatDate(p.startDate)}\nEnd: ${this.formatDate(p.endDate)}`, inline: true }))
+                { name: 'Voting Address', value: fundingRound.votingAddress },
+                { name: 'Start Date', value: fundingRound.startAt ? fundingRound.startAt.toISOString() : '❌ Not set' },
+                { name: 'End Date', value: fundingRound.endAt ? fundingRound.endAt.toISOString() : '❌ Not set' },
+                ...updatedPhases.map((p: FundingRoundPhase) => ({ name: `${p.phase.charAt(0).toUpperCase() + p.phase.slice(1)} Phase`, value: `Start: ${this.formatDate(p.startDate)}\nEnd: ${this.formatDate(p.endDate)}`, inline: true }))
             );
 
-            if (allPhasesSet) {
-                embed.addFields({ name: 'Status', value: 'All phases have been set for the funding round.' });
-              } else {
-                const remainingPhases = ['consideration', 'deliberation', 'voting']
-                  .filter(phaseName => !updatedPhases.some((p: FundingRoundPhase) => p.phase === phaseName));
-        
-                embed.addFields({ name: 'Remaining Phases', value: remainingPhases.join(', ') });
-              }
+        if (allPhasesSet) {
+            embed.addFields({ name: 'Status', value: 'All phases have been set for the funding round.' });
+        } else {
+            let remainingPhases = ['consideration', 'deliberation', 'voting']
+                .filter(phaseName => !updatedPhases.some((p: FundingRoundPhase) => p.phase === phaseName));
+
+            if (fundingRound.startAt === null || fundingRound.endAt === null) {
+                remainingPhases = ['Funding Round Duration', ...remainingPhases];
+            }
+
+            embed.addFields({ name: 'Remaining Phases', value: remainingPhases.join(', ') });
+        }
 
         const basicInfoButton = new ButtonBuilder()
             .setCustomId(CustomIDOracle.addArgumentsToAction(this, ModifyFundingRoundAction.OPERATIONS.SHOW_BASIC_INFO_FORM, 'fundingRoundId', fundingRoundId.toString()))
             .setLabel('Modify Basic Info')
             .setStyle(ButtonStyle.Primary);
 
-        const phaseButtons = Object.values(ModifyFundingRoundAction.PHASE_NAMES).map(phase =>
+        let phaseButtons = Object.values(ModifyFundingRoundAction.PHASE_NAMES).map(phase =>
             new ButtonBuilder()
                 .setCustomId(CustomIDOracle.addArgumentsToAction(this, ModifyFundingRoundAction.OPERATIONS.SHOW_PHASE_FORM, 'fundingRoundId', fundingRoundId.toString(), 'phase', phase))
                 .setLabel(`Modify ${phase} Phase`)
                 .setStyle(ButtonStyle.Secondary)
         );
 
+        const roundDurationButton = new ButtonBuilder()
+            .setCustomId(CustomIDOracle.addArgumentsToAction(this, ModifyFundingRoundAction.OPERATIONS.SHOW_PHASE_FORM, 'fundingRoundId', fundingRoundId.toString(), 'phase', 'round'))
+            .setLabel('Modify Round Duration')
+            .setStyle(ButtonStyle.Secondary);
+        phaseButtons = [roundDurationButton, ...phaseButtons];
         const rows = [
             new ActionRowBuilder<ButtonBuilder>().addComponents(basicInfoButton),
             new ActionRowBuilder<ButtonBuilder>().addComponents(phaseButtons)
@@ -713,148 +735,179 @@ export class ModifyFundingRoundAction extends Action {
 
     private async handleShowPhaseForm(interaction: TrackedInteraction): Promise<void> {
         const fundingRoundId = CustomIDOracle.getNamedArgument(interaction.customId, 'fundingRoundId');
-        const phase = CustomIDOracle.getNamedArgument(interaction.customId, 'phase') as 'consideration' | 'deliberation' | 'voting';
-    
+        let phase = CustomIDOracle.getNamedArgument(interaction.customId, 'phase') as 'consideration' | 'deliberation' | 'voting' | 'round';
+        phase = phase.toLowerCase() as 'consideration' | 'deliberation' | 'voting' | 'round';
+
         if (!fundingRoundId || !phase) {
-          await interaction.respond({ content: 'Invalid funding round ID or phase.', ephemeral: true });
-          return;
+            await interaction.respond({ content: 'Invalid funding round ID or phase.', ephemeral: true });
+            return;
         }
-    
+
         const fundingRound = await FundingRoundLogic.getFundingRoundById(parseInt(fundingRoundId));
         if (!fundingRound) {
-          await interaction.respond({ content: 'Funding round not found.', ephemeral: true });
-          return;
-        }
-    
-        const modalInteraction = InteractionProperties.toShowModalOrUndefined(interaction.interaction);
-        if (!modalInteraction) {
-          await interaction.respond({ content: 'This interaction does not support modals.', ephemeral: true });
-          return;
-        }
-    
-        const existingPhases = await FundingRoundLogic.getFundingRoundPhases(parseInt(fundingRoundId));
-        const existingPhase = existingPhases.find((p: FundingRoundPhase) => p.phase === phase);
-    
-        const modal = new ModalBuilder()
-          .setCustomId(CustomIDOracle.addArgumentsToAction(this, ModifyFundingRoundAction.OPERATIONS.SUBMIT_PHASE, 'fundingRoundId', fundingRoundId, 'phase', phase))
-          .setTitle(`Modify ${phase.charAt(0).toUpperCase() + phase.slice(1)} Phase`);
-    
-        const startDateInput = new TextInputBuilder()
-          .setCustomId(ModifyFundingRoundAction.INPUT_IDS.START_DATE)
-          .setLabel('Start Date (YYYY-MM-DD HH:MM)')
-          .setStyle(TextInputStyle.Short)
-          .setValue(existingPhase ? this.formatDate(existingPhase.startDate) : '')
-          .setRequired(true);
-    
-        const endDateInput = new TextInputBuilder()
-          .setCustomId(ModifyFundingRoundAction.INPUT_IDS.END_DATE)
-          .setLabel('End Date (YYYY-MM-DD HH:MM)')
-          .setStyle(TextInputStyle.Short)
-          .setValue(existingPhase ? this.formatDate(existingPhase.endDate) : '')
-          .setRequired(true);
-    
-        modal.addComponents(
-          new ActionRowBuilder<TextInputBuilder>().addComponents(startDateInput),
-          new ActionRowBuilder<TextInputBuilder>().addComponents(endDateInput)
-        );
-    
-        await modalInteraction.showModal(modal);
-      }
-    
-      private async handleSubmitPhase(interaction: TrackedInteraction): Promise<void> {
-        const modalInteraction = InteractionProperties.toModalSubmitInteractionOrUndefined(interaction.interaction);
-        if (!modalInteraction) {
-          await interaction.respond({ content: 'Invalid interaction type.', ephemeral: true }); 
-        throw new Error('Invalid interaction type ' + interaction.interaction);
-        }
-    
-        const fundingRoundId = CustomIDOracle.getNamedArgument(interaction.customId, 'fundingRoundId');
-        const phase = CustomIDOracle.getNamedArgument(interaction.customId, 'phase') as 'consideration' | 'deliberation' | 'voting';
-    
-        if (!fundingRoundId || !phase) {
-          await interaction.respond({ content: 'Invalid funding round ID or phase.', ephemeral: true });
-          return;
-        }
-    
-        const startDate = new Date(modalInteraction.fields.getTextInputValue(ModifyFundingRoundAction.INPUT_IDS.START_DATE));
-        const endDate = new Date(modalInteraction.fields.getTextInputValue(ModifyFundingRoundAction.INPUT_IDS.END_DATE));
-    
-        if (isNaN(startDate.getTime()) || isNaN(endDate.getTime())) {
-          await interaction.respond({ content: 'Invalid date format. Please use YYYY-MM-DD HH:MM.', ephemeral: true });
-          return;
-        }
-    
-        if (startDate >= endDate) {
-          await interaction.respond({ content: 'Start date must be before end date.', ephemeral: true });
-          return;
-        }
-    
-        try {
-          const fundingRound = await FundingRoundLogic.getFundingRoundById(parseInt(fundingRoundId));
-          if (!fundingRound) {
             await interaction.respond({ content: 'Funding round not found.', ephemeral: true });
             return;
-          }
-    
-          const existingPhases = await FundingRoundLogic.getFundingRoundPhases(parseInt(fundingRoundId));
-    
-          // Check phase order
-          if (phase === 'deliberation') {
-            const considerationPhase = existingPhases.find((p: FundingRoundPhase) => p.phase === 'consideration');
-            if (considerationPhase && startDate < considerationPhase.endDate) {
-              await interaction.respond({ content: 'Deliberation phase must start after Consideration phase ends.', ephemeral: true });
-              return;
-            }
-          } else if (phase === 'voting') {
-            const deliberationPhase = existingPhases.find((p: FundingRoundPhase) => p.phase === 'deliberation');
-            if (deliberationPhase && startDate < deliberationPhase.endDate) {
-              await interaction.respond({ content: 'Voting phase must start after Deliberation phase ends.', ephemeral: true });
-              return;
-            }
-          }
-    
-          await FundingRoundLogic.setFundingRoundPhase(parseInt(fundingRoundId), phase, startDate, endDate);
-    
-          const updatedPhases = await FundingRoundLogic.getFundingRoundPhases(parseInt(fundingRoundId));
-          const allPhasesSet = ['consideration', 'deliberation', 'voting']
-            .every(phaseName => updatedPhases.some((p: FundingRoundPhase) => p.phase === phaseName));
-    
-          const embed = new EmbedBuilder()
-            .setColor('#00FF00')
-            .setTitle('Funding Round Phase Updated')
-            .setDescription(`The ${phase} phase has been updated successfully.`)
-            .addFields(
-              { name: 'Name', value: fundingRound.name },
-              { name: 'Description', value: fundingRound.description },
-              ...updatedPhases.map((p: FundingRoundPhase) => ({ name: `${p.phase.charAt(0).toUpperCase() + p.phase.slice(1)} Phase`, value: `Start: ${this.formatDate(p.startDate)}\nEnd: ${this.formatDate(p.endDate)}`, inline: true }))
-            );
-    
-          if (allPhasesSet) {
-            embed.addFields({ name: 'Status', value: 'All phases have been set for the funding round.' });
-          } else {
-            const remainingPhases = ['consideration', 'deliberation', 'voting']
-              .filter(phaseName => !updatedPhases.some((p: FundingRoundPhase) => p.phase === phaseName));
-    
-            embed.addFields({ name: 'Remaining Phases', value: remainingPhases.join(', ') });
-          }
-    
-          const backButton = new ButtonBuilder()
-            .setCustomId(CustomIDOracle.addArgumentsToAction(this, ModifyFundingRoundAction.OPERATIONS.SELECT_FUNDING_ROUND, 'fundingRoundId', fundingRoundId))
-            .setLabel('Back to Funding Round')
-            .setStyle(ButtonStyle.Secondary);
-    
-          const row = new ActionRowBuilder<ButtonBuilder>().addComponents(backButton);
-    
-          await interaction.update({ embeds: [embed], components: [row] });
-        } catch (error) {
-          const errorMessage = error instanceof Error ? error.message : 'An unknown error occurred';
-          await interaction.respond({ content: `Error updating phase: ${errorMessage}`, ephemeral: true });
         }
-      }
-    
-      private formatDate(date: Date): string {
+
+        const modalInteraction = InteractionProperties.toShowModalOrUndefined(interaction.interaction);
+        if (!modalInteraction) {
+            await interaction.respond({ content: 'This interaction does not support modals.', ephemeral: true });
+            return;
+        }
+
+        const existingPhases = await FundingRoundLogic.getFundingRoundPhases(parseInt(fundingRoundId));
+        const existingPhase = existingPhases.find((p: FundingRoundPhase) => p.phase === phase);
+
+        const title: string = phase === 'round' ? 'Modify Round Dates' : `Modify ${phase.charAt(0).toUpperCase() + phase.slice(1)} Phase Dates`;
+        const startDateCustomId: string = phase === 'round' ? ModifyFundingRoundAction.INPUT_IDS.ROUND_START_DATE : ModifyFundingRoundAction.INPUT_IDS.START_DATE;
+        const endDateCustomId: string = phase === 'round' ? ModifyFundingRoundAction.INPUT_IDS.ROUND_END_DATE : ModifyFundingRoundAction.INPUT_IDS.END_DATE;
+
+        const startDateValue: string = phase === 'round' && fundingRound.startAt ? this.formatDate(fundingRound.startAt) : existingPhase ? this.formatDate(existingPhase.startDate) : '';
+        const endDateValue: string = phase === 'round' && fundingRound.startAt ? this.formatDate(fundingRound.endAt) : existingPhase ? this.formatDate(existingPhase.endDate) : '';
+
+        console.log(`startDateValue: ${startDateValue} endDateValue: ${endDateValue}`);
+
+        const modal = new ModalBuilder()
+            .setCustomId(CustomIDOracle.addArgumentsToAction(this, ModifyFundingRoundAction.OPERATIONS.SUBMIT_PHASE, 'fundingRoundId', fundingRoundId, 'phase', phase))
+            .setTitle(title);
+
+        const startDateInput = new TextInputBuilder()
+            .setCustomId(startDateCustomId)
+            .setLabel('Start Date (YYYY-MM-DD HH:MM)')
+            .setStyle(TextInputStyle.Short)
+            .setValue(startDateValue)
+            .setRequired(true);
+
+        const endDateInput = new TextInputBuilder()
+            .setCustomId(endDateCustomId)
+            .setLabel('End Date (YYYY-MM-DD HH:MM)')
+            .setStyle(TextInputStyle.Short)
+            .setValue(endDateValue)
+            .setRequired(true);
+
+        modal.addComponents(
+            new ActionRowBuilder<TextInputBuilder>().addComponents(startDateInput),
+            new ActionRowBuilder<TextInputBuilder>().addComponents(endDateInput)
+        );
+
+        await modalInteraction.showModal(modal);
+    }
+
+    private async handleSubmitPhase(interaction: TrackedInteraction): Promise<void> {
+        const modalInteraction = InteractionProperties.toModalSubmitInteractionOrUndefined(interaction.interaction);
+        if (!modalInteraction) {
+            await interaction.respond({ content: 'Invalid interaction type.', ephemeral: true });
+            throw new Error('Invalid interaction type ' + interaction.interaction);
+        }
+
+        const fundingRoundId = CustomIDOracle.getNamedArgument(interaction.customId, 'fundingRoundId');
+        const phase = CustomIDOracle.getNamedArgument(interaction.customId, 'phase') as 'consideration' | 'deliberation' | 'voting' | 'round';
+
+        if (!fundingRoundId || !phase) {
+            await interaction.respond({ content: 'Invalid funding round ID or phase.', ephemeral: true });
+            return;
+        }
+
+        let startDate: Date;
+        let endDate: Date;
+        if (phase === 'round') {
+            startDate = new Date(modalInteraction.fields.getTextInputValue(ModifyFundingRoundAction.INPUT_IDS.ROUND_START_DATE));
+            endDate = new Date(modalInteraction.fields.getTextInputValue(ModifyFundingRoundAction.INPUT_IDS.ROUND_END_DATE));
+        } else {
+            startDate = new Date(modalInteraction.fields.getTextInputValue(ModifyFundingRoundAction.INPUT_IDS.START_DATE));
+            endDate = new Date(modalInteraction.fields.getTextInputValue(ModifyFundingRoundAction.INPUT_IDS.END_DATE));
+        }
+
+
+        if (isNaN(startDate.getTime()) || isNaN(endDate.getTime())) {
+            await interaction.respond({ content: 'Invalid date format. Please use YYYY-MM-DD HH:MM.', ephemeral: true });
+            return;
+        }
+
+        if (startDate >= endDate) {
+            await interaction.respond({ content: 'Start date must be before end date.', ephemeral: true });
+            return;
+        }
+
+        try {
+            const fundingRound = await FundingRoundLogic.getFundingRoundById(parseInt(fundingRoundId));
+            if (!fundingRound) {
+                await interaction.respond({ content: 'Funding round not found.', ephemeral: true });
+                return;
+            }
+
+            const existingPhases = await FundingRoundLogic.getFundingRoundPhases(parseInt(fundingRoundId));
+
+            // Check phase order
+            if (phase === 'deliberation') {
+                const considerationPhase = existingPhases.find((p: FundingRoundPhase) => p.phase === 'consideration');
+                if (considerationPhase && startDate < considerationPhase.endDate) {
+                    await interaction.respond({ content: 'Deliberation phase must start after Consideration phase ends.', ephemeral: true });
+                    return;
+                }
+            } else if (phase === 'voting') {
+                const deliberationPhase = existingPhases.find((p: FundingRoundPhase) => p.phase === 'deliberation');
+                if (deliberationPhase && startDate < deliberationPhase.endDate) {
+                    await interaction.respond({ content: 'Voting phase must start after Deliberation phase ends.', ephemeral: true });
+                    return;
+                }
+            }
+
+            await FundingRoundLogic.setFundingRoundPhase(parseInt(fundingRoundId), phase, startDate, endDate);
+
+            const updatedPhases = await FundingRoundLogic.getFundingRoundPhases(parseInt(fundingRoundId));
+            let allPhasesSet: boolean = ['consideration', 'deliberation', 'voting']
+                .every(phaseName => updatedPhases.some((p: FundingRoundPhase) => p.phase === phaseName));
+
+            allPhasesSet = allPhasesSet && (fundingRound.startAt !== null) && (fundingRound.endAt !== null);
+
+            fundingRound.reload();
+
+            const embed = new EmbedBuilder()
+                .setColor('#00FF00')
+                .setTitle('Funding Round Phase Updated')
+                .setDescription(`The ${phase} phase has been updated successfully.`)
+                .addFields(
+                    { name: 'Name', value: fundingRound.name },
+                    { name: 'Description', value: fundingRound.description },
+                    { name: 'Budget', value: fundingRound.budget.toString() },
+                    { name: 'Voting Address', value: fundingRound.votingAddress },
+                    { name: 'Start Date', value: fundingRound.startAt ? this.formatDate(fundingRound.startAt) : '❌ Not set' },
+                    { name: 'End Date', value: fundingRound.endAt ? this.formatDate(fundingRound.endAt) : '❌ Not set' },
+                    ...updatedPhases.map((p: FundingRoundPhase) => ({ name: `${p.phase.charAt(0).toUpperCase() + p.phase.slice(1)} Phase`, value: `Start: ${this.formatDate(p.startDate)}\nEnd: ${this.formatDate(p.endDate)}`, inline: true }))
+                );
+
+            if (allPhasesSet) {
+                embed.addFields({ name: 'Status', value: 'All phases have been set for the funding round.' });
+            } else {
+                const remainingPhases = ['consideration', 'deliberation', 'voting']
+                    .filter(phaseName => !updatedPhases.some((p: FundingRoundPhase) => p.phase === phaseName));
+
+                embed.addFields({ name: 'Remaining Phases', value: remainingPhases.join(', ') });
+
+                if (fundingRound.startAt === null || fundingRound.endAt === null) {
+                    embed.addFields({ name: 'Remaining Phases', value: 'Funding Round Duration' });
+                }
+            }
+
+            const backButton = new ButtonBuilder()
+                .setCustomId(CustomIDOracle.addArgumentsToAction(this, ModifyFundingRoundAction.OPERATIONS.SELECT_FUNDING_ROUND, 'fundingRoundId', fundingRoundId))
+                .setLabel('Back to Funding Round')
+                .setStyle(ButtonStyle.Secondary);
+
+            const row = new ActionRowBuilder<ButtonBuilder>().addComponents(backButton);
+
+            await interaction.update({ embeds: [embed], components: [row] });
+        } catch (error) {
+            const errorMessage = error instanceof Error ? error.message : 'An unknown error occurred';
+            await interaction.respond({ content: `Error updating phase: ${errorMessage}`, ephemeral: true });
+            throw error;
+        }
+    }
+
+    private formatDate(date: Date): string {
         return date.toISOString().slice(0, 16).replace('T', ' ');
-      } 
+    }
 
     public allSubActions(): Action[] {
         return [this.fundingRoundPaginationAction];
@@ -879,7 +932,7 @@ export class SetFundingRoundCommitteeAction extends PaginationComponent {
         CONFIRM_COMMITTEE: 'confirmCommittee',
     };
 
-    protected async getTotalPages(interaction: TrackedInteraction, fundingRoundId?:number): Promise<number> {
+    protected async getTotalPages(interaction: TrackedInteraction, fundingRoundId?: number): Promise<number> {
         let parsedFundingRoundId: number;
         if (fundingRoundId === undefined) {
             const fundingRoundIdFromCustomId = CustomIDOracle.getNamedArgument(interaction.customId, 'fundingRoundId');
@@ -889,7 +942,7 @@ export class SetFundingRoundCommitteeAction extends PaginationComponent {
             parsedFundingRoundId = parseInt(fundingRoundIdFromCustomId);
         } else {
             parsedFundingRoundId = fundingRoundId;
-        } 
+        }
 
         const fundingRound = await FundingRoundLogic.getFundingRoundById(parsedFundingRoundId);
         if (!fundingRound) {
@@ -1025,7 +1078,7 @@ export class SetFundingRoundCommitteeAction extends PaginationComponent {
     private async handleSelectCommitteeMembers(interaction: TrackedInteraction): Promise<void> {
         const interactionWithValues = InteractionProperties.toInteractionWithValuesOrUndefined(interaction.interaction);
         if (!interactionWithValues) {
-            await interaction.respond({ content: 'Invalid interaction type.', ephemeral: true }); 
+            await interaction.respond({ content: 'Invalid interaction type.', ephemeral: true });
             throw new Error('Invalid interaction type ' + interaction.interaction);
         }
 
@@ -1036,7 +1089,7 @@ export class SetFundingRoundCommitteeAction extends PaginationComponent {
         }
 
         const selectedMembers = interactionWithValues.values;
-        
+
         const fundingRound = await FundingRoundLogic.getFundingRoundById(parseInt(fundingRoundId));
         if (!fundingRound) {
             await interaction.respond({ content: 'Funding round not found.', ephemeral: true });
@@ -1105,20 +1158,20 @@ export class SetFundingRoundCommitteeAction extends PaginationComponent {
             .setTitle(`Full Committee Selected For ${fundingRound.name}`)
             .setDescription(`New members assigned: ${numCreatedRecords}. Assinged Funding Round deliberation phase committee members meet the requirements for each SME group.`);
 
-            for (const committee of topicCommittees) {
-                const smeGroup = await SMEGroup.findByPk(committee.smeGroupId);
-                if (smeGroup) {
-                    embed.addFields({
-                        name: smeGroup.name,
-                        value: `Required: ${committee.numUsers}, Selected: ${committeeCounts[committee.id] || 0}`,
-                        inline: true
-                    });
-                }
+        for (const committee of topicCommittees) {
+            const smeGroup = await SMEGroup.findByPk(committee.smeGroupId);
+            if (smeGroup) {
+                embed.addFields({
+                    name: smeGroup.name,
+                    value: `Required: ${committee.numUsers}, Selected: ${committeeCounts[committee.id] || 0}`,
+                    inline: true
+                });
             }
+        }
 
         await interaction.update({ embeds: [embed], components: [row] });
     }
-  
+
 
     public allSubActions(): Action[] {
         return [];
@@ -1181,7 +1234,7 @@ export class ApproveFundingRoundAction extends Action {
     private async handleConfirmApproval(interaction: TrackedInteraction): Promise<void> {
         const interactionWithValues = InteractionProperties.toInteractionWithValuesOrUndefined(interaction.interaction);
         if (!interactionWithValues) {
-            await interaction.respond({ content: 'Invalid interaction type.', ephemeral: true }); 
+            await interaction.respond({ content: 'Invalid interaction type.', ephemeral: true });
             throw new Error('Invalid interaction type ' + interaction.interaction);
         }
 
@@ -1431,7 +1484,7 @@ export class RemoveFundingRoundCommitteeAction extends PaginationComponent {
         }
 
         const selectedMembers = interactionWithValues.values;
-        
+
         const numRemovedRecords = await FundingRoundLogic.removeFundingRoundCommitteeMembers(parseInt(fundingRoundId), selectedMembers);
 
         await this.showCommitteeStatus(interaction, parseInt(fundingRoundId), numRemovedRecords);
