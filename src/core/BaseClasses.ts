@@ -151,7 +151,7 @@ export abstract class Action {
 
     protected async handleMissingOperation(interaction: TrackedInteraction): Promise<Message<boolean>> {
         // Re-render the current screen with an error message
-        return await interaction.respond('4️⃣0️⃣4️⃣ Action operation to perform not found.');
+        return await interaction.respond({content: '4️⃣0️⃣4️⃣ Action operation to perform not found.'});
     }
 
     abstract getComponent(...args: any[]): AnyModalMessageComponent;
