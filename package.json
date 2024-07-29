@@ -23,6 +23,7 @@
     "@types/ws": "^8.5.10",
     "discord.js": "^14.15.3",
     "dotenv": "^16.4.5",
+    "sequelize": "^6.37.3",
     "sqlite": "^5.1.1",
     "sqlite3": "^5.1.7",
     "yargs": "^17.7.2"
