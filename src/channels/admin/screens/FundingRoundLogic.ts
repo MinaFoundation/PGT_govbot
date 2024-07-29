@@ -558,4 +558,91 @@ export class FundingRoundLogic {
         return result;
       }
 
+    
+      static async getActiveFundingRoundPhases(fundingRoundId: number): Promise<string[]> {
+        const fundingRound = await this.getFundingRoundById(fundingRoundId);
+        if (!fundingRound) {
+          throw new Error('Funding round not found');
+        }
+    
+        const now = new Date();
+        const activePhases: string[] = [];
+    
+        const considerationPhase = await ConsiderationPhase.findOne({ where: { fundingRoundId } });
+        if (considerationPhase && now >= considerationPhase.startAt && now <= considerationPhase.endAt) {
+          activePhases.push('consideration');
+        }
+    
+        const deliberationPhase = await DeliberationPhase.findOne({ where: { fundingRoundId } });
+        if (deliberationPhase && now >= deliberationPhase.startAt && now <= deliberationPhase.endAt) {
+          activePhases.push('deliberation');
+        }
+    
+        const fundingVotingPhase = await FundingVotingPhase.findOne({ where: { fundingRoundId } });
+        if (fundingVotingPhase && now >= fundingVotingPhase.startAt && now <= fundingVotingPhase.endAt) {
+          activePhases.push('funding');
+        }
+    
+        return activePhases;
+      }
+    
+      static async getActiveProposalsForPhase(fundingRoundId: number, phase: string): Promise<Proposal[]> {
+        const fundingRound = await this.getFundingRoundById(fundingRoundId);
+        if (!fundingRound) {
+          throw new Error('Funding round not found');
+        }
+    
+        let status: ProposalStatus;
+        switch (phase.toLowerCase()) {
+          case 'consideration':
+            status = ProposalStatus.CONSIDERATION_PHASE;
+            break;
+          case 'deliberation':
+            status = ProposalStatus.DELIBERATION_PHASE;
+            break;
+          case 'funding':
+            status = ProposalStatus.FUNDING_VOTING_PHASE;
+            break;
+          default:
+            throw new Error('Invalid phase');
+        } 
+        return await Proposal.findAll({
+          where: {
+            fundingRoundId,
+            status,
+          },
+        });
+      }
+
+
+    static async getVotingAndApprovedFundingRounds(): Promise<FundingRound[]> {
+        const now = new Date();
+        return await FundingRound.findAll({
+            where: {
+                [Op.or]: [
+                    {
+                        status: FundingRoundStatus.VOTING,
+                        votingOpenUntil: {
+                            [Op.gte]: now,
+                        },
+                    },
+                    {
+                        status: FundingRoundStatus.APPROVED,
+                        endAt: {
+                            [Op.gt]: now,
+                        },
+                        startAt: {
+                            [Op.lte]: now,
+                        },
+                    },
+                ],
+            }, 
+            include: [
+                { model: ConsiderationPhase, required: true, as : 'considerationPhase' },
+                { model: DeliberationPhase, required: true, as: 'deliberationPhase' },
+                { model: FundingVotingPhase, required: true, as: 'fundingVotingPhase'},
+            ],
+        });
+    }
+
 }
