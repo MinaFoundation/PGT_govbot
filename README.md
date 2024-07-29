@@ -1,14 +1,14 @@
 # govbot
 
-A discord bot for collective decision making, with the goal of being both *effective*, and *aligned*.
+A discord bot for collective decision making, with the goal of being both _effective_, and _aligned_.
 
 Some principles it follows:
 
-*aligned*
+_aligned_
 
 - Decisions aren't enacted without the approval and input of the community they impact.
 
-*effective*
+_effective_
 
 - Decisions pull in the expertise of the community and relevant subject-matter-experts.
 
@@ -28,8 +28,8 @@ CLIENT_ID=your_client_id (A.K.A. application id)
 GUILD_ID=your_guild_id (A.K.A. server id)
 PUBLIC_KEY=your_apps_public_key
 ```
-4. Run `npm run dev` to start the bot in development mode
 
+4. Run `npm run dev` to start the bot in development mode
 
 ## Checking For Required Channels
 
@@ -54,4 +54,26 @@ To make a contribution, follow these steps:
 1. Make an issue that includes a user story for what the user should be able to do.
 2. Get that issue tested by: es92, Remigiusz-antczak or Cristina Echeverry.
 3. Get that issue approved by the product owners: es92, Remigiusz-antczak or Cristina Echeverry.
-4. Write a PR and get it approved by the code owners and Mina devops: Es92, illya (developer), johnmarcou & Smorci (Mina devops). Each PR must correspond to an approved issue. By default, PRs should be merged by the PR submitter, though in some cases if changes are needed, they can be merged by code owners.
+4. Write a PR and get it approved by the code owners and Mina devops: Es92, illya (developer), johnmarcou (Mina devops). Each PR must correspond to an approved issue. By default, PRs should be merged by the PR submitter, though in some cases if changes are needed, they can be merged by code owners.
+
+## Docker image
+
+### Build it
+
+```
+docker build -t <your-image-name>:<your-image-tag> .
+```
+
+### Run it
+
+```
+docker run -it -d --env-file ./.env <your-image-name>:<your-image-tag>
+```
+
+The `--env-file` flag takes a filename as an argument and expects each line to be in the VAR=VAL format, mimicking the argument passed to `--env`. Comment lines need only be prefixed with #
+
+### Test it
+
+```
+docker-compose up --build
+```
