@@ -10,6 +10,7 @@ import { PaginationComponent } from '../../../components/PaginationComponent';
 import { InteractionProperties } from '../../../core/Interaction';
 import { FundingRoundLogic } from '../../admin/screens/FundingRoundLogic';
 import { OCVLinkGenerator } from '../../../utils/OCVLinkGenerator';
+import logger from '../../../logging';
 
 export class ProjectVotingScreen extends Screen {
     public static readonly ID = 'projectVoting';
@@ -155,7 +156,7 @@ export class SelectProjectAction extends PaginationComponent {
         paginate: 'paginate',
     };
 
-    protected async getTotalPages(interaction: TrackedInteraction): Promise<number> {
+    protected async getTotalPages(interaction: TrackedInteraction, phaseArg?: string): Promise<number> {
         const fundingRoundIdRaw: string | undefined = CustomIDOracle.getNamedArgument(interaction.customId, 'fundingRoundId');
 
         let fundingRoundId: number;
@@ -175,11 +176,11 @@ export class SelectProjectAction extends PaginationComponent {
         }
 
 
-        let phase: string | undefined = CustomIDOracle.getNamedArgument(interaction.customId, 'phase');
+        let phase: string | undefined = CustomIDOracle.getNamedArgument(interaction.customId, 'phase') || phaseArg;
         if (!phase) {
             const phaseFromCntx = interaction.Context.get('phase');
             if (!phaseFromCntx) {
-                await interaction.respond({ content: 'phase neither passed in customId, nor the interaction has values', ephemeral: true });
+                await interaction.respond({ content: 'phase neither passed in customId, nor in args, nor the interaction has values', ephemeral: true });
                 return 0;
             }
             phase = phaseFromCntx;
@@ -242,7 +243,7 @@ export class SelectProjectAction extends PaginationComponent {
 
     public async getSelectProjectComponent(interaction: TrackedInteraction, fundingRoundId: number, phase: string) {
         const currentPage = this.getCurrentPage(interaction);
-        const totalPages = await this.getTotalPages(interaction);
+        const totalPages = await this.getTotalPages(interaction, phase);
         const projects = await this.getItemsForPage(interaction, currentPage);
 
         const embed = new EmbedBuilder()
@@ -390,7 +391,7 @@ class VoteProjectAction extends Action {
     private async handleShowVoteOptions(interaction: TrackedInteraction, args: { projectId: number, fundingRoundId: number, phase: string }): Promise<void> {
         const { projectId, fundingRoundId, phase } = args;
         const project = await ProposalLogic.getProposalById(projectId);
-        console.log(`Funding Round ID: ${fundingRoundId}`);
+        logger.info(`Funding Round ID: ${fundingRoundId}`);
         const fundingRound = await FundingRoundLogic.getFundingRoundById(fundingRoundId);
 
         if (!project || !fundingRound) {
