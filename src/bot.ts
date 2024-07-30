@@ -13,6 +13,8 @@ import { VoteDashboard } from './channels/vote/VoteDashboard';
 import { VoteHomeScreen } from './channels/vote/screens/VoteHomeScreen';
 import { CommitteeDeliberationDashboard } from './channels/deliberate/CommitteeDeliberationDashboard';
 import { CommitteeDeliberationHomeScreen } from './channels/deliberate/CommitteeDeliberationHomeScreen';
+import { ConsiderDashboard } from './channels/consider/ConsiderDashboard';
+import { ConsiderationHomeScreen } from './channels/consider/screens/ConsiderationHomeScreen';
 
 config();
 
@@ -51,6 +53,12 @@ client.once('ready', async () => {
   const deliberationHomeScreen: HomeScreen = new CommitteeDeliberationHomeScreen(committeeDeliberationDashboard, CommitteeDeliberationHomeScreen.ID);
   committeeDeliberationDashboard.homeScreen = deliberationHomeScreen;
   dashboardManager.registerDashboard('deliberate', committeeDeliberationDashboard);
+
+  const considerDashboard = new ConsiderDashboard(ConsiderDashboard.ID);
+  const considerHomeScreen: HomeScreen = new ConsiderationHomeScreen(considerDashboard, CommitteeDeliberationHomeScreen.ID);
+  considerDashboard.homeScreen = considerHomeScreen;
+  dashboardManager.registerDashboard('consider', considerDashboard);
+
 
 
   // Render initial screen in #admin channel
@@ -94,6 +102,14 @@ client.once('ready', async () => {
       await committeeDeliberationDashboard.homeScreen.renderToTextChannel(deliberateChannel);
     } else {
       console.error('Deliberate channel not found');
+    }
+
+    // Render initial screen in #consider channel
+    const considerChannel = guild.channels.cache.find(channel => channel.name === 'consider') as TextChannel | undefined;
+    if (considerChannel) {
+      await considerDashboard.homeScreen.renderToTextChannel(considerChannel);
+    } else {
+      console.error('Consider channel not found');
     }
 
   } else {
