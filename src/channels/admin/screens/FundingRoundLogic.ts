@@ -1,4 +1,5 @@
 import sequelize from '../../../config/database';
+import logger from '../../../logging';
 import { FundingRound, Topic, ConsiderationPhase, DeliberationPhase, FundingVotingPhase, SMEGroup, SMEGroupMembership, FundingRoundDeliberationCommitteeSelection, FundingRoundApprovalVote, TopicSMEGroupProposalCreationLimiter, Proposal } from '../../../models';
 import { FundingRoundAttributes, FundingRoundStatus, FundingRoundPhase, ProposalStatus } from '../../../types';
 import { Op, Transaction } from 'sequelize';
@@ -214,7 +215,7 @@ export class FundingRoundLogic {
                         insertedCount++;
                     }
                 } catch (error) {
-                    console.error('Error in appendFundingRoundCommitteeMembers:', error);
+                    logger.error('Error in appendFundingRoundCommitteeMembers:', error);
 
                 }
             }
@@ -265,7 +266,7 @@ export class FundingRoundLogic {
 
             return count;
         } catch (error) {
-            console.error('Error in countSMEMembersInDeliberationCommittee:', error);
+            logger.error('Error in countSMEMembersInDeliberationCommittee:', error);
             throw error;
         }
     }

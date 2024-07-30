@@ -210,7 +210,7 @@ export interface FundingRoundApprovalVoteCreationAttributes extends Optional<Fun
 
 
 export type FundingRoundPhase = {
-  phase: 'consideration' | 'deliberation' | 'voting'; // Assuming these are the possible phases
+  phase: 'consideration' | 'deliberation' | 'voting'; 
   startDate: Date;
   endDate: Date;
 };

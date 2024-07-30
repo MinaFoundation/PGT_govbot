@@ -1,11 +1,12 @@
 
 import { Client, Guild, ChannelType, CategoryChannel } from 'discord.js';
 import { CONSTANTS } from '../constants';
+import logger from '../logging';
 
 export async function checkRequiredChannels(client: Client): Promise<void> {
   const guild: Guild | undefined = client.guilds.cache.get(process.env.GUILD_ID!);
   if (!guild) {
-    console.error(`${CONSTANTS.EMOJIS.ERROR} Guild not found`);
+    logger.error(`${CONSTANTS.EMOJIS.ERROR} Guild not found`);
     return;
   }
 
@@ -14,11 +15,11 @@ export async function checkRequiredChannels(client: Client): Promise<void> {
   ) as CategoryChannel | undefined;
 
   if (!govbotCategory) {
-    console.log(`${CONSTANTS.EMOJIS.ERROR} 'govbot' category not found`);
+    logger.info(`${CONSTANTS.EMOJIS.ERROR} 'govbot' category not found`);
     return;
   }
 
-  console.log(`${CONSTANTS.EMOJIS.SUCCESS} 'govbot' category found`);
+  logger.info(`${CONSTANTS.EMOJIS.SUCCESS} 'govbot' category found`);
 
   const requiredChannels: string[] = Object.values(CONSTANTS.CHANNELS);
 
@@ -28,9 +29,9 @@ export async function checkRequiredChannels(client: Client): Promise<void> {
     );
 
     if (channel) {
-      console.log(`${CONSTANTS.EMOJIS.SUCCESS} '${channelName}' channel found in 'govbot' category`);
+      logger.info(`${CONSTANTS.EMOJIS.SUCCESS} '${channelName}' channel found in 'govbot' category`);
     } else {
-      console.log(`${CONSTANTS.EMOJIS.ERROR} '${channelName}' channel not found in 'govbot' category`);
+      logger.info(`${CONSTANTS.EMOJIS.ERROR} '${channelName}' channel not found in 'govbot' category`);
     }
   }
 }

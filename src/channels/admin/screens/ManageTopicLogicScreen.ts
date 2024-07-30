@@ -8,6 +8,7 @@ import { TopicAttributes, TopicCommitteeAttributes } from '../../../types';
 import { allowedNodeEnvironmentFlags } from 'process';
 import { InteractionProperties } from '../../../core/Interaction';
 import { parsed } from 'yargs';
+import logger from '../../../logging';
 
 interface TopicCommitteeWithSMEGroup extends TopicCommitteeAttributes {
     smeGroupName: string;
@@ -610,7 +611,7 @@ class AddTopicAction extends Action {
             const successMessage = `✅ Topic '${name}' created successfully`;
             await this.screen.reRender(interaction, { successMessage: successMessage });
         } catch (err) {
-            console.error(err);
+            logger.error(err);
             const errorMessage = `🚫 An error occurred while creating the topic '${name}': ${(err as Error).message}`;
             await interaction.respond({ content: errorMessage, ephemeral: true });
         }
@@ -712,7 +713,7 @@ class RemoveTopicAction extends Action {
                 ephemeral: true
             });
         } catch (error) {
-            console.error('Error fetching topic details:', error);
+            logger.error('Error fetching topic details:', error);
             await interaction.respond({ content: 'An error occurred while fetching topic details. Please try again later.', ephemeral: true });
         }
     }
@@ -729,7 +730,7 @@ class RemoveTopicAction extends Action {
             const successMessage = 'Topic has been successfully removed.';
             await this.screen.render(interaction, { successMessage });
         } catch (error) {
-            console.error('Error removing Topic:', error);
+            logger.error('Error removing Topic:', error);
             const errorMessage = 'An error occurred while removing the Topic. Please try again later.';
             await this.screen.render(interaction, { errorMessage });
         }
@@ -872,7 +873,7 @@ class EditTopicAction extends Action {
             const successMessage = `✅ Topic '${name}' updated successfully`;
             await this.screen.reRender(interaction, { successMessage: successMessage });
         } catch (err) {
-            console.error(err);
+            logger.error(err);
             const errorMessage = `🚫 An error occurred while updating the topic '${name}': ${(err as Error).message}`;
             await this.screen.reRender(interaction, { errorMessage: errorMessage });
         }
@@ -1200,9 +1201,9 @@ export class CommitteePaginationAction extends PaginationComponent {
 
       const topicId = topicIdFromCustomId ? topicIdFromCustomId : topicIdFromContext;
       
-      console.log('topicIdFromCustomId:', topicIdFromCustomId);
-      console.log('topicIdFromContext:', topicIdFromContext);
-      console.log('topicId:', topicId);
+      logger.info('topicIdFromCustomId:', topicIdFromCustomId);
+      logger.info('topicIdFromContext:', topicIdFromContext);
+      logger.info('topicId:', topicId);
 
       
       if (!topicId) {
@@ -1214,9 +1215,9 @@ export class CommitteePaginationAction extends PaginationComponent {
       const totalPages = await this.getTotalPages(interaction);
       const committees = await this.getItemsForPage(interaction, currentPage);
 
-      console.log('currentPage:', currentPage);
-      console.log('totalPages:', totalPages);
-      console.log('committees:', committees);
+      logger.info('currentPage:', currentPage);
+      logger.info('totalPages:', totalPages);
+      logger.info('committees:', committees);
   
       const embed = new EmbedBuilder()
         .setColor('#0099ff')

@@ -1,3 +1,4 @@
+// src/channels/deliberate/CommitteeDeliberationHomeScreen.ts
 import { ActionRowBuilder, ButtonBuilder, ButtonStyle, EmbedBuilder, MessageActionRowComponentBuilder, ModalBuilder, StringSelectMenuBuilder, TextChannel, TextInputBuilder, TextInputStyle } from 'discord.js';
 import { CommitteeDeliberationLogic } from '../../logic/CommitteeDeliberationLogic';
 import { IHomeScreen } from '../../types/common';

@@ -6,6 +6,8 @@ import { initializeDatabase } from '../src/database';
 import { addAdmin, removeAdmin } from '../src/database/admin';
 import { checkRequiredChannels } from '../src/commands/checkChannels';
 
+import logger from '../src/logging';
+
 dotenv.config();
 
 const client: Client = new Client({
@@ -18,11 +20,11 @@ async function main(): Promise<void> {
   yargs(hideBin(process.argv))
     .command('addAdmin <discordUserId>', 'Add an admin', {}, async (argv): Promise<void> => {
       await addAdmin(argv.discordUserId as string);
-      console.log(`Admin added: ${argv.discordUserId}`);
+      logger.info(`Admin added: ${argv.discordUserId}`);
     })
     .command('removeAdmin <discordUserId>', 'Remove an admin', {}, async (argv): Promise<void> => {
       await removeAdmin(argv.discordUserId as string);
-      console.log(`Admin removed: ${argv.discordUserId}`);
+      logger.info(`Admin removed: ${argv.discordUserId}`);
     })
     .command('checkChannels', 'Check required channels', {}, async (): Promise<void> => {
       await client.login(process.env.DISCORD_TOKEN);

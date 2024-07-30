@@ -7,6 +7,8 @@ import { InteractionProperties } from '../../../core/Interaction';
 import { PaginationComponent } from '../../../components/PaginationComponent';
 import { FundingRoundPhase } from '../../../types';
 import { TopicLogic } from './ManageTopicLogicScreen';
+import logger from '../../../logging';
+
 
 export class ManageFundingRoundsScreen extends Screen {
     public static readonly ID = 'manageFundingRounds';
@@ -787,7 +789,7 @@ export class ModifyFundingRoundAction extends Action {
         const startDateValue: string = phase === 'round' && fundingRound.startAt ? this.formatDate(fundingRound.startAt) : existingPhase ? this.formatDate(existingPhase.startDate) : '';
         const endDateValue: string = phase === 'round' && fundingRound.startAt ? this.formatDate(fundingRound.endAt) : existingPhase ? this.formatDate(existingPhase.endDate) : '';
 
-        console.log(`startDateValue: ${startDateValue} endDateValue: ${endDateValue}`);
+        logger.info(`startDateValue: ${startDateValue} endDateValue: ${endDateValue}`);
 
         const modal = new ModalBuilder()
             .setCustomId(CustomIDOracle.addArgumentsToAction(this, ModifyFundingRoundAction.OPERATIONS.SUBMIT_PHASE, 'fundingRoundId', fundingRoundId, 'phase', phase))

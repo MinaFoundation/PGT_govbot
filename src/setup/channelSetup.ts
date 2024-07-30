@@ -1,10 +1,12 @@
 import { Client, TextChannel, ChannelType, EmbedBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle, CategoryChannel } from 'discord.js';
 import { CONSTANTS } from '../constants';
 
+import logger from '../logging';
+
 export async function setupAdminChannel(client: Client): Promise<void> {
   const guild = client.guilds.cache.get(process.env.GUILD_ID!);
   if (!guild) {
-    console.error('Guild not found');
+    logger.error('Guild not found');
     return;
   }
 
@@ -13,7 +15,7 @@ export async function setupAdminChannel(client: Client): Promise<void> {
   ) as CategoryChannel | undefined;
 
   if (!govbotCategory) {
-    console.error(`${CONSTANTS.EMOJIS.ERROR} 'govbot' category not found`);
+    logger.error(`${CONSTANTS.EMOJIS.ERROR} 'govbot' category not found`);
     return;
   }
 
@@ -22,7 +24,7 @@ export async function setupAdminChannel(client: Client): Promise<void> {
   ) as TextChannel | undefined;
 
   if (!adminChannel) {
-    console.error(`${CONSTANTS.EMOJIS.ERROR} 'admin' channel not found in 'govbot' category`);
+    logger.error(`${CONSTANTS.EMOJIS.ERROR} 'admin' channel not found in 'govbot' category`);
     return;
   }
 

@@ -4,6 +4,7 @@ import { InteractionResponse, Message, MessageComponentInteraction } from 'disco
 import { CustomIDOracle } from '../CustomIDOracle';
 import { AnyModalMessageComponent, AnyInteraction, HomeScreen } from '../types/common';
 import { InteractionProperties } from './Interaction';
+import logger from '../logging';
 
 export interface RenderArgs {
     successMessage?: string,
@@ -47,7 +48,7 @@ export class TrackedInteraction {
             }
 
         } catch (error) {
-            console.log('Error in respond: ', error);
+            logger.info('Error in respond: ', error);
             throw error;
         }
     }
@@ -206,7 +207,7 @@ export abstract class Screen {
         try {
             await interaction.respond(responseArgs);
         } catch (error) {
-            console.log('Error in render: ', error);
+            logger.info('Error in render: ', error);
         }
         return;
     }
@@ -221,7 +222,7 @@ export abstract class Screen {
                 await interaction.respond(responseArgs);
             }
         } catch (error) {
-            console.log('Error in re-render:\n', error);
+            logger.info('Error in re-render:\n', error);
         }
     }
 
@@ -296,8 +297,8 @@ export abstract class Screen {
 
     public registerAction(action: Action, actionId: string): void {
         this.actions.set(actionId, action);
-        //console.log(`Action registered: ${actionId}`);
-        //console.log(action);
+        //logger.info(`Action registered: ${actionId}`);
+        //logger.info(action);
     }
 }
 
@@ -330,7 +331,7 @@ export abstract class Dashboard {
             throw new Error('Home screen not set.');
         }
 
-        console.log("[Dashboard] Handling interaction ", interaction.customId);
+        logger.info("[Dashboard] Handling interaction ", interaction.customId);
 
         const screenId = CustomIDOracle.getScreenId(interaction.customId);
         if (!screenId) {

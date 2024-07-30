@@ -15,6 +15,7 @@ import { CommitteeDeliberationDashboard } from './channels/deliberate/CommitteeD
 import { CommitteeDeliberationHomeScreen } from './channels/deliberate/CommitteeDeliberationHomeScreen';
 import { ConsiderDashboard } from './channels/consider/ConsiderDashboard';
 import { ConsiderationHomeScreen } from './channels/consider/screens/ConsiderationHomeScreen';
+import logger from './logging';
 
 config();
 
@@ -25,7 +26,7 @@ const client = new Client({
 const dashboardManager = new DashboardManager();
 
 client.once('ready', async () => {
-  console.log('Bot is ready!');
+  logger.info('Bot is ready!');
   await syncDatabase();
 
   // Register dashboards
@@ -68,7 +69,7 @@ client.once('ready', async () => {
     if (adminChannel) {
       await adminDashboard.homeScreen.renderToTextChannel(adminChannel);
     } else {
-      console.error('Admin channel not found');
+      logger.error('Admin channel not found');
     }
 
     // Render initial screen in #funding-round-init channel
@@ -76,7 +77,7 @@ client.once('ready', async () => {
     if (fundingRoundInitChannel) {
       await fundingRoundInitDashboard.homeScreen.renderToTextChannel(fundingRoundInitChannel);
     } else {
-      console.error('Funding Round Init channel not found');
+      logger.error('Funding Round Init channel not found');
     }
 
 
@@ -85,7 +86,7 @@ client.once('ready', async () => {
     if (proposeChannel) {
       await proposeDashboard.homeScreen.renderToTextChannel(proposeChannel);
     } else {
-      console.error('Propose channel not found');
+      logger.error('Propose channel not found');
     }
 
     // Render initial screen in #vote channel
@@ -93,7 +94,7 @@ client.once('ready', async () => {
     if (voteChannel) {
       await voteDashboard.homeScreen.renderToTextChannel(voteChannel);
     } else {
-      console.error('Vote channel not found');
+      logger.error('Vote channel not found');
     }
 
     // Render initial screen in #deliberate channel
@@ -101,7 +102,7 @@ client.once('ready', async () => {
     if (deliberateChannel) {
       await committeeDeliberationDashboard.homeScreen.renderToTextChannel(deliberateChannel);
     } else {
-      console.error('Deliberate channel not found');
+      logger.error('Deliberate channel not found');
     }
 
     // Render initial screen in #consider channel
@@ -109,11 +110,11 @@ client.once('ready', async () => {
     if (considerChannel) {
       await considerDashboard.homeScreen.renderToTextChannel(considerChannel);
     } else {
-      console.error('Consider channel not found');
+      logger.error('Consider channel not found');
     }
 
   } else {
-    console.error('No guild found');
+    logger.error('No guild found');
   }
 
   // Register other dashboards here
@@ -123,13 +124,13 @@ client.on('interactionCreate', async (interaction: Interaction<CacheType>) => {
   try {
 
   if (!interaction.isButton() && !interaction.isStringSelectMenu() && !interaction.isModalSubmit() && !interaction.isMessageComponent()){
-    console.log(`Interaction type not supported: ${interaction.type}`);
+    logger.info(`Interaction type not supported: ${interaction.type}`);
     return;
   }
 
   await dashboardManager.handleInteraction(interaction);
 } catch (error) {
-    console.error(error);
+    logger.error(error);
   }
 });
 

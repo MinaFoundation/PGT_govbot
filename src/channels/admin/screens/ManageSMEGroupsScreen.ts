@@ -8,6 +8,7 @@ import { AnyInteraction, AnyInteractionWithValues, AnyModalMessageComponent } fr
 import { PaginationComponent } from '../../../components/PaginationComponent';
 import { PaginationLogic } from '../../../utils/Pagination';
 import { InteractionProperties } from '../../../core/Interaction';
+import logger from '../../../logging';
 
 
 export class SMEGroupLogic {
@@ -409,7 +410,7 @@ class AddSMEGroupAction extends Action {
       const successMessage = `✅ SME Group '${name}' created successfully`;
       await this.screen.reRender(interaction, { successMessage: successMessage });
     } catch (err) {
-      console.error(err);
+      logger.error(err);
       const errorMessage = `🚫 An error occurred while creating the group '${name}'`;
       await this.screen.reRender(interaction, { errorMessage: errorMessage });
     }
@@ -503,7 +504,7 @@ class RemoveSMEGroupAction extends Action {
         ephemeral: true
       });
     } catch (error) {
-      console.error('Error fetching group details:', error);
+      logger.error('Error fetching group details:', error);
       await interaction.respond({ content: 'An error occurred while fetching group details. Please try again later.', ephemeral: true });
     }
   }
@@ -520,7 +521,7 @@ class RemoveSMEGroupAction extends Action {
       const successMessage = 'SME Group has been successfully removed along with all its dependencies.';
       await this.screen.render(interaction, { successMessage });
     } catch (error) {
-      console.error('Error removing SME Group:', error);
+      logger.error('Error removing SME Group:', error);
       const errorMessage = 'An error occurred while removing the SME Group. Please try again later.';
       await this.screen.render(interaction, { errorMessage });
     }
@@ -562,7 +563,7 @@ class ManageMembersAction extends PaginationComponent {
   }
 
   protected async handleOperation(interaction: TrackedInteraction, operationId: string): Promise<void> {
-    console.log(`Handling operation ${operationId} on ${interaction.customId}`);
+    logger.info(`Handling operation ${operationId} on ${interaction.customId}`);
 
     switch (operationId) {
       case ManageMembersAction.Operations.VIEW_MEMBERS:
@@ -605,7 +606,7 @@ class ManageMembersAction extends PaginationComponent {
       const successMessage = `Successfully removed ${removedCount} member(s) from the group.`;
       await this.handleViewMembers(interaction, successMessage);
     } catch (error) {
-      console.error('Error removing members from group:', error);
+      logger.error('Error removing members from group:', error);
       const errorMessage = 'An error occurred while removing members from the group. Please try again later.';
       await this.screen.reRender(interaction, { errorMessage });
     }
@@ -669,7 +670,7 @@ class ManageMembersAction extends PaginationComponent {
   }
 
   private async handleAddMembers(interaction: TrackedInteraction): Promise<void> {
-    console.log('Handling add members...');
+    logger.info('Handling add members...');
     const groupId = CustomIDOracle.getNamedArgument(interaction.customId, 'groupId');
     if (!groupId) {
       await interaction.respond({ content: 'Invalid group ID.', ephemeral: true });
@@ -711,7 +712,7 @@ class ManageMembersAction extends PaginationComponent {
       const successMessage = `Successfully added ${result.added} member(s) to the group. ${result.skipped} member(s) were already in the group and skipped.`;
       await this.handleViewMembers(interaction, successMessage);
     } catch (error) {
-      console.error('Error adding members to group:', error);
+      logger.error('Error adding members to group:', error);
       const errorMessage = 'An error occurred while adding members to the group. Please try again later.';
       await this.screen.reRender(interaction, { errorMessage });
     }

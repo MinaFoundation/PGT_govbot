@@ -44,6 +44,7 @@ import {
   SMEGroupMembershipAttributes,
   SMEGroupMembershipCreationAttributes,
 } from '../types';
+import logger from '../logging';
 
 const sequelize: Sequelize = new Sequelize({
   dialect: 'sqlite',
@@ -996,9 +997,9 @@ export {
 export const syncDatabase = async (): Promise<void> => {
   try {
     await sequelize.sync();
-    console.log('Database synced successfully');
+    logger.info('Database synced successfully');
   } catch (error) {
-    console.error('Error syncing database:', error);
+    logger.error('Error syncing database:\n', error);
   }
 };
 
