@@ -2,10 +2,11 @@ import { Screen, Action, Dashboard, Permission, TrackedInteraction, RenderArgs }
 import { ActionRowBuilder, ButtonBuilder, ButtonStyle, EmbedBuilder, StringSelectMenuBuilder, MessageActionRowComponentBuilder, TextInputStyle, TextInputBuilder, ModalBuilder, UserSelectMenuBuilder, User } from 'discord.js';
 import { FundingRoundLogic } from './FundingRoundLogic';
 import { CustomIDOracle } from '../../../CustomIDOracle';
-import { FundingRound, FundingRoundDeliberationCommitteeSelection, SMEGroup, TopicCommittee } from '../../../models';
+import { FundingRound, FundingRoundDeliberationCommitteeSelection, SMEGroup, Topic, TopicCommittee } from '../../../models';
 import { InteractionProperties } from '../../../core/Interaction';
 import { PaginationComponent } from '../../../components/PaginationComponent';
 import { FundingRoundPhase } from '../../../types';
+import { TopicLogic } from './ManageTopicLogicScreen';
 
 export class ManageFundingRoundsScreen extends Screen {
     public static readonly ID = 'manageFundingRounds';
@@ -563,13 +564,15 @@ export class ModifyFundingRoundAction extends Action {
 
         allPhasesSet = allPhasesSet && (fundingRound.startAt !== null) && (fundingRound.endAt !== null);
 
-
+        const topic: Topic = await fundingRound.getTopic();
+    
         const embed = new EmbedBuilder()
             .setColor('#0099ff')
             .setTitle(`Modify Funding Round: ${fundingRound.name} (${fundingRound.id})`)
             .setDescription('Select an action to modify the funding round:')
             .addFields(
                 { name: 'Description', value: fundingRound.description },
+                {name: 'Topic', value: topic.name},
                 { name: 'Budget', value: fundingRound.budget.toString() },
                 { name: 'Status', value: fundingRound.status },
                 { name: 'Voting Address', value: fundingRound.votingAddress },
@@ -629,6 +632,8 @@ export class ModifyFundingRoundAction extends Action {
             return;
         }
 
+        const topic: Topic = await fundingRound.getTopic()
+
         const modalInteraction = InteractionProperties.toShowModalOrUndefined(interaction.interaction);
         if (!modalInteraction) {
             await interaction.respond({ content: 'This interaction does not support modals.', ephemeral: true });
@@ -660,6 +665,13 @@ export class ModifyFundingRoundAction extends Action {
             .setValue(fundingRound.budget.toString())
             .setRequired(true);
 
+        const topicIntput = new TextInputBuilder()
+        .setCustomId(ModifyFundingRoundAction.INPUT_IDS.TOPIC_NAME)
+        .setLabel('Topic Name')
+        .setStyle(TextInputStyle.Short)
+        .setValue(topic.name)
+        .setRequired(true);
+
         const votingAddressInput = new TextInputBuilder()
             .setCustomId(ModifyFundingRoundAction.INPUT_IDS.VOTING_ADDRESS)
             .setLabel('Voting Address')
@@ -670,6 +682,7 @@ export class ModifyFundingRoundAction extends Action {
         modal.addComponents(
             new ActionRowBuilder<TextInputBuilder>().addComponents(nameInput),
             new ActionRowBuilder<TextInputBuilder>().addComponents(descriptionInput),
+            new ActionRowBuilder<TextInputBuilder>().addComponents(topicIntput),
             new ActionRowBuilder<TextInputBuilder>().addComponents(budgetInput),
             new ActionRowBuilder<TextInputBuilder>().addComponents(votingAddressInput)
         );
@@ -695,7 +708,14 @@ export class ModifyFundingRoundAction extends Action {
         const description = modalInteraction.fields.getTextInputValue(ModifyFundingRoundAction.INPUT_IDS.DESCRIPTION);
         const budget = parseFloat(modalInteraction.fields.getTextInputValue(ModifyFundingRoundAction.INPUT_IDS.BUDGET));
         const votingAddress = modalInteraction.fields.getTextInputValue(ModifyFundingRoundAction.INPUT_IDS.VOTING_ADDRESS);
+        const topicName = modalInteraction.fields.getTextInputValue(ModifyFundingRoundAction.INPUT_IDS.TOPIC_NAME);
 
+        const topic = await TopicLogic.getTopicByName(topicName)
+
+        if (!topic) {
+            await interaction.respond({ content: `No Topic with name ${topicName} found`, ephemeral: true });
+            return;
+        }
 
         if (isNaN(budget)) {
             await interaction.respond({ content: 'Invalid budget value. Please enter a valid number.', ephemeral: true });
@@ -707,7 +727,8 @@ export class ModifyFundingRoundAction extends Action {
                 name,
                 description,
                 budget,
-                votingAddress
+                votingAddress,
+                topicId:topic.id,
             });
 
             if (!updatedFundingRound) {
@@ -722,6 +743,7 @@ export class ModifyFundingRoundAction extends Action {
                 .addFields(
                     { name: 'Name', value: updatedFundingRound.name },
                     { name: 'Description', value: updatedFundingRound.description },
+                    { name: 'Topic', value: topic.name },
                     { name: 'Budget', value: updatedFundingRound.budget.toString() },
                     { name: 'Voting Address', value: updatedFundingRound.votingAddress }
                 );
