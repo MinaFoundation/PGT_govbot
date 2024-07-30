@@ -294,7 +294,10 @@ export class TopicLogic {
           numUsers: committee.numUsers
         };
       }
-    
+      
+      static async getTopicByName(name: string): Promise<Topic | null> {
+        return await Topic.findOne({ where: { name } });
+      }
 
 }
 

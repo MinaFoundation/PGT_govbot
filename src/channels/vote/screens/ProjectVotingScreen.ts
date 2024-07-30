@@ -221,7 +221,6 @@ export class SelectProjectAction extends PaginationComponent {
         phase = phase.toLowerCase();
 
         const projects = await FundingRoundLogic.getActiveProposalsForPhase(fundingRoundId, phase);
-        console.log(projects)
         return projects.slice(page * 25, (page + 1) * 25);
     }
 
@@ -399,6 +398,10 @@ class VoteProjectAction extends Action {
             return;
         }
 
+        const hasUserSubmittedReasoning: boolean = await VoteLogic.hasUserSubmittedDeliberationReasoning(interaction.interaction.user.id, projectId);
+        const gptResponseButtonLabel: string = hasUserSubmittedReasoning ? '✏️ Update Reasoning' : '✍️ Submit Reasoning';
+        const gptResponseButtonLabelWithoutEmoji: string = hasUserSubmittedReasoning ? 'Update Reasoning' : 'Submit Reasoning';
+
 
         // assuming consideration phase
         let description: string = `
@@ -423,7 +426,7 @@ class VoteProjectAction extends Action {
 
             The current phase is the deliberation phase. In this phase, you can submit your reasoning for why you believe the project should be funded or not.
 
-            Please note that your reasoning and discord user ID will be stored for internal records and may be analyzed by third-party systems.
+            Your reasoning and discord user ID will be stored for internal records and may be analyzed by third-party systems. By pressing the "${gptResponseButtonLabelWithoutEmoji}" button below, you agree to these terms.
          `
         }
 
@@ -458,9 +461,7 @@ class VoteProjectAction extends Action {
                 { name: 'Proposer Discord ID', value: project.proposerDuid, inline: true }
             );
 
-        let components: ActionRowBuilder<MessageActionRowComponentBuilder>[] = [];
-        const hasUserSubmittedReasoning: boolean = await VoteLogic.hasUserSubmittedDeliberationReasoning(interaction.interaction.user.id, projectId);
-        const label: string = hasUserSubmittedReasoning ? '✏️ Update Reasoning' : '✍️ Submit Reasoning';
+        let components: ActionRowBuilder<MessageActionRowComponentBuilder>[] = []; 
         switch (phase.toLowerCase()) {
             case 'consideration':
             case 'funding':
@@ -474,7 +475,7 @@ class VoteProjectAction extends Action {
             case 'deliberation':
                 const deliberationButton = new ButtonBuilder()
                     .setCustomId(CustomIDOracle.addArgumentsToAction(this, VoteProjectAction.OPERATIONS.submitDeliberationReasoning, 'projectId', projectId.toString(), 'fundingRoundId', fundingRoundId.toString()))
-                    .setLabel(label)
+                    .setLabel(gptResponseButtonLabel)
                     .setStyle(ButtonStyle.Primary);
                 components.push(new ActionRowBuilder<ButtonBuilder>().addComponents(deliberationButton));
                 break;
