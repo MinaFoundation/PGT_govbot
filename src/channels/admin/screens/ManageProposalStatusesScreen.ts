@@ -378,7 +378,6 @@ export class UpdateProposalStatusAction extends Action {
             const row = new ActionRowBuilder<ButtonBuilder>().addComponents(backButton);
 
             await interaction.update({ embeds: [embed], components: [row] });
-            await DiscordStatus.Success.success(interaction, `Proposal status updated to ${newStatus}`);
         } catch (error) {
             await DiscordStatus.Error.error(interaction, `Failed to update proposal status: ${error instanceof Error ? error.message : 'Unknown error'}`);
         }
