@@ -48,7 +48,7 @@ import logger from '../logging';
 
 const sequelize: Sequelize = new Sequelize({
   dialect: 'sqlite',
-  storage: 'database.sqlite',
+  storage: process.env.DB_STORAGE || './database.sqlite',
   logging: false,
 });
 

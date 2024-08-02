@@ -5,7 +5,7 @@ services:
     env_file:
       - .env
     environment:
-      DATABASE: /data/database.sqlite
+      DB_STORAGE: /data/database.sqlite
     volumes:
       - database-data:/data/
 
