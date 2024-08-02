@@ -1,0 +1,13 @@
+services:
+  bot:
+    image: pgt-gov-bot
+    build: .
+    env_file:
+      - .env
+    environment:
+      DB_STORAGE: /data/database.sqlite
+    volumes:
+      - database-data:/data/
+
+volumes:
+  database-data:
