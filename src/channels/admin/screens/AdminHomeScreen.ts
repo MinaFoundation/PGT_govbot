@@ -6,6 +6,7 @@ import { ActionRowBuilder, ButtonBuilder, ButtonStyle, EmbedBuilder, TextChannel
 import { ManageSMEGroupsScreen } from './ManageSMEGroupsScreen';
 import { ManageTopicsScreen } from './ManageTopicLogicScreen';
 import { ManageFundingRoundsScreen } from './ManageFundingRoundsScreen';
+import { ManageProposalStatusesScreen } from './ManageProposalStatusesScreen';
 
 
 export class AdminHomeScreen extends Screen implements IHomeScreen {
@@ -15,6 +16,8 @@ export class AdminHomeScreen extends Screen implements IHomeScreen {
   protected manageSMEGroupsScreen: ManageSMEGroupsScreen =  new ManageSMEGroupsScreen(this.dashboard, ManageSMEGroupsScreen.ID);
   protected manageTopicsScreen: ManageTopicsScreen = new ManageTopicsScreen(this.dashboard, ManageTopicsScreen.ID);
   protected manageFundingRoundsScreen: ManageFundingRoundsScreen = new ManageFundingRoundsScreen(this.dashboard, ManageFundingRoundsScreen.ID);
+  protected manageProposalStatusesScreen: ManageProposalStatusesScreen = new ManageProposalStatusesScreen(this.dashboard, ManageProposalStatusesScreen.ID);
+
 
   async renderToTextChannel(channel: TextChannel): Promise<void> {
     const embed = this.createEmbed();
@@ -43,6 +46,7 @@ export class AdminHomeScreen extends Screen implements IHomeScreen {
     return [
       this.manageSMEGroupsScreen,
       this.manageTopicsScreen,
+      this.manageFundingRoundsScreen,
     ]
   }
   protected allActions(): Action[] {
@@ -78,7 +82,12 @@ export class AdminHomeScreen extends Screen implements IHomeScreen {
           .setCustomId(this.manageFundingRoundsScreen.fullCustomId)
           .setLabel('Funding Round Management')
           .setStyle(ButtonStyle.Primary)
-          .setEmoji('💰')
+          .setEmoji('💰'),
+        new ButtonBuilder()
+          .setCustomId(this.manageProposalStatusesScreen.fullCustomId)
+          .setLabel('Proposal Status Management')
+          .setStyle(ButtonStyle.Primary)
+          .setEmoji('📊')
       );
   }
 }

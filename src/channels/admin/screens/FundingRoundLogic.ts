@@ -646,4 +646,21 @@ export class FundingRoundLogic {
         });
     }
 
+    static async getActiveFundingRounds(): Promise<FundingRound[]> {
+        const now = new Date();
+        return await FundingRound.findAll({
+          where: {
+            [Op.or]: [
+              { status: FundingRoundStatus.VOTING },
+              {
+                status: FundingRoundStatus.APPROVED,
+                startAt: { [Op.lte]: now },
+                endAt: { [Op.gte]: now }
+              }
+            ]
+          },
+          order: [['createdAt', 'DESC']]
+        });
+      }
+
 }
