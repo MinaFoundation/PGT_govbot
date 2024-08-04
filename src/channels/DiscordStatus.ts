@@ -1,9 +1,26 @@
 import { TrackedInteraction } from "../core/BaseClasses";
+import { EndUserError } from "../Errors";
 
 
 export class DiscordStatus {
 
     public static Error = {
+
+        async handleError(interaction: TrackedInteraction, error: unknown, message: string): Promise<void> {
+
+            if (error instanceof Error) {
+                const errorMessage = error instanceof EndUserError ? `${message}: ${error.message}` : `Oops! There's been an error while processing your request. Please contact support.`;
+                const data = DiscordStatus.Error.errorData(errorMessage)
+                await interaction.respond(data);
+
+            } else {
+                const errorMessage = `Oops! There's been an error while processing your request. Please contact support.`;
+                const data = DiscordStatus.Error.errorData(errorMessage);
+                await interaction.respond(data);
+            }
+
+       },
+
         async error(interaction: TrackedInteraction, message: string): Promise<void> {
             const data = DiscordStatus.Error.errorData(message);
 
@@ -12,7 +29,7 @@ export class DiscordStatus {
 
         errorData(message: string): any {
             return {
-                content: `❌: ${message}`,
+                content: `❌ ${message}`,
                 ephemeral: true,
             };
         }
