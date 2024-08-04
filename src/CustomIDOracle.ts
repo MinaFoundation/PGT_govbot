@@ -1,4 +1,5 @@
 import type { Dashboard, Screen, Action } from './core/BaseClasses';
+import { EndUserError } from './Errors';
 
 export class CustomIDOracle {
   static readonly SEPARATOR = ':';
@@ -24,7 +25,33 @@ export class CustomIDOracle {
     const customId = parts.join(this.SEPARATOR);
     
     if (customId.length > this.MAX_LENGTH) {
-      throw new Error(`Custom ID exceeds maximum length of ${this.MAX_LENGTH} characters`);
+      throw new EndUserError(`Custom ID exceeds maximum length of ${this.MAX_LENGTH} characters`);
+    }
+    
+    return customId;
+  }
+
+  static customIdFromRawParts(dashboardId: string, screenId?: string, actionId?: string, operationId?: string, ...args: string[]): string {
+    const parts = [dashboardId];
+
+    if (screenId) {
+      parts.push(screenId);
+    }
+    
+    if (actionId) {
+      parts.push(actionId);
+    }
+    
+    if (operationId) {
+      parts.push(operationId);
+    }
+    
+    parts.push(...args);
+    
+    const customId = parts.join(this.SEPARATOR);
+    
+    if (customId.length > this.MAX_LENGTH) {
+      throw new EndUserError(`Custom ID exceeds maximum length of ${this.MAX_LENGTH} characters`);
     }
     
     return customId;
@@ -32,14 +59,14 @@ export class CustomIDOracle {
 
   static addArgumentsToAction(action: Action, operation?: string, ...args: string[]): string {
     if (args.length % 2 !== 0) {
-      throw new Error('Arguments must be key-value pairs');
+      throw new EndUserError('Arguments must be key-value pairs');
     }
     const customId = this.generateCustomId(action.screen.dashboard, action.screen, action, operation);
 
     const outputCustomId: string = `${customId}${this.SEPARATOR}${args.join(this.SEPARATOR)}`;
 
     if (outputCustomId.length > this.MAX_LENGTH) {
-      throw new Error(`Custom ID exceeds maximum length of ${this.MAX_LENGTH} characters by ${outputCustomId.length - this.MAX_LENGTH} characters`);
+      throw new EndUserError(`Custom ID exceeds maximum length of ${this.MAX_LENGTH} characters by ${outputCustomId.length - this.MAX_LENGTH} characters`);
     }
 
     return outputCustomId;
