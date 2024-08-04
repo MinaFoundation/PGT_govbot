@@ -97,6 +97,7 @@ export interface FundingRoundAttributes extends CoreAttributes {
   votingAddress: string;
   status: FundingRoundStatus;
   votingOpenUntil: Date | null;
+  forumChannelId: string | null;
   startAt: Date | null;
   endAt: Date | null;
 }
@@ -136,6 +137,7 @@ export interface ProposalAttributes extends CoreAttributes {
   budget: number;
   uri: string;
   fundingRoundId: number | null;
+  forumThreadId: string | null;
   status: ProposalStatus;
 }
 

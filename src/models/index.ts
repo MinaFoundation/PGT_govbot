@@ -299,6 +299,7 @@ class FundingRound extends Model<FundingRoundAttributes, FundingRoundCreationAtt
   public votingAddress!: string;
   public status!: FundingRoundStatus;
   public votingOpenUntil!: Date;
+  public forumChannelId!: string;
   public startAt!: Date;
   public endAt!: Date;
   public readonly createdAt!: Date;
@@ -358,6 +359,10 @@ FundingRound.init(
     },
     votingOpenUntil: {
       type: DataTypes.DATE,
+      allowNull: true,
+    },
+    forumChannelId: {
+      type: DataTypes.STRING,
       allowNull: true,
     },
     startAt: {
@@ -590,6 +595,7 @@ class Proposal extends Model<ProposalAttributes, ProposalCreationAttributes> imp
   public budget!: number;
   public uri!: string;
   public fundingRoundId!: number | null;
+  public forumThreadId!: string | null;
   public status!: ProposalStatus;
   public readonly createdAt!: Date;
   public readonly updatedAt!: Date;
@@ -630,6 +636,10 @@ Proposal.init(
       type: DataTypes.ENUM(...Object.values(ProposalStatus)),
       allowNull: false,
       defaultValue: ProposalStatus.DRAFT,
+    },
+    forumThreadId: {
+      type: DataTypes.STRING,
+      allowNull: true,
     },
   },
   {
