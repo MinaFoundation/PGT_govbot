@@ -1,3 +1,4 @@
+import { EndUserError } from "../Errors";
 import { FundingRound, Proposal } from "../models";
 import { ProposalStatus } from "../types";
 
@@ -16,21 +17,21 @@ export class AdminProposalLogic {
     static async updateProposalStatus(id: number, newStatus: ProposalStatus): Promise<Proposal> {
       const proposal = await this.getProposalById(id);
       if (!proposal) {
-        throw new Error('Proposal not found');
+        throw new EndUserError('Proposal not found');
       }
 
       if (!proposal.fundingRoundId) {
-        throw new Error(`Proposal ${id} does not have a Funding Round associated`);
+        throw new EndUserError(`Proposal ${id} does not have a Funding Round associated`);
       }
   
       const fundingRound = await FundingRound.findByPk(proposal.fundingRoundId);
       if (!fundingRound) {
-        throw new Error('Associated Funding Round not found');
+        throw new EndUserError('Associated Funding Round not found');
       }
   
       // Validate the status change based on the current Funding Round phase
       if (!this.isValidStatusChange(proposal.status, newStatus, fundingRound)) {
-        throw new Error('Invalid status change for the current Funding Round phase');
+        throw new EndUserError('Invalid status change for the current Funding Round phase');
       }
   
       proposal.status = newStatus;

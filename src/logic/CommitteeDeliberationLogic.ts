@@ -3,6 +3,7 @@
 import { FundingRound, Proposal, CommitteeDeliberationVoteLog, FundingRoundDeliberationCommitteeSelection, DeliberationPhase } from '../models';
 import { Op } from 'sequelize';
 import { CommitteeDeliberationVoteChoice, ProposalStatus } from '../types';
+import { EndUserError } from '../Errors';
 
 export class CommitteeDeliberationLogic {
   static async getEligibleFundingRounds(userId: string): Promise<FundingRound[]> {
@@ -88,21 +89,21 @@ export class CommitteeDeliberationLogic {
     const fundingRound = await FundingRound.findByPk(fundingRoundId);
 
     if (!project || !fundingRound) {
-      throw new Error('Project or Funding Round not found.');
+      throw new EndUserError('Project or Funding Round not found.');
     }
 
     if (project.status !== ProposalStatus.DELIBERATION_PHASE) {
-      throw new Error('This project is not in the deliberation phase.');
+      throw new EndUserError('This project is not in the deliberation phase.');
     }
 
     const deliberationPhase = await DeliberationPhase.findOne({ where: { fundingRoundId } });
     if (!deliberationPhase) {
-      throw new Error('Deliberation phase not found for this funding round.');
+      throw new EndUserError('Deliberation phase not found for this funding round.');
     }
 
     const now = new Date();
     if (now < deliberationPhase.startAt || now > deliberationPhase.endAt) {
-      throw new Error('Deliberation phase is not active.');
+      throw new EndUserError('Deliberation phase is not active.');
     }
 
     await CommitteeDeliberationVoteLog.create({
