@@ -9,6 +9,7 @@ import { CommitteeDeliberationVoteLog, DeliberationPhase, FundingRound, FundingR
 import { Op } from 'sequelize';
 import { PaginationComponent } from '../../components/PaginationComponent';
 import { CommitteeDeliberationVoteChoice } from '../../types';
+import { EndUserError } from '../../Errors';
 
 const FUNDING_ROUND_ID: string = 'fId';
 
@@ -305,7 +306,7 @@ class SelectVoteTypeAction extends Action {
     }
 
     getComponent(): ButtonBuilder {
-        throw new Error('SelectVoteTypeAction does not have a standalone component.');
+        throw new EndUserError('SelectVoteTypeAction does not have a standalone component.');
     }
 }
 
@@ -666,6 +667,6 @@ class CommitteeDeliberationVoteAction extends Action {
     }
 
     getComponent(): ButtonBuilder {
-        throw new Error('CommitteeDeliberationVoteAction does not have a standalone component.');
+        throw new EndUserError('CommitteeDeliberationVoteAction does not have a standalone component.');
     }
 }

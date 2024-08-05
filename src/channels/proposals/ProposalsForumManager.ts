@@ -114,7 +114,6 @@ export class ProposalsForumManager {
   private static createVoteButton(proposalId: number, fundingRoundId: number, screen: any): ActionRowBuilder<ButtonBuilder> {
     const customId: string = CustomIDOracle.customIdFromRawParts(VoteDashboard.ID, ProjectVotingScreen.ID, SelectProjectAction.ID, SelectProjectAction.OPERATIONS.selectProject, "projectId", proposalId.toString(), "fundingRoundId", fundingRoundId.toString(), "phase", "deliberation");
     const button = new ButtonBuilder()
-    // vote:projectVoting:selectProject:selectProject:fundingRoundId:20:phase:consideration
       .setCustomId(customId)
       .setLabel('Vote On This Proposal')
       .setStyle(ButtonStyle.Primary);
@@ -136,6 +135,7 @@ export class ProposalsForumManager {
     const allChannels = await guild.channels.fetch();
     logger.info("Hello")
     logger.info(`All channels: ${allChannels.map(channel => channel?.name).join(', ')}`);
+    // TODO: read channel from FundingRound
     const channel = await guild.channels.fetch("1255865955909636106");
 
     return channel && channel.type === ChannelType.GuildForum ? channel as ForumChannel : null;

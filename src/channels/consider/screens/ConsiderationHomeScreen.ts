@@ -9,6 +9,7 @@ import { ConsiderationLogic } from '../../../logic/ConsiderationLogic';
 import { FundingRound, Proposal } from '../../../models';
 import { IHomeScreen } from '../../../types/common';
 import { CONSIDERATION_CONSTANTS } from '../Constants';
+import { EndUserError } from '../../../Errors';
 
 export class ConsiderationHomeScreen extends Screen implements IHomeScreen {
     public static readonly ID = CONSIDERATION_CONSTANTS.SCREEN_IDS.HOME;
@@ -238,7 +239,7 @@ class SelectVoteTypeAction extends Action {
     }
 
     getComponent(): ButtonBuilder {
-        throw new Error('SelectVoteTypeAction does not have a standalone component.');
+        throw new EndUserError('SelectVoteTypeAction does not have a standalone component.');
     }
 }
 
@@ -502,6 +503,6 @@ class SMEConsiderationVoteAction extends Action {
     }
 
     getComponent(): ButtonBuilder {
-        throw new Error('SMEConsiderationVoteAction does not have a standalone component.');
+        throw new EndUserError('SMEConsiderationVoteAction does not have a standalone component.');
     }
 }

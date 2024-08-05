@@ -7,6 +7,7 @@ import { FundingRoundLogic } from '../../admin/screens/FundingRoundLogic';
 import { FundingRound, Topic } from '../../../models';
 import { InteractionProperties } from '../../../core/Interaction';
 import { IHomeScreen } from '../../../types/common';
+import { EndUserError } from '../../../Errors';
 
 
 const FUNDING_ROUND_ID_ARG: string = "fid";
@@ -238,7 +239,7 @@ export class CreateDraftFundingRoundAction extends Action {
             const topicIdFromCustomId: string | undefined = CustomIDOracle.getNamedArgument(interaction.customId, 'topicId');
             if (!topicIdFromCustomId) {
                 await interaction.respond({ content: 'Topic ID not provided neither in customId, nor in context', ephemeral: true });
-                throw new Error('Topic ID not provided neither in customId, nor in context');
+                throw new EndUserError('Topic ID not provided neither in customId, nor in context');
             } else {
                 topicId = parseInt(topicIdFromCustomId);
             }
@@ -522,7 +523,7 @@ export class VoteFundingRoundAction extends PaginationComponent {
             const fundingRoundIdFromContext: string | undefined = interaction.Context.get(FUNDING_ROUND_ID_ARG);
             if (!fundingRoundIdFromContext) {
                 await interaction.respond({ content: 'fundingRoundId not provided neither in customId, nor in context', ephemeral: true });
-                throw new Error('fundingRoundId not provided neither in customId, nor in context');
+                throw new EndUserError('fundingRoundId not provided neither in customId, nor in context');
             } else {
                 fundingRoundId = parseInt(fundingRoundIdFromContext);
             }

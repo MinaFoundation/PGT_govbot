@@ -11,6 +11,7 @@ import { InteractionProperties } from '../../../core/Interaction';
 import { FundingRoundLogic } from '../../admin/screens/FundingRoundLogic';
 import { OCVLinkGenerator } from '../../../utils/OCVLinkGenerator';
 import logger from '../../../logging';
+import { DiscordStatus } from '../../DiscordStatus';
 
 export class ProjectVotingScreen extends Screen {
     public static readonly ID = 'projectVoting';
@@ -314,13 +315,12 @@ export class SelectProjectAction extends PaginationComponent {
     }
 
     private async handleSelectProject(interaction: TrackedInteraction): Promise<void> {
-        const interactionWithValues = InteractionProperties.toInteractionWithValuesOrUndefined(interaction.interaction);
-        if (!interactionWithValues) {
-            await interaction.respond({ content: 'Invalid interaction type.', ephemeral: true });
+        const projectId = interaction.getFromValuesCustomIdOrContext(0, "projectId");
+        if (!projectId) {
+            await DiscordStatus.Error.error(interaction, 'projectId argument not provided');
             return;
         }
 
-        const projectId = parseInt(interactionWithValues.values[0]);
         const fundingRoundIdFromCI: string | undefined = CustomIDOracle.getNamedArgument(interaction.customId, 'fundingRoundId');
 
         if (!fundingRoundIdFromCI) {
@@ -585,7 +585,9 @@ class VoteProjectAction extends Action {
 
             await interaction.respond({ embeds: [embed], ephemeral: true });
         } catch (error) {
-            await interaction.respond({ content: `Error submitting reasoning: ${error instanceof Error ? error.message : 'Unknown error'}`, ephemeral: true });
+            logger.error('Error submitting reasoning');
+            await DiscordStatus.Error.handleError(interaction, error, 'Failed to submit reasoning');
+            throw error;
         }
     }
 

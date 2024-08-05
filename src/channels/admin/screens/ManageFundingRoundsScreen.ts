@@ -8,6 +8,7 @@ import { PaginationComponent } from '../../../components/PaginationComponent';
 import { FundingRoundPhase } from '../../../types';
 import { TopicLogic } from './ManageTopicLogicScreen';
 import logger from '../../../logging';
+import { EndUserError } from '../../../Errors';
 
 
 export class ManageFundingRoundsScreen extends Screen {
@@ -199,7 +200,7 @@ export class CreateFundingRoundAction extends Action {
         const modalInteraction = InteractionProperties.toModalSubmitInteractionOrUndefined(interaction.interaction);
         if (!modalInteraction) {
             await interaction.respond({ content: 'Invalid interaction type', ephemeral: true });
-            throw new Error('Invalid interaction type ' + interaction.interaction);
+            throw new EndUserError('Invalid interaction type ' + interaction.interaction);
         }
 
         const name = modalInteraction.fields.getTextInputValue(CreateFundingRoundAction.INPUT_IDS.NAME);
@@ -544,7 +545,7 @@ export class ModifyFundingRoundAction extends Action {
             const fundingRoundIdArg = CustomIDOracle.getNamedArgument(interaction.customId, 'fundingRoundId');
             if (!fundingRoundIdArg) {
                 await interaction.respond({ content: 'Invalid interaction type.', ephemeral: true });
-                throw new Error('Invalid interaction type, and no context passed in customId');
+                throw new EndUserError('Invalid interaction type, and no context passed in customId');
             }
             fundingRoundId = parseInt(fundingRoundIdArg);
 
@@ -696,7 +697,7 @@ export class ModifyFundingRoundAction extends Action {
         const modalInteraction = InteractionProperties.toModalSubmitInteractionOrUndefined(interaction.interaction);
         if (!modalInteraction) {
             await interaction.respond({ content: 'Invalid interaction type.', ephemeral: true });
-            throw new Error('Invalid interaction type ' + interaction.interaction);
+            throw new EndUserError('Invalid interaction type ' + interaction.interaction);
 
         }
 
@@ -821,7 +822,7 @@ export class ModifyFundingRoundAction extends Action {
         const modalInteraction = InteractionProperties.toModalSubmitInteractionOrUndefined(interaction.interaction);
         if (!modalInteraction) {
             await interaction.respond({ content: 'Invalid interaction type.', ephemeral: true });
-            throw new Error('Invalid interaction type ' + interaction.interaction);
+            throw new EndUserError('Invalid interaction type ' + interaction.interaction);
         }
 
         const fundingRoundId = CustomIDOracle.getNamedArgument(interaction.customId, 'fundingRoundId');
@@ -961,7 +962,7 @@ export class SetFundingRoundCommitteeAction extends PaginationComponent {
         if (fundingRoundId === undefined) {
             const fundingRoundIdFromCustomId = CustomIDOracle.getNamedArgument(interaction.customId, 'fundingRoundId');
             if (!fundingRoundIdFromCustomId) {
-                throw new Error('Invalid funding round ID');
+                throw new EndUserError('Invalid funding round ID');
             }
             parsedFundingRoundId = parseInt(fundingRoundIdFromCustomId);
         } else {
@@ -970,7 +971,7 @@ export class SetFundingRoundCommitteeAction extends PaginationComponent {
 
         const fundingRound = await FundingRoundLogic.getFundingRoundById(parsedFundingRoundId);
         if (!fundingRound) {
-            throw new Error('Funding round not found');
+            throw new EndUserError('Funding round not found');
         }
 
         const topicCommittees = await TopicCommittee.findAll({
@@ -994,7 +995,7 @@ export class SetFundingRoundCommitteeAction extends PaginationComponent {
         if (fundingRoundId === undefined) {
             const fundingRoundIdFromCustomId = CustomIDOracle.getNamedArgument(interaction.customId, 'fundingRoundId');
             if (!fundingRoundIdFromCustomId) {
-                throw new Error('Invalid funding round ID');
+                throw new EndUserError('Invalid funding round ID');
             }
             parsedFundingRoundId = parseInt(fundingRoundIdFromCustomId);
         } else {
@@ -1003,7 +1004,7 @@ export class SetFundingRoundCommitteeAction extends PaginationComponent {
 
         const fundingRound = await FundingRoundLogic.getFundingRoundById(parsedFundingRoundId);
         if (!fundingRound) {
-            throw new Error('Funding round not found: ' + parsedFundingRoundId);
+            throw new EndUserError('Funding round not found: ' + parsedFundingRoundId);
         }
 
         const topicCommittees = await TopicCommittee.findAll({
@@ -1062,7 +1063,7 @@ export class SetFundingRoundCommitteeAction extends PaginationComponent {
             fundingRoundId = CustomIDOracle.getNamedArgument(interaction.customId, 'fundingRoundId');
             if (!fundingRoundId) {
                 await interaction.respond({ content: 'No values and no fundingRound in customId', ephemeral: true });
-                throw new Error(`No values and no fundingRound in customId`);
+                throw new EndUserError(`No values and no fundingRound in customId`);
             }
         } else {
             fundingRoundId = interactionWithValues.values[0];
@@ -1103,7 +1104,7 @@ export class SetFundingRoundCommitteeAction extends PaginationComponent {
         const interactionWithValues = InteractionProperties.toInteractionWithValuesOrUndefined(interaction.interaction);
         if (!interactionWithValues) {
             await interaction.respond({ content: 'Invalid interaction type.', ephemeral: true });
-            throw new Error('Invalid interaction type ' + interaction.interaction);
+            throw new EndUserError('Invalid interaction type ' + interaction.interaction);
         }
 
         const fundingRoundId = CustomIDOracle.getNamedArgument(interaction.customId, 'fundingRoundId');
@@ -1259,7 +1260,7 @@ export class ApproveFundingRoundAction extends Action {
         const interactionWithValues = InteractionProperties.toInteractionWithValuesOrUndefined(interaction.interaction);
         if (!interactionWithValues) {
             await interaction.respond({ content: 'Invalid interaction type.', ephemeral: true });
-            throw new Error('Invalid interaction type ' + interaction.interaction);
+            throw new EndUserError('Invalid interaction type ' + interaction.interaction);
         }
 
         const fundingRoundId = parseInt(interactionWithValues.values[0]);
@@ -1387,7 +1388,7 @@ export class RemoveFundingRoundCommitteeAction extends PaginationComponent {
         if (fundingRoundId === undefined) {
             const fundingRoundIdFromCustomId = CustomIDOracle.getNamedArgument(interaction.customId, 'fundingRoundId');
             if (!fundingRoundIdFromCustomId) {
-                throw new Error('Invalid funding round ID');
+                throw new EndUserError('Invalid funding round ID');
             }
             parsedFundingRoundId = parseInt(fundingRoundIdFromCustomId);
         } else {
@@ -1403,7 +1404,7 @@ export class RemoveFundingRoundCommitteeAction extends PaginationComponent {
         if (fundingRoundId === undefined) {
             const fundingRoundIdFromCustomId = CustomIDOracle.getNamedArgument(interaction.customId, 'fundingRoundId');
             if (!fundingRoundIdFromCustomId) {
-                throw new Error('Invalid funding round ID');
+                throw new EndUserError('Invalid funding round ID');
             }
             parsedFundingRoundId = parseInt(fundingRoundIdFromCustomId);
         } else {

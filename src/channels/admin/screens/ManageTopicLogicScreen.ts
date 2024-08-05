@@ -9,6 +9,7 @@ import { allowedNodeEnvironmentFlags } from 'process';
 import { InteractionProperties } from '../../../core/Interaction';
 import { parsed } from 'yargs';
 import logger from '../../../logging';
+import { EndUserError } from '../../../Errors';
 
 interface TopicCommitteeWithSMEGroup extends TopicCommitteeAttributes {
     smeGroupName: string;
@@ -45,7 +46,7 @@ export class TopicLogic {
     static async deleteTopicWithDependencies(topicId: number): Promise<void> {
         const topic = await this.getTopicById(topicId);
         if (!topic) {
-            throw new Error('Topic not found');
+            throw new EndUserError('Topic not found');
         }
 
         await Topic.sequelize!.transaction(async (t) => {
@@ -65,7 +66,7 @@ export class TopicLogic {
     static async setAllowedSMEGroups(topicId: number, smeGroupNames: string[]): Promise<void> {
         const topic = await this.getTopicById(topicId);
         if (!topic) {
-            throw new Error('Topic not found');
+            throw new EndUserError('Topic not found');
         }
 
         const smeGroups = await SMEGroup.findAll({
@@ -77,7 +78,7 @@ export class TopicLogic {
         if (smeGroups.length !== smeGroupNames.length) {
             const foundNames = smeGroups.map(group => group.name);
             const missingNames = smeGroupNames.filter(name => !foundNames.includes(name));
-            throw new Error(`The following SME groups were not found: ${missingNames.join(', ')}`);
+            throw new EndUserError(`The following SME groups were not found: ${missingNames.join(', ')}`);
         }
 
         await TopicSMEGroupProposalCreationLimiter.destroy({
@@ -95,7 +96,7 @@ export class TopicLogic {
     static async updateTopic(topicId: number, name: string, description: string): Promise<void> {
         const topic = await this.getTopicById(topicId);
         if (!topic) {
-            throw new Error('Topic not found');
+            throw new EndUserError('Topic not found');
         }
 
         await topic.update({ name, description });
@@ -104,7 +105,7 @@ export class TopicLogic {
     static async clearAllowedSMEGroups(topicId: number): Promise<void> {
         const topic = await this.getTopicById(topicId);
         if (!topic) {
-            throw new Error('Topic not found');
+            throw new EndUserError('Topic not found');
         }
 
         await TopicSMEGroupProposalCreationLimiter.destroy({
@@ -122,7 +123,7 @@ export class TopicLogic {
         if (smeGroups.length !== smeGroupNames.length) {
             const foundNames = smeGroups.map(group => group.name);
             const missingNames = smeGroupNames.filter(name => !foundNames.includes(name));
-            throw new Error(`The following SME groups were not found: ${missingNames.join(', ')}`);
+            throw new EndUserError(`The following SME groups were not found: ${missingNames.join(', ')}`);
         }
     }
 
@@ -160,7 +161,7 @@ export class TopicLogic {
         });
 
         if (!topic) {
-            throw new Error('Topic not found');
+            throw new EndUserError('Topic not found');
         }
 
         const committeesQuery: Promise<TopicCommittee[]> = TopicCommittee.findAll({
@@ -214,12 +215,12 @@ export class TopicLogic {
       static async addTopicCommittee(topicId: number, smeGroupName: string, numUsers: number): Promise<TopicCommitteeWithSMEGroup> {
         const topic = await Topic.findByPk(topicId);
         if (!topic) {
-          throw new Error('Topic not found');
+          throw new EndUserError('Topic not found');
         }
     
         const smeGroup = await SMEGroup.findOne({ where: { name: smeGroupName } });
         if (!smeGroup) {
-          throw new Error('SME Group not found');
+          throw new EndUserError('SME Group not found');
         }
     
         const existingCommittee = await TopicCommittee.findOne({
@@ -227,7 +228,7 @@ export class TopicLogic {
         });
     
         if (existingCommittee) {
-          throw new Error('A committee for this SME group already exists for this topic');
+          throw new EndUserError('A committee for this SME group already exists for this topic');
         }
     
         const committee = await TopicCommittee.create({
@@ -248,12 +249,12 @@ export class TopicLogic {
       static async updateTopicCommittee(committeeId: number, numUsers: number): Promise<TopicCommitteeWithSMEGroup> {
         const committee = await TopicCommittee.findByPk(committeeId);
         if (!committee) {
-          throw new Error('Committee not found');
+          throw new EndUserError('Committee not found');
         }
     
         const smeGroup = await SMEGroup.findByPk(committee.smeGroupId);
         if (!smeGroup) {
-          throw new Error('Associated SME Group not found');
+          throw new EndUserError('Associated SME Group not found');
         }
     
         await committee.update({ numUsers });
@@ -270,7 +271,7 @@ export class TopicLogic {
       static async removeTopicCommittee(committeeId: number): Promise<void> {
         const committee = await TopicCommittee.findByPk(committeeId);
         if (!committee) {
-          throw new Error('Committee not found');
+          throw new EndUserError('Committee not found');
         }
     
         await committee.destroy();
@@ -284,7 +285,7 @@ export class TopicLogic {
     
         const smeGroup = await SMEGroup.findByPk(committee.smeGroupId);
         if (!smeGroup) {
-          throw new Error('Associated SME Group not found');
+          throw new EndUserError('Associated SME Group not found');
         }
     
         return {
@@ -307,7 +308,7 @@ class TopicsPaginationAction extends PaginationComponent {
         return []
     }
     getComponent(...args: any[]): AnyModalMessageComponent {
-        throw new Error('Method not implemented.');
+        throw new EndUserError('Method not implemented.');
     }
     public static readonly ID = 'topicsPagination';
 
@@ -1078,7 +1079,7 @@ export class ManageTopicCommitteesAction extends Action {
       
       const committee = await TopicCommittee.findByPk(committeeId); 
         if (!committee) {
-            throw new Error(`Committee with ID ${committeeId} not found`);
+            throw new EndUserError(`Committee with ID ${committeeId} not found`);
         }
       interaction.Context.set('topicId', committee.topicId.toString());
 
@@ -1180,7 +1181,7 @@ export class CommitteePaginationAction extends PaginationComponent {
 
       const topicId = topicIdFromCustomId ? topicIdFromCustomId : contextTopicId;
 
-      if (!topicId) throw new Error('Topic ID not provided');
+      if (!topicId) throw new EndUserError('Topic ID not provided');
       const committees = await TopicLogic.getTopicCommittees(parseInt(topicId));
       return Math.ceil(committees.length / 3); // 4 committees per page
     }
@@ -1190,7 +1191,7 @@ export class CommitteePaginationAction extends PaginationComponent {
         const contextTopicId = interaction.Context.get('topicId');
   
         const topicId = topicIdFromCustomId ? topicIdFromCustomId : contextTopicId;
-      if (!topicId) throw new Error('Topic ID not provided');
+      if (!topicId) throw new EndUserError('Topic ID not provided');
       const committees = await TopicLogic.getTopicCommittees(parseInt(topicId));
       return committees.slice(page * 3, (page + 1) * 3);
     }
@@ -1267,6 +1268,6 @@ export class CommitteePaginationAction extends PaginationComponent {
     }
   
     getComponent(...args: any[]): AnyModalMessageComponent {
-      throw new Error('Method not implemented.');
+      throw new EndUserError('Method not implemented.');
     }
   }

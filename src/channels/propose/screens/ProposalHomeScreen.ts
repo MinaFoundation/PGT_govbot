@@ -10,6 +10,7 @@ import { FundingRound, Proposal } from '../../../models';
 import { ProposalStatus } from '../../../types';
 
 export class ProposalHomeScreen extends Screen implements IHomeScreen {
+
     public static readonly ID = 'proposalHome';
 
     protected permissions: Permission[] = []; // Add appropriate permissions if needed
@@ -608,7 +609,8 @@ export class ManageDraftsAction extends PaginationComponent {
         }
 
         try {
-            await ProposalLogic.updateProposal(parseInt(proposalId), { name, budget, uri });
+
+            await ProposalLogic.updateProposal(parseInt(proposalId), { name, budget, uri }, this._screen);
             const successMessage = `✅ '${name}' details updated successfully`;
             await this.handleSelectDraft(interaction, true, successMessage);
         } catch (error) {
@@ -811,6 +813,7 @@ export class CreateNewProposalAction extends Action {
                 proposerDuid: interaction.interaction.user.id,
                 status: ProposalStatus.DRAFT,
                 fundingRoundId: null,
+                forumThreadId: null,
             });
 
             const embed = new EmbedBuilder()
@@ -996,7 +999,7 @@ export class SubmitProposalToFundingRoundAction extends Action {
         const fundingRoundId = parseInt(CustomIDOracle.getNamedArgument(interaction.customId, 'fundingRoundId') || '');
 
         try {
-            await ProposalLogic.submitProposalToFundingRound(proposalId, fundingRoundId);
+            await ProposalLogic.submitProposalToFundingRound(proposalId, fundingRoundId, this.screen);
 
             const embed = new EmbedBuilder()
                 .setColor('#00FF00')

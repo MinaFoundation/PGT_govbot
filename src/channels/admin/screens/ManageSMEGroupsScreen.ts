@@ -9,6 +9,7 @@ import { PaginationComponent } from '../../../components/PaginationComponent';
 import { PaginationLogic } from '../../../utils/Pagination';
 import { InteractionProperties } from '../../../core/Interaction';
 import logger from '../../../logging';
+import { EndUserError } from '../../../Errors';
 
 
 export class SMEGroupLogic {
@@ -123,7 +124,7 @@ export class SMEGroupLogic {
   static async getGroupDetails(groupId: number): Promise<{ name: string; memberCount: number; dependencies: string[] }> {
     const group = await SMEGroup.findByPk(groupId);
     if (!group) {
-      throw new Error('Group not found');
+      throw new EndUserError('Group not found');
     }
 
     const memberCount = await SMEGroupMembership.count({ where: { smeGroupId: groupId } });
@@ -163,7 +164,7 @@ class SMEGroupsPaginationAction extends PaginationComponent {
     return []
   }
   getComponent(...args: any[]): AnyModalMessageComponent {
-    throw new Error('Method not implemented.');
+    throw new EndUserError('Method not implemented.');
   }
   public static readonly ID = 'smeGroupsPagination';
 
