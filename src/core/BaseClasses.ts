@@ -2,9 +2,10 @@
 // BaseClasses.ts
 import { InteractionResponse, Message, MessageComponentInteraction } from 'discord.js';
 import { CustomIDOracle } from '../CustomIDOracle';
-import { AnyModalMessageComponent, AnyInteraction, HomeScreen } from '../types/common';
+import { AnyModalMessageComponent, AnyInteraction, HomeScreen, AnyInteractionWithValues } from '../types/common';
 import { InteractionProperties } from './Interaction';
 import logger from '../logging';
+import { EndUserError } from '../Errors';
 
 export interface RenderArgs {
     successMessage?: string,
@@ -18,6 +19,32 @@ export class TrackedInteraction {
 
     constructor(interaction: AnyInteraction) {
         this.interaction = interaction;
+    }
+
+    public getFromCustomId(name: string): string | undefined {
+        return CustomIDOracle.getNamedArgument(this.customId, name);
+    }
+
+    public getFromValuesCustomIdOrContext(index: number, name: string) {
+        const interactionWithValues: AnyInteractionWithValues | undefined = InteractionProperties.toInteractionWithValuesOrUndefined(this.interaction);
+        logger.trace(`Looking for value at index ${index} for name ${name}, in ${this.interaction.customId}`); 
+        if (interactionWithValues) {
+            const value = interactionWithValues.values[index];
+            logger.trace(`Interaction values: ${interactionWithValues.values}, returning value at index ${index}: ${value}`);
+            return value;
+        }
+
+        const valueFromCustomId = this.getFromCustomId(name);
+        if (valueFromCustomId) {
+            logger.trace(`Returning value from custom_id: ${valueFromCustomId}`);
+            return valueFromCustomId;
+        }
+
+        const valueFromContext = this.Context.get(name);
+        if (valueFromContext) {
+            logger.trace(`Returning value from context: ${valueFromContext}`);
+        }
+        return valueFromContext;
     }
 
     get customId(): string {
@@ -58,7 +85,7 @@ export class TrackedInteraction {
         if (parsedInteraction) {
             return await parsedInteraction.update(args);
         } else {
-            throw new Error('Interaction is not updatable, so unable to update');
+            throw new EndUserError('Interaction is not updatable, so unable to update');
         }
     }
 
@@ -306,9 +333,14 @@ export abstract class Dashboard {
     public readonly ID: string;
     protected screens: Map<string, Screen> = new Map();
     protected _homeScreen: HomeScreen | undefined;
+    protected routes: Dashboard[] = [];
 
-    constructor(dashBoardId: string) {
+    constructor(dashBoardId: string, routes?: Dashboard[]) {
         this.ID = dashBoardId;
+
+        if (routes) {
+            this.routes = routes;
+        }
     }
 
     /**
@@ -328,7 +360,7 @@ export abstract class Dashboard {
 
     async handleInteraction(interaction: TrackedInteraction): Promise<void> {
         if (!this._homeScreen) {
-            throw new Error('Home screen not set.');
+            throw new EndUserError('Home screen not set.');
         }
 
         logger.info("[Dashboard] Handling interaction ", interaction.customId);
@@ -339,11 +371,35 @@ export abstract class Dashboard {
             return;
         }
 
-        const screen = this.getScreen(screenId);
+        // 1. Try to get the screen in this dashboard
+        let screen = this.getScreen(screenId);
+
+        // 2. If screen is not found in this dashboard, try to find it in the routes
+        if (!screen) {
+            for (const route of this.routes) {
+                screen = route.getScreen(screenId);
+                if (screen) {
+                    logger.debug(`Screen '${screenId}' found in routed dashboard '${route.ID}'`);
+                    break;
+                }
+            }
+        }
+
         if (screen) {
             await screen.handleInteraction(interaction);
         } else {
-            await interaction.respond({ content: `🤷‍♀️ Invalid screen: ${screenId}`, ephemeral: true });
+            const {DiscordStatus} = await import('../channels/DiscordStatus');
+            await DiscordStatus.Error.error(interaction, `Screen '${screenId}' not found in dashboard '${this.ID}'`);
+
+            const allRegisteredScreens = Array.from(this.screens.keys());
+            let allRoutedScreens: string[] = [];
+
+            for (const route of this.routes) {
+                allRoutedScreens = allRoutedScreens.concat(Array.from(route.screens.keys()));
+            }
+
+            logger.error(`Screen '${screenId}' not found in dashboard '${this.ID}.\nRegistered screens: ${allRegisteredScreens}.\nRouted screens: ${allRoutedScreens}`);
+            throw new EndUserError(`Screen '${screenId}' not found in dashboard '${this.ID}'`);
         }
     }
 
@@ -353,7 +409,7 @@ export abstract class Dashboard {
 
     public registerScreen(screen: Screen, screenId: string): void {
         if (!screenId) {
-            throw new Error(`Failed to add screen to dashboard ${this.ID}. Screen ID not set.`);
+            throw new EndUserError(`Failed to add screen to dashboard ${this.ID}. Screen ID not set.`);
         }
 
         this.screens.set(screenId, screen);
