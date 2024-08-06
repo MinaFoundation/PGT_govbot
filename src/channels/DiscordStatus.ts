@@ -1,21 +1,51 @@
 import { TrackedInteraction } from "../core/BaseClasses";
-import { EndUserError } from "../Errors";
+import { EndUserError, EndUserInfo, GovBotError } from "../Errors";
+import logger from "../logging";
 
 
 export class DiscordStatus {
 
+    public static async handleException(interaction: TrackedInteraction, error: unknown): Promise<void> {
+         if (error instanceof EndUserInfo) {
+            await DiscordStatus.Info.info(interaction, error.message);
+        } else {
+            await this.Error.handleError(interaction, error);
+        }
+    }
+    
+
     public static Error = {
+        DEFAULT_ERROR_MESSAGE: 'Oops! There\'s been an error while processing your request. Please contact support.',
 
-        async handleError(interaction: TrackedInteraction, error: unknown, message: string): Promise<void> {
+        buildMessageForError(error: Error | undefined | unknown): string {
+            return error instanceof EndUserError ? `${error.message}` : this.DEFAULT_ERROR_MESSAGE;
+        },
+        extractMessageFromErrorIfAny(error: Error | undefined | unknown): string | undefined {
+            return error instanceof Error ? error.message : undefined;
+        },
 
-            if (error instanceof Error) {
-                const errorMessage = error instanceof EndUserError ? `${message}: ${error.message}` : `Oops! There's been an error while processing your request. Please contact support.`;
+        async handleError(interaction: TrackedInteraction, error: EndUserError | Error | unknown): Promise<void> {
+
+            if (error instanceof EndUserError) {
+                const parentError: Error | undefined | unknown = error.parentError;
+                let message: string;
+                if (parentError) {
+                    const parentErrorMessage: string | undefined = this.extractMessageFromErrorIfAny(parentError);
+                    message = parentErrorMessage ? `${error.message} ➡️ ${parentErrorMessage}` : error.message;
+                } else {
+                    message = error.message;
+                }
+
+                const data = DiscordStatus.Error.errorData(message);
+                await interaction.respond(data);
+            }
+            else if (error instanceof Error) {
+                const errorMessage = this.buildMessageForError(error);
                 const data = DiscordStatus.Error.errorData(errorMessage)
                 await interaction.respond(data);
 
             } else {
-                const errorMessage = `Oops! There's been an error while processing your request. Please contact support.`;
-                const data = DiscordStatus.Error.errorData(errorMessage);
+                const data = DiscordStatus.Error.errorData(this.DEFAULT_ERROR_MESSAGE);
                 await interaction.respond(data);
             }
 
