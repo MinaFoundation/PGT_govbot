@@ -305,7 +305,7 @@ export class ManageSubmittedProposalsAction extends PaginationComponent {
         }
 
         try {
-            await ProposalLogic.cancelProposal(parseInt(proposalId));
+            await ProposalLogic.cancelProposal(parseInt(proposalId), this.screen);
 
             const successEmbed: EmbedBuilder = new EmbedBuilder()
                 .setColor('#00FF00')

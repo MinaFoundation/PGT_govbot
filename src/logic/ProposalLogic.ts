@@ -2,6 +2,7 @@ import { EndUserError } from '../Errors';
 import logger from '../logging';
 import { Proposal, FundingRound, TopicSMEGroupProposalCreationLimiter, SMEGroupMembership } from '../models';
 import { FundingRoundStatus, ProposalAttributes, ProposalCreationAttributes, ProposalStatus } from '../types';
+import { Screen } from '../core/BaseClasses';
 
 export class ProposalLogic {
   static async getUserDraftProposals(userId: string): Promise<Proposal[]> {
@@ -109,7 +110,7 @@ export class ProposalLogic {
     });
   }
 
-  static async cancelProposal(proposalId: number): Promise<Proposal | null> {
+  static async cancelProposal(proposalId: number, screen?: Screen): Promise<Proposal | null> {
     const proposal = await Proposal.findByPk(proposalId);
     if (!proposal) {
       return null;
@@ -119,7 +120,19 @@ export class ProposalLogic {
       throw new EndUserError('Cannot cancel a draft or already cancelled proposal.');
     }
 
-    return await proposal.update({ status: ProposalStatus.CANCELLED });
+
+    const updatedProposal: Proposal = await proposal.update({ status: ProposalStatus.CANCELLED });
+
+    if (screen) {
+      try {
+        const { ProposalsForumManager } = await import('../channels/proposals/ProposalsForumManager');
+        await ProposalsForumManager.deleteThread(proposal);
+      } catch (error) {
+        throw new EndUserError('Error deleting forum thread', error);
+      }
+    }
+
+    return updatedProposal;
   }
 
   private static async userHasPermissionToSubmit(userId: string, topicId: number): Promise<boolean> {

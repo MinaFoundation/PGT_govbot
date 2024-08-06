@@ -5,11 +5,11 @@ import logger from "../logging";
 
 export class DiscordStatus {
 
-    public static async handleException(interaction: TrackedInteraction, error: unknown): Promise<void> {
-         if (error instanceof EndUserInfo) {
-            await DiscordStatus.Info.info(interaction, error.message);
+    public static async handleException(interaction: TrackedInteraction, exception: unknown): Promise<void> {
+         if (exception instanceof EndUserInfo) {
+            await DiscordStatus.Info.info(interaction, exception.message);
         } else {
-            await this.Error.handleError(interaction, error);
+            await this.Error.handleError(interaction, exception);
         }
     }
     
