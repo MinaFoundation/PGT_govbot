@@ -230,6 +230,7 @@ export class FundingRoundLogic {
                     }
                 } catch (error) {
                     logger.error('Error in appendFundingRoundCommitteeMembers:', error);
+                    throw new EndUserError('Error in appendFundingRoundCommitteeMembers', error);
 
                 }
             }
@@ -281,7 +282,7 @@ export class FundingRoundLogic {
             return count;
         } catch (error) {
             logger.error('Error in countSMEMembersInDeliberationCommittee:', error);
-            throw error;
+            throw new EndUserError('Error in countSMEMembersInDeliberationCommittee', error);
         }
     }
 

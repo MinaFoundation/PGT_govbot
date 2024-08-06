@@ -8,6 +8,8 @@ import { FundingRoundLogic } from '../../admin/screens/FundingRoundLogic';
 import { PaginationComponent } from '../../../components/PaginationComponent';
 import { FundingRound, Proposal } from '../../../models';
 import { ProposalStatus } from '../../../types';
+import { EndUserError, EndUserInfo } from '../../../Errors';
+import { DiscordStatus } from '../../DiscordStatus';
 
 export class ProposalHomeScreen extends Screen implements IHomeScreen {
 
@@ -171,8 +173,7 @@ export class ManageSubmittedProposalsAction extends PaginationComponent {
     private async handleSelectFundingRound(interaction: TrackedInteraction): Promise<void> {
         const interactionWithValues: AnyInteractionWithValues | undefined = InteractionProperties.toInteractionWithValuesOrUndefined(interaction.interaction);
         if (!interactionWithValues) {
-            await interaction.respond({ content: 'Invalid interaction type.', ephemeral: true });
-            return;
+            throw new EndUserError('Invalid interaction type.');
         }
 
         const fundingRoundId: number = parseInt(interactionWithValues.values[0]);
@@ -185,14 +186,12 @@ export class ManageSubmittedProposalsAction extends PaginationComponent {
         }
 
         if (!fundingRoundId) {
-            await interaction.respond({ content: 'Invalid funding round ID.', ephemeral: true });
-            return;
+            throw new EndUserError('Invalid funding round ID.');
         }
 
         const fundingRound: FundingRound | null = await FundingRoundLogic.getFundingRoundById(fundingRoundId);
         if (!fundingRound) {
-            await interaction.respond({ content: 'Funding round not found.', ephemeral: true });
-            return;
+            throw new EndUserError('Funding round not found.');
         }
 
         const proposals: Proposal[] = await ProposalLogic.getUserProposalsForFundingRound(interaction.interaction.user.id, fundingRoundId);
@@ -222,8 +221,7 @@ export class ManageSubmittedProposalsAction extends PaginationComponent {
     private async handleShowProposalDetails(interaction: TrackedInteraction): Promise<void> {
         const interactionWithValues: AnyInteractionWithValues | undefined = InteractionProperties.toInteractionWithValuesOrUndefined(interaction.interaction);
         if (!interactionWithValues) {
-            await interaction.respond({ content: 'Invalid interaction type.', ephemeral: true });
-            return;
+            throw new EndUserError('Invalid interaction type.');
         }
 
         const proposalId: number = parseInt(interactionWithValues.values[0]);
@@ -233,8 +231,7 @@ export class ManageSubmittedProposalsAction extends PaginationComponent {
         const fundingRound: FundingRound | null = await FundingRoundLogic.getFundingRoundById(fundingRoundId);
 
         if (!proposal || !fundingRound) {
-            await interaction.respond({ content: 'Proposal or Funding Round not found.', ephemeral: true });
-            return;
+            throw new EndUserError('Proposal or Funding Round not found.');
         }
 
         const embed: EmbedBuilder = new EmbedBuilder()
@@ -264,16 +261,14 @@ export class ManageSubmittedProposalsAction extends PaginationComponent {
         const fundingRoundId: string | undefined = CustomIDOracle.getNamedArgument(interaction.customId, 'fundingRoundId');
 
         if (!proposalId || !fundingRoundId) {
-            await interaction.respond({ content: 'Invalid proposal or funding round ID.', ephemeral: true });
-            return;
+            throw new EndUserError('Invalid proposal or funding round ID.');
         }
 
         const proposal: Proposal | null = await ProposalLogic.getProposalById(parseInt(proposalId));
         const fundingRound: FundingRound | null = await FundingRoundLogic.getFundingRoundById(parseInt(fundingRoundId));
 
         if (!proposal || !fundingRound) {
-            await interaction.respond({ content: 'Proposal or Funding Round not found.', ephemeral: true });
-            return;
+            throw new EndUserError('Proposal or Funding Round not found.');
         }
 
         const embed: EmbedBuilder = new EmbedBuilder()
@@ -306,8 +301,7 @@ export class ManageSubmittedProposalsAction extends PaginationComponent {
         const fundingRoundId: string | undefined = CustomIDOracle.getNamedArgument(interaction.customId, 'fundingRoundId');
 
         if (!proposalId || !fundingRoundId) {
-            await interaction.respond({ content: 'Invalid proposal or funding round ID.', ephemeral: true });
-            return;
+            throw new EndUserError('Invalid proposal or funding round ID.');
         }
 
         try {
@@ -327,7 +321,7 @@ export class ManageSubmittedProposalsAction extends PaginationComponent {
 
             await interaction.update({ embeds: [successEmbed], components: [row] });
         } catch (error) {
-            await interaction.respond({ content: 'Error cancelling proposal: ' + (error instanceof Error ? error.message : 'Unknown error'), ephemeral: true });
+            throw new EndUserError('Error cancelling proposal', error);
         }
     }
 
@@ -408,8 +402,7 @@ export class ManageDraftsAction extends PaginationComponent {
         const drafts: Proposal[] = await this.getItemsForPage(interaction, currentPage);
 
         if (drafts.length === 0) {
-            await interaction.respond({ content: 'ℹ️ You have no draft proposals.', ephemeral: true });
-            return;
+            throw new EndUserInfo('You have no draft proposals.');
         }
 
         const embed = new EmbedBuilder()
@@ -454,8 +447,7 @@ export class ManageDraftsAction extends PaginationComponent {
         } else {
             const proposalIdFromCustomId: string | undefined = CustomIDOracle.getNamedArgument(interaction.customId, 'proposalId');
             if (!proposalIdFromCustomId) {
-                await interaction.respond({ content: '🐞 Interaction neither passes proposalId in values, nor in customId.', ephemeral: true });
-                return;
+                throw new EndUserError('Interaction neither has proposalId in values, nor in customId.');
             } else {
                 proposalId = parseInt(proposalIdFromCustomId);
             }
@@ -464,8 +456,7 @@ export class ManageDraftsAction extends PaginationComponent {
         const proposal: Proposal | null = await ProposalLogic.getProposalById(proposalId);
 
         if (!proposal) {
-            await interaction.respond({ content: 'Proposal not found.', ephemeral: true });
-            return;
+            throw new EndUserError('Proposal not found.');
         }
 
         let successEmbed: EmbedBuilder | undefined;
@@ -531,20 +522,17 @@ export class ManageDraftsAction extends PaginationComponent {
     private async handleEditDraft(interaction: TrackedInteraction): Promise<void> {
         const proposalId: string | undefined = CustomIDOracle.getNamedArgument(interaction.customId, 'proposalId');
         if (!proposalId) {
-            await interaction.respond({ content: 'Invalid proposal ID.', ephemeral: true });
-            return;
+            throw new EndUserError('Invalid proposal ID.');
         }
 
         const proposal: Proposal | null = await ProposalLogic.getProposalById(parseInt(proposalId));
         if (!proposal) {
-            await interaction.respond({ content: 'Proposal not found.', ephemeral: true });
-            return;
+            throw new EndUserError('Proposal not found.');
         }
 
         const modalInteraction: AnyInteractionWithShowModal | undefined = InteractionProperties.toShowModalOrUndefined(interaction.interaction);
         if (!modalInteraction) {
-            await interaction.respond({ content: 'This interaction does not support modals.', ephemeral: true });
-            return;
+            throw new EndUserError('This interaction does not support modals.');
         }
 
         const modal: ModalBuilder = new ModalBuilder()
@@ -584,14 +572,12 @@ export class ManageDraftsAction extends PaginationComponent {
     private async handleSubmitEdit(interaction: TrackedInteraction): Promise<void> {
         const modalInteraction = InteractionProperties.toModalSubmitInteractionOrUndefined(interaction.interaction);
         if (!modalInteraction) {
-            await interaction.respond({ content: 'Invalid interaction type.', ephemeral: true });
-            return;
+            throw new EndUserError('Invalid interaction type.');
         }
 
         const proposalId = CustomIDOracle.getNamedArgument(interaction.customId, 'proposalId');
         if (!proposalId) {
-            await interaction.respond({ content: 'Invalid proposal ID.', ephemeral: true });
-            return;
+            throw new EndUserError('Invalid proposal ID.');
         }
 
         const name = modalInteraction.fields.getTextInputValue(ManageDraftsAction.INPUT_IDS.NAME);
@@ -599,13 +585,11 @@ export class ManageDraftsAction extends PaginationComponent {
         const uri = modalInteraction.fields.getTextInputValue(ManageDraftsAction.INPUT_IDS.URI);
 
         if (isNaN(budget)) {
-            await interaction.respond({ content: 'Invalid budget value.', ephemeral: true });
-            return;
+            throw new EndUserError('Invalid budget value.');
         }
 
         if (!uri.startsWith('https://forums.minaprotocol.com')) {
-            await interaction.respond({ content: 'Invalid URI. Please use a link from https://forums.minaprotocol.com', ephemeral: true });
-            return;
+            throw new EndUserError('Invalid URI. Please use a link from https://forums.minaprotocol.com');
         }
 
         try {
@@ -614,21 +598,19 @@ export class ManageDraftsAction extends PaginationComponent {
             const successMessage = `✅ '${name}' details updated successfully`;
             await this.handleSelectDraft(interaction, true, successMessage);
         } catch (error) {
-            await interaction.respond({ content: 'Error updating proposal: ' + (error instanceof Error ? error.message : 'Unknown error'), ephemeral: true });
+            throw new EndUserError('Error updating proposal', error);
         }
     }
 
     private async handleDeleteDraft(interaction: TrackedInteraction): Promise<void> {
         const proposalId = CustomIDOracle.getNamedArgument(interaction.customId, 'proposalId');
         if (!proposalId) {
-            await interaction.respond({ content: 'Invalid proposal ID.', ephemeral: true });
-            return;
+            throw new EndUserError('Invalid proposal ID.');
         }
 
         const proposal = await ProposalLogic.getProposalById(parseInt(proposalId));
         if (!proposal) {
-            await interaction.respond({ content: 'Proposal not found.', ephemeral: true });
-            return;
+            throw new EndUserError('Proposal not found.');
         }
 
         const embed = new EmbedBuilder()
@@ -660,31 +642,28 @@ export class ManageDraftsAction extends PaginationComponent {
     private async handleConfirmDelete(interaction: TrackedInteraction): Promise<void> {
         const proposalId = CustomIDOracle.getNamedArgument(interaction.customId, 'proposalId');
         if (!proposalId) {
-            await interaction.respond({ content: 'Invalid proposal ID.', ephemeral: true });
-            return;
+            throw new EndUserError('Invalid proposal ID.');
         }
 
         try {
             await ProposalLogic.deleteProposal(parseInt(proposalId));
-            await interaction.respond({ content: 'Proposal deleted successfully.', ephemeral: true });
             await this.handleShowDrafts(interaction);
+            DiscordStatus.Success.success(interaction, `Proposal ${proposalId} deleted successfully.`)
         } catch (error) {
-            await interaction.respond({ content: 'Error deleting proposal: ' + (error instanceof Error ? error.message : 'Unknown error'), ephemeral: true });
+            throw new EndUserError('Error deleting proposal', error);
         }
     }
 
     private async handleSubmitToFundingRound(interaction: TrackedInteraction): Promise<void> {
         const proposalId = CustomIDOracle.getNamedArgument(interaction.customId, 'proposalId');
         if (!proposalId) {
-            await interaction.respond({ content: 'Invalid proposal ID.', ephemeral: true });
-            return;
+            throw new EndUserError('Invalid proposal ID.');
         }
 
         const eligibleFundingRounds: FundingRound[] = await FundingRoundLogic.getEligibleFundingRoundsForProposal(parseInt(proposalId), interaction.interaction.user.id);
 
         if (eligibleFundingRounds.length === 0) {
-            await interaction.respond({ content: 'ℹ️ There are no eligible funding rounds for this proposal at the moment.', ephemeral: true });
-            return;
+            throw new EndUserInfo('There are no eligible funding rounds for this proposal at the moment.');
         }
 
         const selectMenu = new StringSelectMenuBuilder()
@@ -743,8 +722,7 @@ export class CreateNewProposalAction extends Action {
     private async handleShowCreateForm(interaction: TrackedInteraction): Promise<void> {
         const modalInteraction: AnyInteractionWithShowModal | undefined = InteractionProperties.toShowModalOrUndefined(interaction.interaction);
         if (!modalInteraction) {
-            await interaction.respond({ content: 'This interaction does not support modals.', ephemeral: true });
-            return;
+            throw new EndUserError('This interaction does not support modals.');
         }
 
         const modal = new ModalBuilder()
@@ -781,8 +759,7 @@ export class CreateNewProposalAction extends Action {
     private async handleSubmitCreateForm(interaction: TrackedInteraction): Promise<void> {
         const modalInteraction = InteractionProperties.toModalSubmitInteractionOrUndefined(interaction.interaction);
         if (!modalInteraction) {
-            await interaction.respond({ content: 'Invalid interaction type.', ephemeral: true });
-            return;
+            throw new EndUserError('Invalid interaction type.');
         }
 
         const name = modalInteraction.fields.getTextInputValue(CreateNewProposalAction.INPUT_IDS.NAME);
@@ -796,13 +773,11 @@ export class CreateNewProposalAction extends Action {
         }
 
         if (isNaN(budget)) {
-            await interaction.respond({ content: 'Invalid budget value.', ephemeral: true });
-            return;
+            throw new EndUserError('Invalid budget value.');
         }
 
         if (!uri.startsWith('https://forums.minaprotocol.com')) {
-            await interaction.respond({ content: 'ℹ️ Invalid URL. Please use a link from https://forums.minaprotocol.com', ephemeral: true });
-            return;
+            throw new EndUserError('Invalid URL. Please use a link from https://forums.minaprotocol.com');
         }
 
         try {
@@ -836,7 +811,7 @@ export class CreateNewProposalAction extends Action {
 
             await interaction.respond({ embeds: [embed], components: [row] });
         } catch (error) {
-            await interaction.respond({ content: 'Error creating proposal: ' + (error instanceof Error ? error.message : 'Unknown error'), ephemeral: true });
+            throw new EndUserError('Error creating proposal', error);
         }
     }
 
@@ -885,8 +860,7 @@ export class SubmitProposalToFundingRoundAction extends Action {
         const draftProposals = await ProposalLogic.getUserDraftProposals(interaction.interaction.user.id);
 
         if (draftProposals.length === 0) {
-            await interaction.respond({ content: 'ℹ️ You have no draft proposals to submit.', ephemeral: true });
-            return;
+            throw new EndUserInfo('ℹ️ You have no draft proposals to submit.');
         }
 
         const embed = new EmbedBuilder()
@@ -920,16 +894,14 @@ export class SubmitProposalToFundingRoundAction extends Action {
     private async handleSelectFundingRound(interaction: TrackedInteraction): Promise<void> {
         const interactionWithValues = InteractionProperties.toInteractionWithValuesOrUndefined(interaction.interaction);
         if (!interactionWithValues) {
-            await interaction.respond({ content: 'Invalid interaction type.', ephemeral: true });
-            return;
+            throw new EndUserError('Invalid interaction type.');
         }
 
         const proposalId = parseInt(interactionWithValues.values[0]);
         const eligibleFundingRounds: FundingRound[] = await FundingRoundLogic.getEligibleFundingRoundsForProposal(proposalId, interaction.interaction.user.id);
 
         if (eligibleFundingRounds.length === 0) {
-            await interaction.respond({ content: 'There are no eligible funding rounds for this proposal at the moment.', ephemeral: true });
-            return;
+            throw new EndUserError('There are no eligible funding rounds for this proposal at the moment.');
         }
 
         const selectMenu = new StringSelectMenuBuilder()
@@ -949,8 +921,7 @@ export class SubmitProposalToFundingRoundAction extends Action {
     private async handleConfirmSubmission(interaction: TrackedInteraction): Promise<void> {
         const interactionWithValues = InteractionProperties.toInteractionWithValuesOrUndefined(interaction.interaction);
         if (!interactionWithValues) {
-            await interaction.respond({ content: 'Invalid interaction type.', ephemeral: true });
-            return;
+            throw new EndUserError('Invalid interaction type.');
         }
 
         const fundingRoundId = parseInt(interactionWithValues.values[0]);
@@ -960,8 +931,7 @@ export class SubmitProposalToFundingRoundAction extends Action {
         const fundingRound = await FundingRoundLogic.getFundingRoundById(fundingRoundId);
 
         if (!proposal || !fundingRound) {
-            await interaction.respond({ content: 'Proposal or Funding Round not found.', ephemeral: true });
-            return;
+            throw new EndUserError('Proposal or Funding Round not found.');
         }
 
         const embed = new EmbedBuilder()
@@ -1016,7 +986,7 @@ export class SubmitProposalToFundingRoundAction extends Action {
 
             await interaction.update({ embeds: [embed], components: [row] });
         } catch (error) {
-            await interaction.respond({ content: 'Error submitting proposal: ' + (error instanceof Error ? error.message : 'Unknown error'), ephemeral: true });
+            throw new EndUserError('Failed to submit proposal', error);
         }
     }
 

@@ -442,16 +442,14 @@ class SelectTopicAction extends Action {
     private async handleSelectTopic(interaction: TrackedInteraction): Promise<void> {
         const rawInteraction = interaction.interaction;
         if (!('values' in rawInteraction)) {
-            await interaction.respond({ content: 'Invalid interaction type.', ephemeral: true });
-            return;
+            throw new EndUserError('Invalid interaction type.');
         }
 
         const topicId = parseInt(rawInteraction.values[0]);
         const topicDetails = await TopicLogic.getTopicDetails(topicId);
 
         if (!topicDetails) {
-            await interaction.respond({ content: 'Selected topic not found.', ephemeral: true });
-            return;
+            throw new EndUserError('Selected topic not found.');
         }
 
         const embed = new EmbedBuilder()
@@ -546,8 +544,7 @@ class AddTopicAction extends Action {
     protected async handleAddTopicFormDisplay(interaction: TrackedInteraction): Promise<void> {
         const rawInteraction = interaction.interaction;
         if (!('showModal' in rawInteraction)) {
-            await interaction.respond({ content: '🚫 This interaction does not support modals', ephemeral: true });
-            return;
+            throw new EndUserError('This interaction does not support modals');
         }
         const customId = CustomIDOracle.addArgumentsToAction(this, AddTopicAction.Operations.ADD_TOPIC_SUBMIT);
         const modal = new ModalBuilder()
@@ -585,8 +582,7 @@ class AddTopicAction extends Action {
     protected async handleAddTopicFormSubmit(interaction: TrackedInteraction): Promise<void> {
         const rawInteraction = interaction.interaction;
         if (!rawInteraction.isModalSubmit()) {
-            await interaction.respond({ content: '🚫 Only modal submit interactions are supported for this operation.', ephemeral: true });
-            return;
+            throw new EndUserError('Only modal submit interactions are supported for this operation.');
         }
 
         const name = rawInteraction.fields.getTextInputValue(AddTopicAction.InputIds.NAME);
@@ -594,8 +590,7 @@ class AddTopicAction extends Action {
         const allowedSMEGroups = rawInteraction.fields.getTextInputValue(AddTopicAction.InputIds.ALLOWED_SME_GROUPS);
 
         if (!name || !description) {
-            await interaction.respond({ content: '🚫 Please fill out all required fields', ephemeral: true });
-            return;
+            throw new EndUserError('Please fill out all required fields');
         }
 
         try {
@@ -670,15 +665,13 @@ class RemoveTopicAction extends Action {
     private async handleConfirmRemove(interaction: TrackedInteraction): Promise<void> {
         const topicId = CustomIDOracle.getNamedArgument(interaction.customId, 'topicId');
         if (!topicId) {
-            await interaction.respond({ content: 'Invalid topic ID.', ephemeral: true });
-            return;
+            throw new EndUserError('Invalid topic ID.');
         }
 
         try {
             const topic = await TopicLogic.getTopicById(parseInt(topicId));
             if (!topic) {
-                await interaction.respond({ content: 'Topic not found.', ephemeral: true });
-                return;
+                throw new EndUserError('Topic not found.');
             }
 
             const embed = new EmbedBuilder()
@@ -715,15 +708,14 @@ class RemoveTopicAction extends Action {
             });
         } catch (error) {
             logger.error('Error fetching topic details:', error);
-            await interaction.respond({ content: 'An error occurred while fetching topic details. Please try again later.', ephemeral: true });
+            throw new EndUserError('An error occurred while fetching topic details. Please try again later.')
         }
     }
 
     private async handleExecuteRemove(interaction: TrackedInteraction): Promise<void> {
         const topicId = CustomIDOracle.getNamedArgument(interaction.customId, 'topicId');
         if (!topicId) {
-            await interaction.respond({ content: 'Invalid topic ID.', ephemeral: true });
-            return;
+            throw new EndUserError('Invalid topic ID.');
         }
 
         try {
@@ -775,20 +767,17 @@ class EditTopicAction extends Action {
     private async handleShowForm(interaction: TrackedInteraction): Promise<void> {
         const topicId = CustomIDOracle.getNamedArgument(interaction.customId, 'topicId');
         if (!topicId) {
-            await interaction.respond({ content: 'Invalid topic ID.', ephemeral: true });
-            return;
+            throw new EndUserError('Invalid topic ID.');
         }
 
         const topicDetails = await TopicLogic.getTopicDetails(parseInt(topicId));
         if (!topicDetails) {
-            await interaction.respond({ content: 'Topic not found.', ephemeral: true });
-            return;
+            throw new EndUserError('Topic not found.');
         }
 
         const rawInteraction = interaction.interaction;
         if (!('showModal' in rawInteraction)) {
-            await interaction.respond({ content: '🚫 This interaction does not support modals', ephemeral: true });
-            return;
+            throw new EndUserError('This interaction does not support modals');
         }
 
         const modal = new ModalBuilder()
@@ -842,14 +831,12 @@ class EditTopicAction extends Action {
     private async handleSubmitForm(interaction: TrackedInteraction): Promise<void> {
         const rawInteraction = interaction.interaction;
         if (!rawInteraction.isModalSubmit()) {
-            await interaction.respond({ content: '🚫 Only modal submit interactions are supported for this operation.', ephemeral: true });
-            return;
+            throw new EndUserError('Only modal submit interactions are supported for this operation.');
         }
 
         const topicId = CustomIDOracle.getNamedArgument(interaction.customId, 'topicId');
         if (!topicId) {
-            await interaction.respond({ content: 'Invalid topic ID.', ephemeral: true });
-            return;
+            throw new EndUserError('Invalid topic ID.');
         }
 
         const name = rawInteraction.fields.getTextInputValue(EditTopicAction.InputIds.NAME);
@@ -857,8 +844,7 @@ class EditTopicAction extends Action {
         const allowedSMEGroups = rawInteraction.fields.getTextInputValue(EditTopicAction.InputIds.ALLOWED_SME_GROUPS);
 
         if (!name || !description) {
-            await interaction.respond({ content: '🚫 Please fill out all required fields', ephemeral: true });
-            return;
+            throw new EndUserError('Please fill out all required fields');
         }
 
         try {
@@ -948,15 +934,13 @@ export class ManageTopicCommitteesAction extends Action {
   private async handleAddCommitteeForm(interaction: TrackedInteraction): Promise<void> {
     const topicId = CustomIDOracle.getNamedArgument(interaction.customId, 'topicId');
     if (!topicId) {
-      await interaction.respond({ content: 'Invalid topic ID.', ephemeral: true });
-      return;
+      throw new EndUserError('Invalid topic ID.');
     }
 
     let parsedInteraction = InteractionProperties.toShowModalOrUndefined(interaction.interaction);
 
     if (!parsedInteraction) {
-      await interaction.respond({ content: 'Interaction without .showModal() is not supported', ephemeral: true });
-      return;
+      throw new EndUserError('Interaction without .showModal() is not supported');
     }
 
     const modal = new ModalBuilder()
@@ -986,14 +970,13 @@ export class ManageTopicCommitteesAction extends Action {
   private async handleAddCommitteeSubmit(interaction: TrackedInteraction): Promise<void> {
     const topicId = CustomIDOracle.getNamedArgument(interaction.customId, 'topicId');
     if (!topicId) {
-      await interaction.respond({ content: 'Invalid topic ID.', ephemeral: true });
-      return;
+      throw new EndUserError('Invalid topic ID.');
     }
 
     const parsedInteraction = InteractionProperties.toInteractionWithFieldsOrUndefined(interaction.interaction);
 
     if (!parsedInteraction) {
-      await interaction.respond({ content: 'Interaction without fields is not supported', ephemeral: true });
+      throw new EndUserError('Interaction without fields is not supported')
       return
     }
 
@@ -1001,8 +984,7 @@ export class ManageTopicCommitteesAction extends Action {
     const numUsers = parseInt(parsedInteraction.fields.getTextInputValue(ManageTopicCommitteesAction.InputIds.NUM_USERS));
 
     if (isNaN(numUsers)) {
-      await interaction.respond({ content: 'Invalid input. Please enter a valid number for required members.', ephemeral: true });
-      return;
+      throw new EndUserError('Invalid input. Please enter a valid number for required members.');
     }
 
     try {
@@ -1018,20 +1000,17 @@ export class ManageTopicCommitteesAction extends Action {
     const parsedInteraction = InteractionProperties.toShowModalOrUndefined(interaction.interaction);
 
     if (!parsedInteraction) {
-      await interaction.respond({ content: 'Interaction without .showModal() is not supported', ephemeral: true });
-      return;
+      throw new EndUserError('Interaction without .showModal() is not supported');
     }
 
     const committeeId = CustomIDOracle.getNamedArgument(interaction.customId, 'committeeId');
     if (!committeeId) {
-      await interaction.respond({ content: 'Invalid committee ID.', ephemeral: true });
-      return;
+      throw new EndUserError('Invalid committee ID.');
     }
 
     const committee = await TopicLogic.getCommitteeDetails(parseInt(committeeId));
     if (!committee) {
-      await interaction.respond({ content: 'Committee not found.', ephemeral: true });
-      return;
+      throw new EndUserError('Committee not found.');
     }
 
     const modal = new ModalBuilder()
@@ -1057,21 +1036,19 @@ export class ManageTopicCommitteesAction extends Action {
     const parsedInteraction = InteractionProperties.toInteractionWithFieldsOrUndefined(interaction.interaction);
 
     if (!parsedInteraction) {
-      await interaction.respond({ content: 'Interaction without fields is not supported', ephemeral: true });
+      throw new EndUserError('Interaction without fields is not supported')
       return
     }
 
     const committeeId = CustomIDOracle.getNamedArgument(interaction.customId, 'committeeId');
     if (!committeeId) {
-      await interaction.respond({ content: 'Invalid committee ID.', ephemeral: true });
-      return;
+      throw new EndUserError('Invalid committee ID.');
     }
 
     const numUsers = parseInt(parsedInteraction.fields.getTextInputValue(ManageTopicCommitteesAction.InputIds.NUM_USERS));
 
     if (isNaN(numUsers)) {
-      await interaction.respond({ content: 'Invalid input. Please enter a valid number for required members.', ephemeral: true });
-      return;
+      throw new EndUserError('Invalid input. Please enter a valid number for required members.');
     }
 
     try {
@@ -1092,14 +1069,12 @@ export class ManageTopicCommitteesAction extends Action {
   private async handleRemoveCommitteeConfirm(interaction: TrackedInteraction): Promise<void> {
     const committeeId = CustomIDOracle.getNamedArgument(interaction.customId, 'committeeId');
     if (!committeeId) {
-      await interaction.respond({ content: 'Invalid committee ID.', ephemeral: true });
-      return;
+      throw new EndUserError('Invalid committee ID.');
     }
 
     const committee = await TopicLogic.getCommitteeDetails(parseInt(committeeId));
     if (!committee) {
-      await interaction.respond({ content: 'Committee not found.', ephemeral: true });
-      return;
+      throw new EndUserError('Committee not found.');
     }
 
     const embed = new EmbedBuilder()
@@ -1126,8 +1101,7 @@ export class ManageTopicCommitteesAction extends Action {
   private async handleRemoveCommitteeExecute(interaction: TrackedInteraction): Promise<void> {
     const committeeId = CustomIDOracle.getNamedArgument(interaction.customId, 'committeeId');
     if (!committeeId) {
-      await interaction.respond({ content: 'Invalid committee ID.', ephemeral: true });
-      return;
+      throw new EndUserError('Invalid committee ID.');
     }
 
     try {
@@ -1208,8 +1182,7 @@ export class CommitteePaginationAction extends PaginationComponent {
 
       
       if (!topicId) {
-        await interaction.respond({ content: 'Topic ID missing.', ephemeral: true });
-        return;
+        throw new EndUserError('Topic ID missing.');
       }
   
       const currentPage = this.getCurrentPage(interaction);
@@ -1268,6 +1241,6 @@ export class CommitteePaginationAction extends PaginationComponent {
     }
   
     getComponent(...args: any[]): AnyModalMessageComponent {
-      throw new EndUserError('Method not implemented.');
+      throw new Error('Method not implemented.');
     }
   }

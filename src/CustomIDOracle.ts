@@ -25,7 +25,7 @@ export class CustomIDOracle {
     const customId = parts.join(this.SEPARATOR);
     
     if (customId.length > this.MAX_LENGTH) {
-      throw new EndUserError(`Custom ID exceeds maximum length of ${this.MAX_LENGTH} characters`);
+      throw new EndUserError(`CustomId length of ${customId.length} exceeds the maximum allowed value of ${this.MAX_LENGTH} characters.`);
     }
     
     return customId;
@@ -51,7 +51,7 @@ export class CustomIDOracle {
     const customId = parts.join(this.SEPARATOR);
     
     if (customId.length > this.MAX_LENGTH) {
-      throw new EndUserError(`Custom ID exceeds maximum length of ${this.MAX_LENGTH} characters`);
+      throw new EndUserError(`CustomId length of ${customId.length} exceeds the maximum allowed value of ${this.MAX_LENGTH} characters.`);
     }
     
     return customId;

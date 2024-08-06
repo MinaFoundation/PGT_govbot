@@ -165,8 +165,7 @@ export class CreateDraftFundingRoundAction extends Action {
     private async handleSubmitTopicSelect(interaction: TrackedInteraction): Promise<void> {
         const interactionWithValues = InteractionProperties.toInteractionWithValuesOrUndefined(interaction.interaction);
         if (!interactionWithValues) {
-            await interaction.respond({ content: 'Invalid interaction type.', ephemeral: true });
-            return;
+            throw new EndUserError('Invalid interaction type.');
         }
 
         const topicId = interactionWithValues.values[0];
@@ -176,8 +175,7 @@ export class CreateDraftFundingRoundAction extends Action {
     private async handleShowCreateForm(interaction: TrackedInteraction, topicId: string): Promise<void> {
         const modalInteraction = InteractionProperties.toShowModalOrUndefined(interaction.interaction);
         if (!modalInteraction) {
-            await interaction.respond({ content: 'This interaction does not support modals.', ephemeral: true });
-            return;
+            throw new EndUserError('This interaction does not support modals.');
         }
 
         const modal = new ModalBuilder()
@@ -228,8 +226,7 @@ export class CreateDraftFundingRoundAction extends Action {
     private async handleSubmitCreateForm(interaction: TrackedInteraction): Promise<void> {
         const modalInteraction = InteractionProperties.toModalSubmitInteractionOrUndefined(interaction.interaction);
         if (!modalInteraction) {
-            await interaction.respond({ content: 'Invalid interaction type.', ephemeral: true });
-            return;
+            throw new EndUserError('Invalid interaction type.');
         }
 
         let topicId: number;
@@ -238,8 +235,7 @@ export class CreateDraftFundingRoundAction extends Action {
         } catch (error) {
             const topicIdFromCustomId: string | undefined = CustomIDOracle.getNamedArgument(interaction.customId, 'topicId');
             if (!topicIdFromCustomId) {
-                await interaction.respond({ content: 'Topic ID not provided neither in customId, nor in context', ephemeral: true });
-                throw new EndUserError('Topic ID not provided neither in customId, nor in context');
+                throw new EndUserError('Topic ID not provided neither in customId, nor in context')
             } else {
                 topicId = parseInt(topicIdFromCustomId);
             }
@@ -253,25 +249,21 @@ export class CreateDraftFundingRoundAction extends Action {
         const votingOpenUntil = new Date(modalInteraction.fields.getTextInputValue(CreateDraftFundingRoundAction.INPUT_IDS.VOTING_OPEN_UNTIL));
 
         if (isNaN(topicId) || isNaN(budget) || isNaN(votingOpenUntil.getTime())) {
-            await interaction.respond({ content: 'Invalid input. Please check your entries and try again.', ephemeral: true });
-            return;
+            throw new EndUserError('Invalid input. Please check your entries and try again.');
         }
 
         try {
             const fundingRound = await FundingRoundLogic.createDraftFundingRound(topicId, name, description, budget, votingAddress, votingOpenUntil);
             await this.showSetPhaseDates(interaction, fundingRound.id);
         } catch (error) {
-            const errorMessage = error instanceof Error ? error.message : 'An unknown error occurred';
-            await interaction.respond({ content: `Error creating funding round: ${errorMessage}`, ephemeral: true });
-            throw error;
+            throw new EndUserError('Error creating funding round.', error);
         }
     }
 
     private async showSetPhaseDates(interaction: TrackedInteraction, fundingRoundId: number): Promise<void> {
         const fundingRound = await FundingRoundLogic.getFundingRoundById(fundingRoundId);
         if (!fundingRound) {
-            await interaction.respond({ content: 'Funding round not found.', ephemeral: true });
-            return;
+            throw new EndUserError('Funding round not found.');
         }
 
         const embed = new EmbedBuilder()
@@ -325,14 +317,12 @@ export class CreateDraftFundingRoundAction extends Action {
         const phase = CustomIDOracle.getNamedArgument(interaction.customId, PHASE_ARG)?.toLowerCase() as keyof typeof CreateDraftFundingRoundAction.PHASE_NAMES;
 
         if (!fundingRoundId || !phase) {
-            await interaction.respond({ content: 'Invalid funding round ID or phase.', ephemeral: true });
-            return;
+            throw new EndUserError('Invalid funding round ID or phase.');
         }
 
         const modalInteraction = InteractionProperties.toShowModalOrUndefined(interaction.interaction);
         if (!modalInteraction) {
-            await interaction.respond({ content: 'This interaction does not support modals.', ephemeral: true });
-            return;
+            throw new EndUserError('This interaction does not support modals.');
         }
 
         const title: string = phase == CreateDraftFundingRoundAction.PHASE_NAMES.round ? "Set Round Duration" : `Set ${phase.charAt(0).toUpperCase() + phase.slice(1)} Phase Dates`
@@ -366,16 +356,14 @@ export class CreateDraftFundingRoundAction extends Action {
     private async handleSubmitPhaseDates(interaction: TrackedInteraction): Promise<void> {
         const modalInteraction = InteractionProperties.toModalSubmitInteractionOrUndefined(interaction.interaction);
         if (!modalInteraction) {
-            await interaction.respond({ content: 'Invalid interaction type.', ephemeral: true });
-            return;
+            throw new EndUserError('Invalid interaction type.');
         }
 
         const fundingRoundId = CustomIDOracle.getNamedArgument(interaction.customId, FUNDING_ROUND_ID_ARG);
         const phase = CustomIDOracle.getNamedArgument(interaction.customId, PHASE_ARG)?.toLowerCase() as keyof typeof CreateDraftFundingRoundAction.PHASE_NAMES;
 
         if (!fundingRoundId || !phase) {
-            await interaction.respond({ content: 'Invalid funding round ID or phase.', ephemeral: true });
-            return;
+            throw new EndUserError('Invalid funding round ID or phase.');
         }
 
         let startDate: Date;
@@ -389,13 +377,11 @@ export class CreateDraftFundingRoundAction extends Action {
         }
 
         if (isNaN(startDate.getTime()) || isNaN(endDate.getTime())) {
-            await interaction.respond({ content: 'Invalid date format. Please use YYYY-MM-DD HH:MM.', ephemeral: true });
-            return;
+            throw new EndUserError('Invalid date format. Please use YYYY-MM-DD HH:MM.');
         }
 
         if (startDate >= endDate) {
-            await interaction.respond({ content: 'Start date must be before end date.', ephemeral: true });
-            return;
+            throw new EndUserError('Start date must be before end date.');
         }
 
         const phaseMapping = {
@@ -408,16 +394,14 @@ export class CreateDraftFundingRoundAction extends Action {
         const mappedPhase = phaseMapping[phase];
 
         if (!mappedPhase) {
-            await interaction.respond({ content: 'Invalid phase.', ephemeral: true });
-            return;
+            throw new EndUserError('Invalid phase.');
         }
 
         try {
             await FundingRoundLogic.setFundingRoundPhase(parseInt(fundingRoundId), mappedPhase, startDate, endDate);
             await this.showSetPhaseDates(interaction, parseInt(fundingRoundId));
         } catch (error) {
-            const errorMessage = error instanceof Error ? error.message : 'An unknown error occurred';
-            await interaction.respond({ content: `Error setting phase dates: ${errorMessage}`, ephemeral: true });
+            throw new EndUserError('Error setting phase dates', error);
         }
     }
 
@@ -490,8 +474,7 @@ export class VoteFundingRoundAction extends PaginationComponent {
         const eligibleRounds = await this.getItemsForPage(interaction, currentPage);
 
         if (eligibleRounds.length === 0) {
-            await interaction.respond({ content: 'There are no eligible funding rounds for voting at this time.', ephemeral: true });
-            return;
+            throw new EndUserError('There are no eligible funding rounds for voting at this time.');
         }
 
         const selectMenu = new StringSelectMenuBuilder()
@@ -522,7 +505,7 @@ export class VoteFundingRoundAction extends PaginationComponent {
         if (!interactionWithValues) {
             const fundingRoundIdFromContext: string | undefined = interaction.Context.get(FUNDING_ROUND_ID_ARG);
             if (!fundingRoundIdFromContext) {
-                await interaction.respond({ content: 'fundingRoundId not provided neither in customId, nor in context', ephemeral: true });
+                throw new EndUserError('fundingRoundId not provided neither in customId, nor in context')
                 throw new EndUserError('fundingRoundId not provided neither in customId, nor in context');
             } else {
                 fundingRoundId = parseInt(fundingRoundIdFromContext);
@@ -630,20 +613,17 @@ export class VoteFundingRoundAction extends PaginationComponent {
     private async showVoteModal(interaction: TrackedInteraction, isApprove: boolean): Promise<void> {
         const fundingRoundId = CustomIDOracle.getNamedArgument(interaction.customId, FUNDING_ROUND_ID_ARG);
         if (!fundingRoundId) {
-            await interaction.respond({ content: 'Invalid funding round ID.', ephemeral: true });
-            return;
+            throw new EndUserError('Invalid funding round ID.');
         }
 
         const fundingRound = await FundingRoundLogic.getFundingRoundById(parseInt(fundingRoundId));
         if (!fundingRound) {
-            await interaction.respond({ content: 'Funding round not found.', ephemeral: true });
-            return;
+            throw new EndUserError('Funding round not found.');
         }
 
         const modalInteraction = InteractionProperties.toShowModalOrUndefined(interaction.interaction);
         if (!modalInteraction) {
-            await interaction.respond({ content: 'This interaction does not support modals.', ephemeral: true });
-            return;
+            throw new EndUserError('This interaction does not support modals.');
         }
 
         const modal = new ModalBuilder()
@@ -673,14 +653,12 @@ export class VoteFundingRoundAction extends PaginationComponent {
     private async handleSubmitVote(interaction: TrackedInteraction, isApprove: boolean): Promise<void> {
         const modalInteraction = InteractionProperties.toModalSubmitInteractionOrUndefined(interaction.interaction);
         if (!modalInteraction) {
-            await interaction.respond({ content: 'Invalid interaction type.', ephemeral: true });
-            return;
+            throw new EndUserError('Invalid interaction type.');
         }
 
         const fundingRoundId = CustomIDOracle.getNamedArgument(interaction.customId, FUNDING_ROUND_ID_ARG);
         if (!fundingRoundId) {
-            await interaction.respond({ content: 'Invalid funding round ID.', ephemeral: true });
-            return;
+            throw new EndUserError('Invalid funding round ID.');
         }
 
         const reason = modalInteraction.fields.getTextInputValue(VoteFundingRoundAction.INPUT_IDS.REASON);
@@ -695,8 +673,7 @@ export class VoteFundingRoundAction extends PaginationComponent {
             interaction.Context.set(FUNDING_ROUND_ID_ARG, fundingRoundId);
             await this.handleSelectRound(interaction, isApprove ? message : undefined, isApprove ? undefined : message);
         } catch (error) {
-            const errorMessage = error instanceof Error ? error.message : 'An unknown error occurred';
-            await interaction.respond({ content: `Error recording vote: ${errorMessage}`, ephemeral: true });
+            throw new EndUserError('Error submitting vote.', error);
         }
     }
 

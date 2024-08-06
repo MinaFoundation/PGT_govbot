@@ -169,8 +169,7 @@ class SelectFundingRoundAction extends Action {
     private async handleSelectFundingRound(interaction: TrackedInteraction): Promise<void> {
         const interactionWithValues = InteractionProperties.toInteractionWithValuesOrUndefined(interaction.interaction);
         if (!interactionWithValues) {
-            await interaction.respond({ content: 'Invalid interaction type.', ephemeral: true });
-            return;
+            throw new EndUserError('Invalid interaction type.');
         }
 
         const fundingRoundId = parseInt(interactionWithValues.values[0]);
@@ -239,8 +238,7 @@ class SelectVoteTypeAction extends Action {
         const { fundingRoundId } = args;
         const fundingRound = await FundingRound.findByPk(fundingRoundId);
         if (!fundingRound) {
-            await interaction.respond({ content: 'Funding round not found.', ephemeral: true });
-            return;
+            throw new EndUserError('Funding round not found.');
         }
 
         const userId = interaction.interaction.user.id;
@@ -297,7 +295,7 @@ class SelectVoteTypeAction extends Action {
                 { fundingRoundId, showUnvoted: false }
             );
         } else {
-            await interaction.respond({ content: 'Invalid vote type selected.', ephemeral: true });
+            throw new EndUserError('Invalid vote type selected.')
         }
     }
 
@@ -324,7 +322,7 @@ class SelectProjectAction extends PaginationComponent {
         const fundingRoundIdOpt: string | undefined = CustomIDOracle.getNamedArgument(interaction.customId, FUNDING_ROUND_ID)
 
         if (!fundingRoundIdOpt) {
-            await interaction.respond({ content: 'fundingRoundId not included in the customId', ephemeral: true });
+            throw new EndUserError('fundingRoundId not included in the customId')
             return [];
         }
 
@@ -367,8 +365,7 @@ class SelectProjectAction extends PaginationComponent {
         const projects = await this.getItemsForPage(interaction, currentPage);
 
         if (projects.length === 0) {
-            await interaction.respond({ content: 'There are no eligible projects to vote on at the moment.', ephemeral: true });
-            return;
+            throw new EndUserError('There are no eligible projects to vote on at the moment.');
         }
 
         const embed = new EmbedBuilder()
@@ -403,8 +400,7 @@ class SelectProjectAction extends PaginationComponent {
     private async handleSelectProject(interaction: TrackedInteraction): Promise<void> {
         const interactionWithValues = InteractionProperties.toInteractionWithValuesOrUndefined(interaction.interaction);
         if (!interactionWithValues) {
-            await interaction.respond({ content: 'Invalid interaction type.', ephemeral: true });
-            return;
+            throw new EndUserError('Invalid interaction type.');
         }
 
         const projectId = parseInt(interactionWithValues.values[0]);
@@ -461,8 +457,7 @@ class CommitteeDeliberationVoteAction extends Action {
         });
 
         if (!project || !fundingRound) {
-            await interaction.respond({ content: 'Project or Funding Round not found.', ephemeral: true });
-            return;
+            throw new EndUserError('Project or Funding Round not found.');
         }
 
         const embed = new EmbedBuilder()
@@ -526,8 +521,7 @@ class CommitteeDeliberationVoteAction extends Action {
     private async handleSubmitVote(interaction: TrackedInteraction): Promise<void> {
         const projectIdRaw: string | undefined = CustomIDOracle.getNamedArgument(interaction.customId, 'projectId');
         if (!projectIdRaw) {
-            await interaction.respond({ content: 'projectId not included in the customId', ephemeral: true });
-            return;
+            throw new EndUserError('projectId not included in the customId');
         }
         const projectId: number = parseInt(projectIdRaw);
 
@@ -535,15 +529,13 @@ class CommitteeDeliberationVoteAction extends Action {
 
         const fundingRoundIdRaw: string | undefined = CustomIDOracle.getNamedArgument(interaction.customId, FUNDING_ROUND_ID);
         if (!fundingRoundIdRaw) {
-            await interaction.respond({ content: 'fundingRoundId not included in the customId', ephemeral: true });
-            return;
+            throw new EndUserError('fundingRoundId not included in the customId');
         }
         const fundingRoundId: number = parseInt(fundingRoundIdRaw);
 
         const voteRaw: string | undefined = CustomIDOracle.getNamedArgument(interaction.customId, 'vote');
         if (!voteRaw) {
-            await interaction.respond({ content: 'vote not included in the customId', ephemeral: true });
-            return;
+            throw new EndUserError('vote not included in the customId');
         }
 
         const isReasonRequired: boolean = await CommitteeDeliberationLogic.hasVotedOnProject(interaction.interaction.user.id, projectId, fundingRoundId);
@@ -589,8 +581,7 @@ class CommitteeDeliberationVoteAction extends Action {
 
         const modalInteraction = InteractionProperties.toShowModalOrUndefined(interaction.interaction);
         if (!modalInteraction) {
-            await interaction.respond({ content: 'Failed to show modal. Please try again.', ephemeral: true });
-            return;
+            throw new EndUserError('Failed to show modal. Please try again.');
         }
 
         await modalInteraction.showModal(modal);
@@ -599,21 +590,18 @@ class CommitteeDeliberationVoteAction extends Action {
     private async handleConfirmVote(interaction: TrackedInteraction): Promise<void> {
         const modalInteraction = InteractionProperties.toModalSubmitInteractionOrUndefined(interaction.interaction);
         if (!modalInteraction) {
-            await interaction.respond({ content: 'Invalid interaction type.', ephemeral: true });
-            return;
+            throw new EndUserError('Invalid interaction type.');
         }
 
         const projectIdRaw: string | undefined = CustomIDOracle.getNamedArgument(interaction.customId, 'projectId');
         if (!projectIdRaw) {
-            await interaction.respond({ content: 'projectId not included in the customId', ephemeral: true });
-            return;
+            throw new EndUserError('projectId not included in the customId');
         }
         const projectId: number = parseInt(projectIdRaw);
 
         const fundingRoundIdRaw = CustomIDOracle.getNamedArgument(interaction.customId, FUNDING_ROUND_ID);
         if (!fundingRoundIdRaw) {
-            await interaction.respond({ content: 'fundingRoundId not included in the customId', ephemeral: true });
-            return;
+            throw new EndUserError('fundingRoundId not included in the customId');
         }
         const fundingRoundId: number = parseInt(fundingRoundIdRaw);
 
@@ -622,8 +610,7 @@ class CommitteeDeliberationVoteAction extends Action {
         const uri: string | undefined = modalInteraction.fields.getTextInputValue(INPUT_IDS.URI);
 
         if (!uri) {
-            await interaction.respond({ content: '❌ You must provide the link justifying your vote under https://forums.minaprotocol.com', ephemeral: true });
-            return;
+            throw new EndUserError('You must provide the link justifying your vote under https://forums.minaprotocol.com');
         }
 
         let description;
@@ -658,7 +645,7 @@ class CommitteeDeliberationVoteAction extends Action {
                 );
             await interaction.update({ embeds: [embed], ephemeral: true });
         } catch (error) {
-            await interaction.respond({ content: `Error submitting vote: ${error instanceof Error ? error.message : 'Unknown error'}`, ephemeral: true });
+            throw new EndUserError(`Error submitting vote`, error);
         }
     }
 

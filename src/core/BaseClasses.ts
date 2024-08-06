@@ -170,7 +170,7 @@ export abstract class Action {
 
     protected async handleInvalidInteraction(interaction: TrackedInteraction): Promise<void> {
         // Implement error handling and redirection to home screen
-        await interaction.respond({ content: '🤷‍♀️ Invalid interaction', ephemeral: true });
+        throw new EndUserError('Invalid interaction')
     }
 
     protected async handleInvalidOperation(interaction: TrackedInteraction, operationId: string): Promise<Message<boolean>> {
@@ -234,7 +234,7 @@ export abstract class Screen {
         try {
             await interaction.respond(responseArgs);
         } catch (error) {
-            logger.info('Error in render: ', error);
+            throw new EndUserError('Error rendering screen', error);
         }
         return;
     }
@@ -249,7 +249,7 @@ export abstract class Screen {
                 await interaction.respond(responseArgs);
             }
         } catch (error) {
-            logger.info('Error in re-render:\n', error);
+            throw new EndUserError('Error rendering screen', error);
         }
     }
 
@@ -276,7 +276,7 @@ export abstract class Screen {
      * @returns 
      */
     protected async handlePermissionDeniedResponse(interaction: TrackedInteraction) {
-        return await interaction.respond({ content: '✋ Insufficient permissions to perform this action.', ephemeral: true });
+        throw new EndUserError('Insufficient permissions to perform this action.')
     }
 
     /**

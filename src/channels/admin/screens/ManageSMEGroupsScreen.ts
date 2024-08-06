@@ -296,16 +296,14 @@ class SelectSMEGroupAction extends Action {
     const interactionWithValues = InteractionProperties.toInteractionWithValuesOrUndefined(rawInteraction);
 
     if (!interactionWithValues) {
-      await interaction.respond({ content: 'Invalid interaction type.', ephemeral: true });
-      return;
+      throw new EndUserError('Invalid interaction type.');
     }
 
     const groupId = parseInt(interactionWithValues.values[0]);
     const group = await SMEGroupLogic.getGroupById(groupId);
 
     if (!group) {
-      await interaction.respond({ content: 'Selected group not found.', ephemeral: true });
-      return;
+      throw new EndUserError('Selected group not found.');
     }
 
     const embed = new EmbedBuilder()
@@ -363,8 +361,7 @@ class AddSMEGroupAction extends Action {
   protected async handleAddGroupFormDisplay(interaction: TrackedInteraction): Promise<void> {
     const rawInteraction = interaction.interaction;
     if (!('showModal' in rawInteraction)) {
-      await interaction.respond({ content: '🚫 This interaction does not support modals', ephemeral: true });
-      return;
+      throw new EndUserError('🚫 This interaction does not support modals');
     }
     const customId = CustomIDOracle.addArgumentsToAction(this, AddSMEGroupAction.Operations.ADD_SME_GROUP_SUBMIT);
     const modal = new ModalBuilder()
@@ -394,16 +391,14 @@ class AddSMEGroupAction extends Action {
   protected async handleAddGroupFormSubmit(interaction: TrackedInteraction): Promise<void> {
     const rawInteraction = interaction.interaction;
     if (!rawInteraction.isModalSubmit()) {
-      await interaction.respond({ content: '🚫 Only modal submit interactions are supported for this operation.', ephemeral: true });
-      return;
+      throw new EndUserError('🚫 Only modal submit interactions are supported for this operation.');
     }
 
     const name = rawInteraction.fields.getTextInputValue(AddSMEGroupAction.InputIds.NAME);
     const description = rawInteraction.fields.getTextInputValue(AddSMEGroupAction.InputIds.DESCRIPTION);
 
     if (!name || !description) {
-      await interaction.respond({ content: '🚫 Please fill out all fields', ephemeral: true });
-      return;
+      throw new EndUserError('🚫 Please fill out all fields');
     }
 
     try {
@@ -468,8 +463,7 @@ class RemoveSMEGroupAction extends Action {
   private async handleConfirmRemove(interaction: TrackedInteraction): Promise<void> {
     const groupId = CustomIDOracle.getNamedArgument(interaction.customId, 'groupId');
     if (!groupId) {
-      await interaction.respond({ content: 'Invalid group ID.', ephemeral: true });
-      return;
+      throw new EndUserError('Invalid group ID.');
     }
 
     try {
@@ -506,15 +500,14 @@ class RemoveSMEGroupAction extends Action {
       });
     } catch (error) {
       logger.error('Error fetching group details:', error);
-      await interaction.respond({ content: 'An error occurred while fetching group details. Please try again later.', ephemeral: true });
+      throw new EndUserError('An error occurred while fetching group details. Please try again later.')
     }
   }
 
   private async handleExecuteRemove(interaction: TrackedInteraction): Promise<void> {
     const groupId = CustomIDOracle.getNamedArgument(interaction.customId, 'groupId');
     if (!groupId) {
-      await interaction.respond({ content: 'Invalid group ID.', ephemeral: true });
-      return;
+      throw new EndUserError('Invalid group ID.');
     }
 
     try {
@@ -590,14 +583,12 @@ class ManageMembersAction extends PaginationComponent {
   private async handleRemoveMembersSubmit(interaction: TrackedInteraction): Promise<void> {
     const groupId = CustomIDOracle.getNamedArgument(interaction.customId, 'groupId');
     if (!groupId) {
-      await interaction.respond({ content: 'Invalid group ID.', ephemeral: true });
-      return;
+      throw new EndUserError('Invalid group ID.');
     }
 
     const interactionWithValues = InteractionProperties.toInteractionWithValuesOrUndefined(interaction.interaction);
     if (!interactionWithValues) {
-      await interaction.respond({ content: 'Invalid interaction type.', ephemeral: true });
-      return;
+      throw new EndUserError('Invalid interaction type.');
     }
 
     const selectedUserIds = interactionWithValues.values;
@@ -616,8 +607,7 @@ class ManageMembersAction extends PaginationComponent {
   private async handleViewMembers(interaction: TrackedInteraction, successMessage?: string): Promise<void> {
     const groupId = CustomIDOracle.getNamedArgument(interaction.customId, 'groupId');
     if (!groupId) {
-      await interaction.respond({ content: 'Invalid group ID.', ephemeral: true });
-      return;
+      throw new EndUserError('Invalid group ID.');
     }
 
     const currentPage = this.getCurrentPage(interaction);
@@ -626,8 +616,7 @@ class ManageMembersAction extends PaginationComponent {
 
     const group = await SMEGroupLogic.getGroupById(parseInt(groupId));
     if (!group) {
-      await interaction.respond({ content: 'Group not found.', ephemeral: true });
-      return;
+      throw new EndUserError('Group not found.');
     }
 
     const allGroupMemberDuids = await SMEGroupLogic.getGroupMembers(parseInt(groupId));
@@ -674,8 +663,7 @@ class ManageMembersAction extends PaginationComponent {
     logger.info('Handling add members...');
     const groupId = CustomIDOracle.getNamedArgument(interaction.customId, 'groupId');
     if (!groupId) {
-      await interaction.respond({ content: 'Invalid group ID.', ephemeral: true });
-      return;
+      throw new EndUserError('Invalid group ID.');
     }
 
     const userSelect = new UserSelectMenuBuilder()
@@ -696,14 +684,12 @@ class ManageMembersAction extends PaginationComponent {
   private async handleAddMembersSubmit(interaction: TrackedInteraction): Promise<void> {
     const groupId = CustomIDOracle.getNamedArgument(interaction.customId, 'groupId');
     if (!groupId) {
-      await interaction.respond({ content: 'Invalid group ID.', ephemeral: true });
-      return;
+      throw new EndUserError('Invalid group ID.');
     }
 
     const interactionWithValues = InteractionProperties.toInteractionWithValuesOrUndefined(interaction.interaction);
     if (!interactionWithValues) {
-      await interaction.respond({ content: 'Invalid interaction type.', ephemeral: true });
-      return;
+      throw new EndUserError('Invalid interaction type.');
     }
 
     const selectedUserIds = interactionWithValues.values;
@@ -722,15 +708,13 @@ class ManageMembersAction extends PaginationComponent {
   private async handleRemoveMembers(interaction: TrackedInteraction): Promise<void> {
     const groupId = CustomIDOracle.getNamedArgument(interaction.customId, 'groupId');
     if (!groupId) {
-      await interaction.respond({ content: 'Invalid group ID.', ephemeral: true });
-      return;
+      throw new EndUserError('Invalid group ID.');
     }
 
     const members = await SMEGroupLogic.getGroupMembers(parseInt(groupId));
 
     if (members.length === 0) {
-      await interaction.respond({ content: 'This group has no members to remove.', ephemeral: true });
-      return;
+      throw new EndUserError('This group has no members to remove.');
     }
 
     const userSelect = new UserSelectMenuBuilder()

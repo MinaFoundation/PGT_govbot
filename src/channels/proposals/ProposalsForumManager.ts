@@ -24,8 +24,7 @@ export class ProposalsForumManager {
       await proposal.update({ forumThreadId: thread.id });
       await this.updateThreadContent(thread, proposal, fundingRound, screen);
     } catch (error) {
-      logger.error('Error creating forum thread:', error);
-      throw error;
+      throw new EndUserError('Error creating forum thread', error);
     }
   }
 
@@ -43,8 +42,7 @@ export class ProposalsForumManager {
         await thread.send({ embeds: [embed], components: [voteButton] });
       }
     } catch (error) {
-      logger.error('Error updating forum thread content:', error);
-      throw error;
+      throw new EndUserError('Error updating forum thread', error);
     }
   }
 
@@ -69,8 +67,7 @@ export class ProposalsForumManager {
       }
       await proposal.update({ forumThreadId: null });
     } catch (error) {
-      logger.error('Error deleting forum thread:', error);
-      throw error;
+      throw new EndUserError('Error deleting forum thread', error);
     }
   }
 
@@ -94,8 +91,7 @@ export class ProposalsForumManager {
         await this.updateThreadContent(thread, proposal, fundingRound, screen);
       }
     } catch (error) {
-      logger.error('Error refreshing forum thread:', error);
-      throw error;
+      throw new EndUserError('Error refreshing forum thread', error);
     }
   }
 

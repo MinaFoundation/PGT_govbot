@@ -4,7 +4,7 @@ import { DashboardManager } from './core/DashboardManager';
 import { AdminDashboard } from './channels/admin/dashboard';
 import { Proposal, syncDatabase } from './models';
 import { AdminHomeScreen } from './channels/admin/screens/AdminHomeScreen';
-import { HomeScreen } from './types/common';
+import { AnyInteraction, HomeScreen } from './types/common';
 import { FundingRoundInitDashboard } from './channels/funding-round-init/FundingRoundInitDashboard';
 import { FundingRoundInitScreen } from './channels/funding-round-init/screens/FundingRoundInitScreen';
 import { ProposeDashboard } from './channels/propose/ProposeDashboard';
@@ -16,6 +16,8 @@ import { CommitteeDeliberationHomeScreen } from './channels/deliberate/Committee
 import { ConsiderDashboard } from './channels/consider/ConsiderDashboard';
 import { ConsiderationHomeScreen } from './channels/consider/screens/ConsiderationHomeScreen';
 import logger from './logging';
+import { DiscordStatus } from './channels/DiscordStatus';
+import { TrackedInteraction } from './core/BaseClasses';
 
 config();
 
@@ -132,6 +134,8 @@ client.on('interactionCreate', async (interaction: Interaction<CacheType>) => {
   await dashboardManager.handleInteraction(interaction);
 } catch (error) {
     logger.error(error);
+    const trackedInteratction = new TrackedInteraction(interaction as AnyInteraction);
+    await DiscordStatus.handleException(trackedInteratction, error);
   }
 });
 

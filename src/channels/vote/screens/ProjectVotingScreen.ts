@@ -12,6 +12,7 @@ import { FundingRoundLogic } from '../../admin/screens/FundingRoundLogic';
 import { OCVLinkGenerator } from '../../../utils/OCVLinkGenerator';
 import logger from '../../../logging';
 import { DiscordStatus } from '../../DiscordStatus';
+import { EndUserError, EndUserInfo } from '../../../Errors';
 
 export class ProjectVotingScreen extends Screen {
     public static readonly ID = 'projectVoting';
@@ -166,8 +167,7 @@ export class SelectProjectAction extends PaginationComponent {
 
             const fundingRoundIdFromCntx = interaction.Context.get('fundingRoundId');
             if (!fundingRoundIdFromCntx) {
-                await interaction.respond({ content: 'fundingRoundId neither passed in customId, not in context', ephemeral: true });
-                return 0;
+                throw new EndUserError('fundingRoundId neither passed in customId, not in context')
             }
 
             fundingRoundId = parseInt(fundingRoundIdFromCntx);
@@ -181,8 +181,7 @@ export class SelectProjectAction extends PaginationComponent {
         if (!phase) {
             const phaseFromCntx = interaction.Context.get('phase');
             if (!phaseFromCntx) {
-                await interaction.respond({ content: 'phase neither passed in customId, nor in args, nor the interaction has values', ephemeral: true });
-                return 0;
+                throw new EndUserError('phase neither passed in customId, nor in args, nor the interaction has values')
             }
             phase = phaseFromCntx;
         }
@@ -201,8 +200,7 @@ export class SelectProjectAction extends PaginationComponent {
 
             const fundingRoundIdFromCntx = interaction.Context.get('fundingRoundId');
             if (!fundingRoundIdFromCntx) {
-                await interaction.respond({ content: 'fundingRoundId neither passed in customId, not in context', ephemeral: true });
-                return [];
+                throw new EndUserError('fundingRoundId neither passed in customId, not in context')
             }
 
             fundingRoundId = parseInt(fundingRoundIdFromCntx);
@@ -215,8 +213,7 @@ export class SelectProjectAction extends PaginationComponent {
         if (!phase) {
             const phaseFromCntx = interaction.Context.get('phase');
             if (!phaseFromCntx) {
-                await interaction.respond({ content: 'phase neither passed in customId, nor in context', ephemeral: true });
-                return [];
+                throw new EndUserError('phase neither passed in customId, nor in context')
             }
             phase = phaseFromCntx;
         }
@@ -283,8 +280,7 @@ export class SelectProjectAction extends PaginationComponent {
 
         const fundingRoundIdRaw: string | undefined = CustomIDOracle.getNamedArgument(interaction.customId, 'fundingRoundId');
         if (!fundingRoundIdRaw) {
-            await interaction.respond({ content: 'fundingRoundId not passed in customId', ephemeral: true });
-            return;
+            throw new EndUserError('fundingRoundId not passed in customId');
         }
         const fundingRoundId: number = parseInt(fundingRoundIdRaw);
 
@@ -294,8 +290,7 @@ export class SelectProjectAction extends PaginationComponent {
         if (!phase) {
             const parsedInteraction = InteractionProperties.toInteractionWithValuesOrUndefined(interaction.interaction);
             if (!parsedInteraction) {
-                await interaction.respond({ content: 'phase neither passed in customId, nor the interaction has values', ephemeral: true });
-                return;
+                throw new EndUserError('phase neither passed in customId, nor the interaction has values');
             }
             const chosenPhase: string = parsedInteraction.values[0];
             parsedPhase = chosenPhase.toLocaleLowerCase();
@@ -306,8 +301,7 @@ export class SelectProjectAction extends PaginationComponent {
 
 
         if (projects.length === 0) {
-            await interaction.respond({ content: 'ℹ️ There are no active projects for voting in this phase at the moment.', ephemeral: true });
-            return;
+            throw new EndUserInfo('ℹ️ There are no active projects for voting in this phase at the moment.');
         }
 
         const displayData = this.getSelectProjectComponent(interaction, fundingRoundId, parsedPhase);
@@ -324,16 +318,14 @@ export class SelectProjectAction extends PaginationComponent {
         const fundingRoundIdFromCI: string | undefined = CustomIDOracle.getNamedArgument(interaction.customId, 'fundingRoundId');
 
         if (!fundingRoundIdFromCI) {
-            await interaction.respond({ content: 'fundingRoundId not passed in customId', ephemeral: true });
-            return;
+            throw new EndUserError('fundingRoundId not passed in customId');
         }
 
         const fundingRoundId: number = parseInt(fundingRoundIdFromCI);
         const phase = CustomIDOracle.getNamedArgument(interaction.customId, 'phase');
 
         if (!phase) {
-            await interaction.respond({ content: 'Phase not passed in cutomId', ephemeral: true });
-            return;
+            throw new EndUserError('Phase not passed in cutomId');
         }
 
         interaction.Context.set('projectId', projectId.toString());
@@ -395,8 +387,7 @@ class VoteProjectAction extends Action {
         const fundingRound = await FundingRoundLogic.getFundingRoundById(fundingRoundId);
 
         if (!project || !fundingRound) {
-            await interaction.respond({ content: 'Project or Funding Round not found.', ephemeral: true });
-            return;
+            throw new EndUserError('Project or Funding Round not found.');
         }
 
         const hasUserSubmittedReasoning: boolean = await VoteLogic.hasUserSubmittedDeliberationReasoning(interaction.interaction.user.id, projectId);
@@ -490,13 +481,11 @@ class VoteProjectAction extends Action {
         const fundingRoundIdRaw = CustomIDOracle.getNamedArgument(interaction.customId, 'fundingRoundId');
 
         if (!projectIdRaw) {
-            await interaction.respond({ content: 'projectId not passed in customId', ephemeral: true });
-            return;
+            throw new EndUserError('projectId not passed in customId');
         }
 
         if (!fundingRoundIdRaw) {
-            await interaction.respond({ content: 'fundingRoundId not passed in customId', ephemeral: true });
-            return;
+            throw new EndUserError('fundingRoundId not passed in customId');
         }
 
         const projectId: number = parseInt(projectIdRaw);
@@ -531,8 +520,7 @@ class VoteProjectAction extends Action {
 
         const modalInteraction = InteractionProperties.toShowModalOrUndefined(interaction.interaction);
         if (!modalInteraction) {
-            await interaction.respond({ content: 'Failed to show modal. Please try again.', ephemeral: true });
-            return;
+            throw new EndUserError('Failed to show modal. Please try again.');
         }
 
         await modalInteraction.showModal(modal);
@@ -541,21 +529,18 @@ class VoteProjectAction extends Action {
     public async handleModalSubmit(interaction: TrackedInteraction): Promise<void> {
         const modalInteraction = InteractionProperties.toModalSubmitInteractionOrUndefined(interaction.interaction);
         if (!modalInteraction) {
-            await interaction.respond({ content: 'Invalid interaction type.', ephemeral: true });
-            return;
+            throw new EndUserError('Invalid interaction type.');
         }
 
         const projectIdRaw = CustomIDOracle.getNamedArgument(interaction.customId, 'projectId');
         const fundingRoundIdRaw = CustomIDOracle.getNamedArgument(interaction.customId, 'fundingRoundId');
 
         if (!projectIdRaw) {
-            await interaction.respond({ content: 'projectId not passed in customId', ephemeral: true });
-            return;
+            throw new EndUserError('projectId not passed in customId');
         }
 
         if (!fundingRoundIdRaw) {
-            await interaction.respond({ content: 'fundingRoundId not passed in customId', ephemeral: true });
-            return;
+            throw new EndUserError('fundingRoundId not passed in customId');
         }
 
         const projectId: number = parseInt(projectIdRaw);
@@ -586,8 +571,7 @@ class VoteProjectAction extends Action {
             await interaction.respond({ embeds: [embed], ephemeral: true });
         } catch (error) {
             logger.error('Error submitting reasoning');
-            await DiscordStatus.Error.handleError(interaction, error, 'Failed to submit reasoning');
-            throw error;
+            throw new EndUserError('Failed to submit reasoning', error);
         }
     }
 

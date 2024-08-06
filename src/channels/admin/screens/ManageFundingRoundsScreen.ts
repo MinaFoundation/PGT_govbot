@@ -9,6 +9,7 @@ import { FundingRoundPhase } from '../../../types';
 import { TopicLogic } from './ManageTopicLogicScreen';
 import logger from '../../../logging';
 import { EndUserError } from '../../../Errors';
+import { DiscordStatus } from '../../DiscordStatus';
 
 
 export class ManageFundingRoundsScreen extends Screen {
@@ -147,8 +148,7 @@ export class CreateFundingRoundAction extends Action {
     private async handleShowBasicInfoForm(interaction: TrackedInteraction): Promise<void> {
         const modalInteraction = InteractionProperties.toShowModalOrUndefined(interaction.interaction);
         if (!modalInteraction) {
-            await interaction.respond({ content: 'This interaction does not support modals.', ephemeral: true });
-            return;
+            throw new EndUserError('This interaction does not support modals.');
         }
 
         const modal = new ModalBuilder()
@@ -199,8 +199,7 @@ export class CreateFundingRoundAction extends Action {
     private async handleSubmitBasicInfo(interaction: TrackedInteraction): Promise<void> {
         const modalInteraction = InteractionProperties.toModalSubmitInteractionOrUndefined(interaction.interaction);
         if (!modalInteraction) {
-            await interaction.respond({ content: 'Invalid interaction type', ephemeral: true });
-            throw new EndUserError('Invalid interaction type ' + interaction.interaction);
+            throw new EndUserError('Invalid interaction type: submit interaction required');
         }
 
         const name = modalInteraction.fields.getTextInputValue(CreateFundingRoundAction.INPUT_IDS.NAME);
@@ -210,8 +209,7 @@ export class CreateFundingRoundAction extends Action {
         const votingAddress = modalInteraction.fields.getTextInputValue(CreateFundingRoundAction.INPUT_IDS.VOTING_ADDRESS);
 
         if (isNaN(budget)) {
-            await interaction.respond({ content: 'Invalid budget value. Please enter a valid number.', ephemeral: true });
-            return;
+            throw new EndUserError('Invalid budget value. Please enter a valid number.');
         }
 
         try {
@@ -248,8 +246,7 @@ export class CreateFundingRoundAction extends Action {
 
             await interaction.update({ embeds: [embed], components: [row] });
         } catch (error) {
-            await interaction.respond({ content: `Error creating funding round: ${(error as Error).message}`, ephemeral: true });
-            throw error;
+            throw new EndUserError(`Error creating funding round: ${(error as Error).message}`);
         }
     }
 
@@ -258,20 +255,17 @@ export class CreateFundingRoundAction extends Action {
         const phase = CustomIDOracle.getNamedArgument(interaction.customId, 'phase');
 
         if (!fundingRoundId || !phase) {
-            await interaction.respond({ content: 'Invalid funding round ID or phase.', ephemeral: true });
-            return;
+            throw new EndUserError('Invalid funding round ID or phase.');
         }
 
         const fundingRound = await FundingRoundLogic.getFundingRoundById(parseInt(fundingRoundId));
         if (!fundingRound) {
-            await interaction.respond({ content: 'Funding round not found.', ephemeral: true });
-            return;
+            throw new EndUserError('Funding round not found.');
         }
 
         const modalInteraction = InteractionProperties.toShowModalOrUndefined(interaction.interaction);
         if (!modalInteraction) {
-            await interaction.respond({ content: 'This interaction does not support modals.', ephemeral: true });
-            return;
+            throw new EndUserError('This interaction does not support modals.');
         }
 
         const existingPhase = await FundingRoundLogic.getFundingRoundPhase(parseInt(fundingRoundId), phase);
@@ -305,36 +299,31 @@ export class CreateFundingRoundAction extends Action {
     private async handleSubmitPhase(interaction: TrackedInteraction): Promise<void> {
         const modalInteraction = InteractionProperties.toModalSubmitInteractionOrUndefined(interaction.interaction);
         if (!modalInteraction) {
-            await interaction.respond({ content: 'Invalid interaction type.', ephemeral: true });
-            return;
+            throw new EndUserError('Invalid interaction type.');
         }
 
         const fundingRoundId = CustomIDOracle.getNamedArgument(interaction.customId, 'fundingRoundId');
         const phase = CustomIDOracle.getNamedArgument(interaction.customId, 'phase');
 
         if (!fundingRoundId || !phase) {
-            await interaction.respond({ content: 'Invalid funding round ID or phase.', ephemeral: true });
-            return;
+            throw new EndUserError('Invalid funding round ID or phase.');
         }
 
         const startDate = new Date(modalInteraction.fields.getTextInputValue(ModifyFundingRoundAction.INPUT_IDS.START_DATE));
         const endDate = new Date(modalInteraction.fields.getTextInputValue(ModifyFundingRoundAction.INPUT_IDS.END_DATE));
 
         if (isNaN(startDate.getTime()) || isNaN(endDate.getTime())) {
-            await interaction.respond({ content: 'Invalid date format. Please use YYYY-MM-DD HH:MM.', ephemeral: true });
-            return;
+            throw new EndUserError('Invalid date format. Please use YYYY-MM-DD HH:MM.');
         }
 
         if (startDate >= endDate) {
-            await interaction.respond({ content: 'Start date must be before end date.', ephemeral: true });
-            return;
+            throw new EndUserError('Start date must be before end date.');
         }
 
         try {
             const fundingRound = await FundingRoundLogic.getFundingRoundById(parseInt(fundingRoundId));
             if (!fundingRound) {
-                await interaction.respond({ content: 'Funding round not found.', ephemeral: true });
-                return;
+                throw new EndUserError('Funding round not found.');
             }
 
             const existingPhases = await FundingRoundLogic.getFundingRoundPhases(parseInt(fundingRoundId));
@@ -343,21 +332,18 @@ export class CreateFundingRoundAction extends Action {
             if (phase === ModifyFundingRoundAction.PHASE_NAMES.DELIBERATION) {
                 const considerationPhase = existingPhases.find(p => p.phase === ModifyFundingRoundAction.PHASE_NAMES.CONSIDERATION);
                 if (considerationPhase && startDate < considerationPhase.endDate) {
-                    await interaction.respond({ content: 'Deliberation phase must start after Consideration phase ends.', ephemeral: true });
-                    return;
+                    throw new EndUserError('Deliberation phase must start after Consideration phase ends.');
                 }
             } else if (phase === ModifyFundingRoundAction.PHASE_NAMES.VOTING) {
                 const deliberationPhase = existingPhases.find(p => p.phase === ModifyFundingRoundAction.PHASE_NAMES.DELIBERATION);
                 if (deliberationPhase && startDate < deliberationPhase.endDate) {
-                    await interaction.respond({ content: 'Voting phase must start after Deliberation phase ends.', ephemeral: true });
-                    return;
+                    throw new EndUserError('Voting phase must start after Deliberation phase ends.');
                 }
             }
 
             const lowerPase: string = phase.toLowerCase();
             if ((lowerPase !== 'consideration') && (lowerPase !== 'deliberation') && (lowerPase !== 'voting')) {
-                await interaction.respond({ content: 'Invalid phase.', ephemeral: true });
-                return;
+                throw new EndUserError('Invalid phase.');
             }
             await FundingRoundLogic.setFundingRoundPhase(parseInt(fundingRoundId), lowerPase, startDate, endDate);
 
@@ -544,7 +530,7 @@ export class ModifyFundingRoundAction extends Action {
         if (!interactionWithValues) {
             const fundingRoundIdArg = CustomIDOracle.getNamedArgument(interaction.customId, 'fundingRoundId');
             if (!fundingRoundIdArg) {
-                await interaction.respond({ content: 'Invalid interaction type.', ephemeral: true });
+                throw new EndUserError('Invalid interaction type.')
                 throw new EndUserError('Invalid interaction type, and no context passed in customId');
             }
             fundingRoundId = parseInt(fundingRoundIdArg);
@@ -556,8 +542,7 @@ export class ModifyFundingRoundAction extends Action {
         const fundingRound = await FundingRoundLogic.getFundingRoundById(fundingRoundId);
 
         if (!fundingRound) {
-            await interaction.respond({ content: 'Funding round not found.', ephemeral: true });
-            return;
+            throw new EndUserError('Funding round not found.');
         }
 
 
@@ -625,22 +610,19 @@ export class ModifyFundingRoundAction extends Action {
     private async handleShowBasicInfoForm(interaction: TrackedInteraction): Promise<void> {
         const fundingRoundId = CustomIDOracle.getNamedArgument(interaction.customId, 'fundingRoundId');
         if (!fundingRoundId) {
-            await interaction.respond({ content: 'Invalid funding round ID.', ephemeral: true });
-            return;
+            throw new EndUserError('Invalid funding round ID.');
         }
 
         const fundingRound = await FundingRoundLogic.getFundingRoundById(parseInt(fundingRoundId));
         if (!fundingRound) {
-            await interaction.respond({ content: 'Funding round not found.', ephemeral: true });
-            return;
+            throw new EndUserError('Funding round not found.');
         }
 
         const topic: Topic = await fundingRound.getTopic()
 
         const modalInteraction = InteractionProperties.toShowModalOrUndefined(interaction.interaction);
         if (!modalInteraction) {
-            await interaction.respond({ content: 'This interaction does not support modals.', ephemeral: true });
-            return;
+            throw new EndUserError('This interaction does not support modals.');
         }
 
         const modal = new ModalBuilder()
@@ -696,15 +678,14 @@ export class ModifyFundingRoundAction extends Action {
     private async handleSubmitBasicInfo(interaction: TrackedInteraction): Promise<void> {
         const modalInteraction = InteractionProperties.toModalSubmitInteractionOrUndefined(interaction.interaction);
         if (!modalInteraction) {
-            await interaction.respond({ content: 'Invalid interaction type.', ephemeral: true });
+            throw new EndUserError('Invalid interaction type.')
             throw new EndUserError('Invalid interaction type ' + interaction.interaction);
 
         }
 
         const fundingRoundId = CustomIDOracle.getNamedArgument(interaction.customId, 'fundingRoundId');
         if (!fundingRoundId) {
-            await interaction.respond({ content: 'Invalid funding round ID.', ephemeral: true });
-            return;
+            throw new EndUserError('Invalid funding round ID.');
         }
 
         const name = modalInteraction.fields.getTextInputValue(ModifyFundingRoundAction.INPUT_IDS.NAME);
@@ -721,8 +702,7 @@ export class ModifyFundingRoundAction extends Action {
         }
 
         if (isNaN(budget)) {
-            await interaction.respond({ content: 'Invalid budget value. Please enter a valid number.', ephemeral: true });
-            return;
+            throw new EndUserError('Invalid budget value. Please enter a valid number.');
         }
 
         try {
@@ -735,8 +715,7 @@ export class ModifyFundingRoundAction extends Action {
             });
 
             if (!updatedFundingRound) {
-                await interaction.respond({ content: 'Funding round not found.', ephemeral: true });
-                return;
+                throw new EndUserError('Funding round not found.');
             };
 
             const embed = new EmbedBuilder()
@@ -764,20 +743,17 @@ export class ModifyFundingRoundAction extends Action {
         phase = phase.toLowerCase() as 'consideration' | 'deliberation' | 'voting' | 'round';
 
         if (!fundingRoundId || !phase) {
-            await interaction.respond({ content: 'Invalid funding round ID or phase.', ephemeral: true });
-            return;
+            throw new EndUserError('Invalid funding round ID or phase.');
         }
 
         const fundingRound = await FundingRoundLogic.getFundingRoundById(parseInt(fundingRoundId));
         if (!fundingRound) {
-            await interaction.respond({ content: 'Funding round not found.', ephemeral: true });
-            return;
+            throw new EndUserError('Funding round not found.');
         }
 
         const modalInteraction = InteractionProperties.toShowModalOrUndefined(interaction.interaction);
         if (!modalInteraction) {
-            await interaction.respond({ content: 'This interaction does not support modals.', ephemeral: true });
-            return;
+            throw new EndUserError('This interaction does not support modals.');
         }
 
         const existingPhases = await FundingRoundLogic.getFundingRoundPhases(parseInt(fundingRoundId));
@@ -821,7 +797,7 @@ export class ModifyFundingRoundAction extends Action {
     private async handleSubmitPhase(interaction: TrackedInteraction): Promise<void> {
         const modalInteraction = InteractionProperties.toModalSubmitInteractionOrUndefined(interaction.interaction);
         if (!modalInteraction) {
-            await interaction.respond({ content: 'Invalid interaction type.', ephemeral: true });
+            throw new EndUserError('Invalid interaction type.')
             throw new EndUserError('Invalid interaction type ' + interaction.interaction);
         }
 
@@ -829,8 +805,7 @@ export class ModifyFundingRoundAction extends Action {
         const phase = CustomIDOracle.getNamedArgument(interaction.customId, 'phase') as 'consideration' | 'deliberation' | 'voting' | 'round';
 
         if (!fundingRoundId || !phase) {
-            await interaction.respond({ content: 'Invalid funding round ID or phase.', ephemeral: true });
-            return;
+            throw new EndUserError('Invalid funding round ID or phase.');
         }
 
         let startDate: Date;
@@ -845,20 +820,17 @@ export class ModifyFundingRoundAction extends Action {
 
 
         if (isNaN(startDate.getTime()) || isNaN(endDate.getTime())) {
-            await interaction.respond({ content: 'Invalid date format. Please use YYYY-MM-DD HH:MM.', ephemeral: true });
-            return;
+            throw new EndUserError('Invalid date format. Please use YYYY-MM-DD HH:MM.');
         }
 
         if (startDate >= endDate) {
-            await interaction.respond({ content: 'Start date must be before end date.', ephemeral: true });
-            return;
+            throw new EndUserError('Start date must be before end date.');
         }
 
         try {
             const fundingRound = await FundingRoundLogic.getFundingRoundById(parseInt(fundingRoundId));
             if (!fundingRound) {
-                await interaction.respond({ content: 'Funding round not found.', ephemeral: true });
-                return;
+                throw new EndUserError('Funding round not found.');
             }
 
             const existingPhases = await FundingRoundLogic.getFundingRoundPhases(parseInt(fundingRoundId));
@@ -867,14 +839,12 @@ export class ModifyFundingRoundAction extends Action {
             if (phase === 'deliberation') {
                 const considerationPhase = existingPhases.find((p: FundingRoundPhase) => p.phase === 'consideration');
                 if (considerationPhase && startDate < considerationPhase.endDate) {
-                    await interaction.respond({ content: 'Deliberation phase must start after Consideration phase ends.', ephemeral: true });
-                    return;
+                    throw new EndUserError('Deliberation phase must start after Consideration phase ends.');
                 }
             } else if (phase === 'voting') {
                 const deliberationPhase = existingPhases.find((p: FundingRoundPhase) => p.phase === 'deliberation');
                 if (deliberationPhase && startDate < deliberationPhase.endDate) {
-                    await interaction.respond({ content: 'Voting phase must start after Deliberation phase ends.', ephemeral: true });
-                    return;
+                    throw new EndUserError('Voting phase must start after Deliberation phase ends.');
                 }
             }
 
@@ -1062,7 +1032,7 @@ export class SetFundingRoundCommitteeAction extends PaginationComponent {
         if (!interactionWithValues) {
             fundingRoundId = CustomIDOracle.getNamedArgument(interaction.customId, 'fundingRoundId');
             if (!fundingRoundId) {
-                await interaction.respond({ content: 'No values and no fundingRound in customId', ephemeral: true });
+                throw new EndUserError('No values and no fundingRound in customId')
                 throw new EndUserError(`No values and no fundingRound in customId`);
             }
         } else {
@@ -1080,7 +1050,7 @@ export class SetFundingRoundCommitteeAction extends PaginationComponent {
 
         if (members.length === 0) {
             // TODO: later only allow eligible members to be selected
-            //await interaction.respond({ content: 'This funding round does not have a required committee set on the Topic.', ephemeral: true });
+            //throw new EndUserError('This funding round does not have a required committee set on the Topic.')
         }
         const userSelect = new UserSelectMenuBuilder()
             .setCustomId(CustomIDOracle.addArgumentsToAction(this, SetFundingRoundCommitteeAction.OPERATIONS.SELECT_COMMITTEE_MEMBERS, 'fundingRoundId', fundingRoundId.toString()))
@@ -1103,22 +1073,20 @@ export class SetFundingRoundCommitteeAction extends PaginationComponent {
     private async handleSelectCommitteeMembers(interaction: TrackedInteraction): Promise<void> {
         const interactionWithValues = InteractionProperties.toInteractionWithValuesOrUndefined(interaction.interaction);
         if (!interactionWithValues) {
-            await interaction.respond({ content: 'Invalid interaction type.', ephemeral: true });
+            throw new EndUserError('Invalid interaction type.')
             throw new EndUserError('Invalid interaction type ' + interaction.interaction);
         }
 
         const fundingRoundId = CustomIDOracle.getNamedArgument(interaction.customId, 'fundingRoundId');
         if (!fundingRoundId) {
-            await interaction.respond({ content: 'Invalid funding round ID.', ephemeral: true });
-            return;
+            throw new EndUserError('Invalid funding round ID.');
         }
 
         const selectedMembers = interactionWithValues.values;
 
         const fundingRound = await FundingRoundLogic.getFundingRoundById(parseInt(fundingRoundId));
         if (!fundingRound) {
-            await interaction.respond({ content: 'Funding round not found.', ephemeral: true });
-            return;
+            throw new EndUserError('Funding round not found.');
         }
 
 
@@ -1259,7 +1227,7 @@ export class ApproveFundingRoundAction extends Action {
     private async handleConfirmApproval(interaction: TrackedInteraction): Promise<void> {
         const interactionWithValues = InteractionProperties.toInteractionWithValuesOrUndefined(interaction.interaction);
         if (!interactionWithValues) {
-            await interaction.respond({ content: 'Invalid interaction type.', ephemeral: true });
+            throw new EndUserError('Invalid interaction type.')
             throw new EndUserError('Invalid interaction type ' + interaction.interaction);
         }
 
@@ -1267,8 +1235,7 @@ export class ApproveFundingRoundAction extends Action {
         const fundingRound = await FundingRoundLogic.getFundingRoundById(fundingRoundId);
 
         if (!fundingRound) {
-            await interaction.respond({ content: 'Funding round not found.', ephemeral: true });
-            return;
+            throw new EndUserError('Funding round not found.');
         }
 
         const embed = new EmbedBuilder()
@@ -1300,15 +1267,13 @@ export class ApproveFundingRoundAction extends Action {
     private async handleExecuteApproval(interaction: TrackedInteraction): Promise<void> {
         const fundingRoundId = CustomIDOracle.getNamedArgument(interaction.customId, 'fundingRoundId');
         if (!fundingRoundId) {
-            await interaction.respond({ content: 'Invalid funding round ID.', ephemeral: true });
-            return;
+            throw new EndUserError('Invalid funding round ID.');
         }
 
         try {
             const approvedFundingRound = await FundingRoundLogic.approveFundingRound(parseInt(fundingRoundId));
             if (!approvedFundingRound) {
-                await interaction.respond({ content: 'Funding round not found.', ephemeral: true });
-                return;
+                throw new EndUserError('Funding round not found.');
             }
 
             const embed = new EmbedBuilder()
@@ -1331,15 +1296,13 @@ export class ApproveFundingRoundAction extends Action {
     private async handleExecuteRejection(interaction: TrackedInteraction): Promise<void> {
         const fundingRoundId = CustomIDOracle.getNamedArgument(interaction.customId, 'fundingRoundId');
         if (!fundingRoundId) {
-            await interaction.respond({ content: 'Invalid funding round ID.', ephemeral: true });
-            return;
+            throw new EndUserError('Invalid funding round ID.');
         }
 
         try {
             const rejectedFundingRound = await FundingRoundLogic.rejectFundingRound(parseInt(fundingRoundId));
             if (!rejectedFundingRound) {
-                await interaction.respond({ content: 'Funding round not found.', ephemeral: true });
-                return;
+                throw new EndUserError('Funding round not found.');
             }
 
             const embed = new EmbedBuilder()
@@ -1454,8 +1417,7 @@ export class RemoveFundingRoundCommitteeAction extends PaginationComponent {
     private async handleSelectFundingRound(interaction: TrackedInteraction): Promise<void> {
         const interactionWithValues = InteractionProperties.toInteractionWithValuesOrUndefined(interaction.interaction);
         if (!interactionWithValues) {
-            await interaction.respond({ content: 'Invalid interaction type.', ephemeral: true });
-            return;
+            throw new EndUserError('Invalid interaction type.');
         }
 
         const fundingRoundId = interactionWithValues.values[0];
@@ -1468,8 +1430,7 @@ export class RemoveFundingRoundCommitteeAction extends PaginationComponent {
         const members = await this.getItemsForPage(interaction, currentPage, fundingRoundId);
 
         if (members.length === 0) {
-            await interaction.respond({ content: 'This funding round does not have any committee members.', ephemeral: true });
-            return;
+            throw new EndUserError('This funding round does not have any committee members.');
         }
 
         const userSelect = new UserSelectMenuBuilder()
@@ -1498,14 +1459,12 @@ export class RemoveFundingRoundCommitteeAction extends PaginationComponent {
     private async handleSelectMembersToRemove(interaction: TrackedInteraction): Promise<void> {
         const interactionWithValues = InteractionProperties.toInteractionWithValuesOrUndefined(interaction.interaction);
         if (!interactionWithValues) {
-            await interaction.respond({ content: 'Invalid interaction type.', ephemeral: true });
-            return;
+            throw new EndUserError('Invalid interaction type.');
         }
 
         const fundingRoundId = CustomIDOracle.getNamedArgument(interaction.customId, 'fundingRoundId');
         if (!fundingRoundId) {
-            await interaction.respond({ content: 'Invalid funding round ID.', ephemeral: true });
-            return;
+            throw new EndUserError('Invalid funding round ID.');
         }
 
         const selectedMembers = interactionWithValues.values;
@@ -1518,8 +1477,7 @@ export class RemoveFundingRoundCommitteeAction extends PaginationComponent {
     private async handleRemoveAllMembers(interaction: TrackedInteraction): Promise<void> {
         const fundingRoundId = CustomIDOracle.getNamedArgument(interaction.customId, 'fundingRoundId');
         if (!fundingRoundId) {
-            await interaction.respond({ content: 'Invalid funding round ID.', ephemeral: true });
-            return;
+            throw new EndUserError('Invalid funding round ID.');
         }
 
         const numRemovedRecords = await FundingRoundLogic.removeAllFundingRoundCommitteeMembers(parseInt(fundingRoundId));
@@ -1530,8 +1488,7 @@ export class RemoveFundingRoundCommitteeAction extends PaginationComponent {
     private async showCommitteeStatus(interaction: TrackedInteraction, fundingRoundId: number, numRemovedRecords: number): Promise<void> {
         const fundingRound = await FundingRoundLogic.getFundingRoundById(fundingRoundId);
         if (!fundingRound) {
-            await interaction.respond({ content: 'Funding round not found.', ephemeral: true });
-            return;
+            throw new EndUserError('Funding round not found.');
         }
 
         const topicCommittees = await TopicCommittee.findAll({

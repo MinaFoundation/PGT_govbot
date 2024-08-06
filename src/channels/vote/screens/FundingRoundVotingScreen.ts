@@ -8,6 +8,8 @@ import { FundingRound } from '../../../models';
 import { PaginationComponent } from '../../../components/PaginationComponent';
 import { InteractionProperties } from '../../../core/Interaction';
 import { FundingRoundLogic } from '../../admin/screens/FundingRoundLogic';
+import { EndUserError } from '../../../Errors';
+import { DiscordStatus } from '../../DiscordStatus';
 
 export class FundingRoundVotingScreen extends Screen {
   public static readonly ID = 'fundingRoundVoting';
@@ -116,8 +118,7 @@ class SelectFundingRoundAction extends PaginationComponent {
     const fundingRounds = await this.getItemsForPage(interaction, currentPage);
 
     if (fundingRounds.length === 0) {
-      await interaction.respond({ content: 'There are no eligible funding rounds for voting at the moment.', ephemeral: true });
-      return;
+      throw new EndUserError('There are no eligible funding rounds for voting at the moment.');
     }
 
     const embed = new EmbedBuilder()
@@ -150,8 +151,7 @@ class SelectFundingRoundAction extends PaginationComponent {
   public async handleSelectFundingRound(interaction: TrackedInteraction): Promise<void> {
     const interactionWithValues = InteractionProperties.toInteractionWithValuesOrUndefined(interaction.interaction);
     if (!interactionWithValues) {
-      await interaction.respond({ content: 'Invalid interaction type.', ephemeral: true });
-      return;
+      throw new EndUserError('Invalid interaction type.');
     }
 
     const fundingRoundId = parseInt(interactionWithValues.values[0]);
@@ -204,8 +204,7 @@ export class MemberVoteFundingRoundAction extends Action {
     const fundingRound = await FundingRoundLogic.getFundingRoundById(fundingRoundId);
 
     if (!fundingRound) {
-      await interaction.respond({ content: 'Funding round not found.', ephemeral: true });
-      return;
+      throw new EndUserError('Funding round not found.');
     }
 
     const embed = new EmbedBuilder()
@@ -239,9 +238,8 @@ export class MemberVoteFundingRoundAction extends Action {
 
     try {
       await VoteLogic.unvoteFundingRound(userId, fundingRoundId);
-      await interaction.respond({ content: 'Please ', ephemeral: true });
     } catch (error) {
-      await interaction.respond({ content: `Error removing vote: ${error instanceof Error ? error.message : 'Unknown error'}`, ephemeral: true });
+      throw new EndUserError(`Error unvoting`, error);
     }
   }
 
@@ -251,9 +249,9 @@ export class MemberVoteFundingRoundAction extends Action {
 
     try {
       await VoteLogic.voteFundingRound(userId, fundingRoundId);
-      await interaction.respond({ content: 'Your vote has been recorded successfully.', ephemeral: true });
-    } catch (error) {
-      await interaction.respond({ content: `Error recording vote: ${error instanceof Error ? error.message : 'Unknown error'}`, ephemeral: true });
+      await DiscordStatus.Success.success(interaction, 'Your vote has been recorded successfully.');
+    } catch (error: unknown) {
+      throw new EndUserError(`Error recording vote`, error);
     }
   }
 
