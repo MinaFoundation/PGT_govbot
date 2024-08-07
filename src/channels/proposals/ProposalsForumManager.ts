@@ -5,6 +5,7 @@ import logger from '../../logging';
 import { ProjectVotingScreen, SelectProjectAction } from '../vote/screens/ProjectVotingScreen';
 import { VoteDashboard } from '../vote/VoteDashboard';
 import { EndUserError } from '../../Errors';
+import { Screen } from '../../core/BaseClasses';
 
 export class ProposalsForumManager {
   private static readonly VOTE_BUTTON_ID = 'vote_button';
@@ -36,9 +37,12 @@ export class ProposalsForumManager {
       const messages = await thread.messages.fetch({ limit: 1 });
       const firstMessage = messages.first();
 
+      logger.debug(`Updating forum thread ${thread.id}:`);
       if (firstMessage) {
-        await firstMessage.edit({ embeds: [embed], components: [voteButton] });
+        logger.debug(`\tFirst message. Editing ${firstMessage.id}...`);
+        await firstMessage.edit({ content: "", embeds: [embed], components: [voteButton] });
       } else {
+        logger.debug(`\tNo first message. Sending new message to thread ${thread.id}...`);
         await thread.send({ embeds: [embed], components: [voteButton] });
       }
     } catch (error) {
@@ -47,7 +51,10 @@ export class ProposalsForumManager {
   }
 
   public static async deleteThread(proposal: Proposal): Promise<void> {
-    if (!proposal.forumThreadId) return;
+    if (!proposal.forumThreadId) {
+      logger.warn(`Proposal ${proposal.id} does not have a forum thread`);
+      return;
+    }
 
     if (!proposal.fundingRoundId) {
       logger.warn(`Proposal ${proposal.id} is not associated with a funding round`);
@@ -63,6 +70,7 @@ export class ProposalsForumManager {
 
       const thread = await forumChannel.threads.fetch(proposal.forumThreadId);
       if (thread) {
+        logger.debug(`Deleting forum thread ${thread.id}...`);
         await thread.delete();
       }
       await proposal.update({ forumThreadId: null });
@@ -71,8 +79,11 @@ export class ProposalsForumManager {
     }
   }
 
-  public static async refreshThread(proposal: Proposal, screen: any): Promise<void> {
-    if (!proposal.forumThreadId) return;
+  public static async refreshThread(proposal: Proposal, screen: Screen): Promise<void> {
+    if (!proposal.forumThreadId){
+      logger.warn(`Proposal ${proposal.id} does not have a forum thread`);
+      return;
+    }
 
     if (!proposal.fundingRoundId) {
       logger.warn(`Proposal ${proposal.id} is not associated with a funding round`);

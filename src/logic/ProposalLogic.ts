@@ -110,18 +110,23 @@ export class ProposalLogic {
     });
   }
 
-  static async cancelProposal(proposalId: number, screen?: Screen): Promise<Proposal | null> {
+  static async cancelProposal(proposalId: number, screen?: Screen): Promise<Proposal> {
     const proposal = await Proposal.findByPk(proposalId);
     if (!proposal) {
-      return null;
+      throw new EndUserError(`Proposal with ID ${proposalId} not found.`);
     }
 
     if (proposal.status === ProposalStatus.DRAFT || proposal.status === ProposalStatus.CANCELLED) {
       throw new EndUserError('Cannot cancel a draft or already cancelled proposal.');
     }
 
+    if (!proposal.fundingRoundId) {
+      throw new EndUserError(`Cannot cancel proposal without a funding round.`);
+    }
 
-    const updatedProposal: Proposal = await proposal.update({ status: ProposalStatus.CANCELLED });
+
+    // Not passing the screen to prevent update to the forum thread, as we want to delete the thread
+    const updatedProposal: Proposal = await this.updateProposalStatus(proposalId, ProposalStatus.CANCELLED);
 
     if (screen) {
       try {
@@ -133,6 +138,26 @@ export class ProposalLogic {
     }
 
     return updatedProposal;
+  }
+
+  static async updateProposalStatus(proposalId: number, status: ProposalStatus, screen?: Screen) {
+    const proposal = await Proposal.findByPk(proposalId);
+    if (!proposal) {
+      throw new EndUserError('Proposal not found');
+    }
+
+    await proposal.update({ status });
+
+    if (screen && proposal.fundingRoundId && proposal.forumThreadId) {
+      try {
+        const { ProposalsForumManager } = await import('../channels/proposals/ProposalsForumManager');
+        await ProposalsForumManager.refreshThread(proposal, screen);
+      } catch (error) {
+        logger.error('Error refreshing forum thread:', error);
+      }
+    }
+
+    return proposal;
   }
 
   private static async userHasPermissionToSubmit(userId: string, topicId: number): Promise<boolean> {
