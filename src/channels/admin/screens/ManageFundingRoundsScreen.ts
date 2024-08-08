@@ -112,7 +112,7 @@ export class CreateFundingRoundAction extends Action {
         DESCRIPTION: 'description',
         TOPIC_NAME: 'topicName',
         BUDGET: 'budget',
-        VOTING_ADDRESS: 'votingAddress',
+        STAKING_LEDGER_EPOCH_NUM: 'stLdEpNum',
         START_DATE: 'startDate',
         END_DATE: 'endDate',
         ROUND_START_DATE: 'rSD',
@@ -179,9 +179,9 @@ export class CreateFundingRoundAction extends Action {
             .setStyle(TextInputStyle.Short)
             .setRequired(true);
 
-        const votingAddressInput = new TextInputBuilder()
-            .setCustomId(CreateFundingRoundAction.INPUT_IDS.VOTING_ADDRESS)
-            .setLabel('Voting Address')
+        const stakingLedgerNumInput = new TextInputBuilder()
+            .setCustomId(CreateFundingRoundAction.INPUT_IDS.STAKING_LEDGER_EPOCH_NUM)
+            .setLabel('Staking Ledger Epoch Number (For Voting)')
             .setStyle(TextInputStyle.Short)
             .setRequired(true);
 
@@ -190,7 +190,7 @@ export class CreateFundingRoundAction extends Action {
             new ActionRowBuilder<TextInputBuilder>().addComponents(descriptionInput),
             new ActionRowBuilder<TextInputBuilder>().addComponents(topicNameInput),
             new ActionRowBuilder<TextInputBuilder>().addComponents(budgetInput),
-            new ActionRowBuilder<TextInputBuilder>().addComponents(votingAddressInput)
+            new ActionRowBuilder<TextInputBuilder>().addComponents(stakingLedgerNumInput)
         );
 
         await modalInteraction.showModal(modal);
@@ -206,14 +206,22 @@ export class CreateFundingRoundAction extends Action {
         const description = modalInteraction.fields.getTextInputValue(CreateFundingRoundAction.INPUT_IDS.DESCRIPTION);
         const topicName = modalInteraction.fields.getTextInputValue(CreateFundingRoundAction.INPUT_IDS.TOPIC_NAME);
         const budget = parseFloat(modalInteraction.fields.getTextInputValue(CreateFundingRoundAction.INPUT_IDS.BUDGET));
-        const votingAddress = modalInteraction.fields.getTextInputValue(CreateFundingRoundAction.INPUT_IDS.VOTING_ADDRESS);
+        const stakingLedgerEpochNum = modalInteraction.fields.getTextInputValue(CreateFundingRoundAction.INPUT_IDS.STAKING_LEDGER_EPOCH_NUM);
 
         if (isNaN(budget)) {
             throw new EndUserError('Invalid budget value. Please enter a valid number.');
         }
 
+        if (isNaN(parseInt(stakingLedgerEpochNum))) {
+            throw new EndUserError('Invalid staking ledger epoch number. Please enter a valid number.');
+        }
+
+        const ledgerNum: number = parseInt(stakingLedgerEpochNum);
+
+        
+
         try {
-            const fundingRound = await FundingRoundLogic.createFundingRound(name, description, topicName, budget, votingAddress);
+            const fundingRound = await FundingRoundLogic.createFundingRound(name, description, topicName, budget, ledgerNum);
             const embed = new EmbedBuilder()
                 .setColor('#0099ff')
                 .setTitle('Funding Round Created')
@@ -223,7 +231,7 @@ export class CreateFundingRoundAction extends Action {
                     { name: 'Description', value: fundingRound.description },
                     { name: 'Topic', value: topicName },
                     { name: 'Budget', value: fundingRound.budget.toString() },
-                    { name: 'Voting Address', value: fundingRound.votingAddress }
+                    { name: 'Staking Ledger Epoch (For Voting)', value: fundingRound.stakingLedgerEpoch.toString() }
                 );
 
             const considerationButton = new ButtonBuilder()
@@ -362,7 +370,7 @@ export class CreateFundingRoundAction extends Action {
                     { name: 'Name', value: fundingRound.name },
                     { name: 'Description', value: fundingRound.description },
                     { name: 'Budget', value: fundingRound.budget.toString() },
-                    { name: 'Voting Address', value: fundingRound.votingAddress },
+                    { name: 'Staking Ledger Epoch Number (For Voting)', value: fundingRound.stakingLedgerEpoch.toString() },
                     { name: 'Start Date', value: fundingRound.startAt ? fundingRound.startAt.toISOString() : '❌ Not set' },
                     { name: 'End Date', value: fundingRound.endAt ? fundingRound.endAt.toISOString() : '❌ Not set' },
                     ...updatedPhases.map(p => ({ name: `${p.phase} Phase`, value: `Start: ${p.startDate.toISOString()}\nEnd: ${p.endDate.toISOString()}`, inline: true }))
@@ -473,7 +481,7 @@ export class ModifyFundingRoundAction extends Action {
         DESCRIPTION: 'description',
         TOPIC_NAME: 'topicName',
         BUDGET: 'budget',
-        VOTING_ADDRESS: 'votingAddress',
+        STAKING_LEDGER_EPOCH: 'stLdEpNum',
         START_DATE: 'startDate',
         END_DATE: 'endDate',
         ROUND_START_DATE: 'rSD',
@@ -531,7 +539,6 @@ export class ModifyFundingRoundAction extends Action {
             const fundingRoundIdArg = CustomIDOracle.getNamedArgument(interaction.customId, 'fundingRoundId');
             if (!fundingRoundIdArg) {
                 throw new EndUserError('Invalid interaction type.')
-                throw new EndUserError('Invalid interaction type, and no context passed in customId');
             }
             fundingRoundId = parseInt(fundingRoundIdArg);
 
@@ -563,7 +570,7 @@ export class ModifyFundingRoundAction extends Action {
                 {name: 'Topic', value: topic.name},
                 { name: 'Budget', value: fundingRound.budget.toString() },
                 { name: 'Status', value: fundingRound.status },
-                { name: 'Voting Address', value: fundingRound.votingAddress },
+                { name: 'Staking Ledger Epoch Number (For Voting)', value: fundingRound.stakingLedgerEpoch.toString() },
                 { name: 'Start Date', value: fundingRound.startAt ? fundingRound.startAt.toISOString() : '❌ Not set' },
                 { name: 'End Date', value: fundingRound.endAt ? fundingRound.endAt.toISOString() : '❌ Not set' },
                 ...updatedPhases.map((p: FundingRoundPhase) => ({ name: `${p.phase.charAt(0).toUpperCase() + p.phase.slice(1)} Phase`, value: `Start: ${this.formatDate(p.startDate)}\nEnd: ${this.formatDate(p.endDate)}`, inline: true }))
@@ -657,11 +664,11 @@ export class ModifyFundingRoundAction extends Action {
         .setValue(topic.name)
         .setRequired(true);
 
-        const votingAddressInput = new TextInputBuilder()
-            .setCustomId(ModifyFundingRoundAction.INPUT_IDS.VOTING_ADDRESS)
-            .setLabel('Voting Address')
+        const stLedgerInput = new TextInputBuilder()
+            .setCustomId(ModifyFundingRoundAction.INPUT_IDS.STAKING_LEDGER_EPOCH)
+            .setLabel('Staking Ledger Epoch Number (For Voting)')
             .setStyle(TextInputStyle.Short)
-            .setValue(fundingRound.votingAddress)
+            .setValue(fundingRound.stakingLedgerEpoch.toString())
             .setRequired(true);
 
         modal.addComponents(
@@ -669,7 +676,7 @@ export class ModifyFundingRoundAction extends Action {
             new ActionRowBuilder<TextInputBuilder>().addComponents(descriptionInput),
             new ActionRowBuilder<TextInputBuilder>().addComponents(topicIntput),
             new ActionRowBuilder<TextInputBuilder>().addComponents(budgetInput),
-            new ActionRowBuilder<TextInputBuilder>().addComponents(votingAddressInput)
+            new ActionRowBuilder<TextInputBuilder>().addComponents(stLedgerInput)
         );
 
         await modalInteraction.showModal(modal);
@@ -691,7 +698,7 @@ export class ModifyFundingRoundAction extends Action {
         const name = modalInteraction.fields.getTextInputValue(ModifyFundingRoundAction.INPUT_IDS.NAME);
         const description = modalInteraction.fields.getTextInputValue(ModifyFundingRoundAction.INPUT_IDS.DESCRIPTION);
         const budget = parseFloat(modalInteraction.fields.getTextInputValue(ModifyFundingRoundAction.INPUT_IDS.BUDGET));
-        const votingAddress = modalInteraction.fields.getTextInputValue(ModifyFundingRoundAction.INPUT_IDS.VOTING_ADDRESS);
+        const stLedger = modalInteraction.fields.getTextInputValue(ModifyFundingRoundAction.INPUT_IDS.STAKING_LEDGER_EPOCH);
         const topicName = modalInteraction.fields.getTextInputValue(ModifyFundingRoundAction.INPUT_IDS.TOPIC_NAME);
 
         const topic = await TopicLogic.getTopicByName(topicName)
@@ -705,12 +712,18 @@ export class ModifyFundingRoundAction extends Action {
             throw new EndUserError('Invalid budget value. Please enter a valid number.');
         }
 
+        if (isNaN(parseInt(stLedger))) {
+            throw new EndUserError('Invalid staking ledger epoch number. Please enter a valid number.');
+        }
+
+        const ledgerNum: number = parseInt(stLedger);
+
         try {
             const updatedFundingRound = await FundingRoundLogic.updateFundingRound(parseInt(fundingRoundId), {
                 name,
                 description,
                 budget,
-                votingAddress,
+                stakingLedgerEpoch: ledgerNum,
                 topicId:topic.id,
             });
 
@@ -727,7 +740,7 @@ export class ModifyFundingRoundAction extends Action {
                     { name: 'Description', value: updatedFundingRound.description },
                     { name: 'Topic', value: topic.name },
                     { name: 'Budget', value: updatedFundingRound.budget.toString() },
-                    { name: 'Voting Address', value: updatedFundingRound.votingAddress }
+                    { name: 'Staking Ledger Epoch Number (For Voting)', value: updatedFundingRound.stakingLedgerEpoch.toString() }
                 );
 
             await interaction.update({ embeds: [embed], components: [] });
@@ -798,7 +811,6 @@ export class ModifyFundingRoundAction extends Action {
         const modalInteraction = InteractionProperties.toModalSubmitInteractionOrUndefined(interaction.interaction);
         if (!modalInteraction) {
             throw new EndUserError('Invalid interaction type.')
-            throw new EndUserError('Invalid interaction type ' + interaction.interaction);
         }
 
         const fundingRoundId = CustomIDOracle.getNamedArgument(interaction.customId, 'fundingRoundId');
@@ -866,7 +878,7 @@ export class ModifyFundingRoundAction extends Action {
                     { name: 'Name', value: fundingRound.name },
                     { name: 'Description', value: fundingRound.description },
                     { name: 'Budget', value: fundingRound.budget.toString() },
-                    { name: 'Voting Address', value: fundingRound.votingAddress },
+                    { name: 'Staking Ledger Epoch Number (For Voting)', value: fundingRound.stakingLedgerEpoch.toString() },
                     { name: 'Start Date', value: fundingRound.startAt ? this.formatDate(fundingRound.startAt) : '❌ Not set' },
                     { name: 'End Date', value: fundingRound.endAt ? this.formatDate(fundingRound.endAt) : '❌ Not set' },
                     ...updatedPhases.map((p: FundingRoundPhase) => ({ name: `${p.phase.charAt(0).toUpperCase() + p.phase.slice(1)} Phase`, value: `Start: ${this.formatDate(p.startDate)}\nEnd: ${this.formatDate(p.endDate)}`, inline: true }))

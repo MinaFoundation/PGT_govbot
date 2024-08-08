@@ -351,7 +351,7 @@ export class UpdateProposalStatusAction extends Action {
         const newStatus = parsedInteraction.values[0] as ProposalStatus;
 
         try {
-            const updatedProposal = await AdminProposalLogic.updateProposalStatus(parseInt(proposalId), newStatus);
+            const updatedProposal = await AdminProposalLogic.updateProposalStatus(parseInt(proposalId), newStatus, this.screen);
 
             const embed = new EmbedBuilder()
                 .setColor('#00FF00')

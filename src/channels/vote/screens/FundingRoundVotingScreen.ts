@@ -214,17 +214,17 @@ export class MemberVoteFundingRoundAction extends Action {
       .addFields(
         { name: 'Budget', value: fundingRound.budget.toString(), inline: true },
         { name: 'Voting Open Until', value: fundingRound.votingOpenUntil?.toLocaleString() || 'Not set', inline: true },
-        { name: 'Voting Address', value: fundingRound.votingAddress, inline: true }
+        { name: 'Staking Ledger Epoch Number (For Voting)', value: fundingRound.stakingLedgerEpoch.toString(), inline: true }
       );
 
     const voteButton = new ButtonBuilder()
       .setLabel('Vote For Approval (Vote) ✅')
-      .setURL(`https://example.com/vote?address=${fundingRound.votingAddress}`) // Replace with actual voting page URL
+      .setURL(`https://example.com/vote?address=${fundingRound.stakingLedgerEpoch}`) // Replace with actual voting page URL
       .setStyle(ButtonStyle.Link);
 
     const unvoteButton = new ButtonBuilder()
       .setLabel('Vote For Rejection (Unvote) ❌')
-      .setURL(`https://example.com/unvote?address=${fundingRound.votingAddress}`) // Replace with actual voting page URL
+      .setURL(`https://example.com/unvote?address=${fundingRound.stakingLedgerEpoch}`) // Replace with actual voting page URL
       .setStyle(ButtonStyle.Link);
 
     const row = new ActionRowBuilder<ButtonBuilder>().addComponents(voteButton, unvoteButton);

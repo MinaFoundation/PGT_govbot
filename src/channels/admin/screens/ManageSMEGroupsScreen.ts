@@ -9,7 +9,7 @@ import { PaginationComponent } from '../../../components/PaginationComponent';
 import { PaginationLogic } from '../../../utils/Pagination';
 import { InteractionProperties } from '../../../core/Interaction';
 import logger from '../../../logging';
-import { EndUserError } from '../../../Errors';
+import { EndUserError, EndUserInfo } from '../../../Errors';
 
 
 export class SMEGroupLogic {
@@ -714,7 +714,7 @@ class ManageMembersAction extends PaginationComponent {
     const members = await SMEGroupLogic.getGroupMembers(parseInt(groupId));
 
     if (members.length === 0) {
-      throw new EndUserError('This group has no members to remove.');
+      throw new EndUserInfo('This group has no members to remove.');
     }
 
     const userSelect = new UserSelectMenuBuilder()

@@ -101,7 +101,7 @@ export class CreateDraftFundingRoundAction extends Action {
         NAME: 'name',
         DESCRIPTION: 'description',
         BUDGET: 'budget',
-        VOTING_ADDRESS: 'votingAddress',
+        STAKING_LEDGER_EPOCH: 'stLdEpNum',
         VOTING_OPEN_UNTIL: 'votingOpenUntil',
         START_DATE: 'startDate',
         END_DATE: 'endDate',
@@ -200,9 +200,9 @@ export class CreateDraftFundingRoundAction extends Action {
             .setStyle(TextInputStyle.Short)
             .setRequired(true);
 
-        const votingAddressInput = new TextInputBuilder()
-            .setCustomId(CreateDraftFundingRoundAction.INPUT_IDS.VOTING_ADDRESS)
-            .setLabel('Voting Address')
+        const stLedgerInput = new TextInputBuilder()
+            .setCustomId(CreateDraftFundingRoundAction.INPUT_IDS.STAKING_LEDGER_EPOCH)
+            .setLabel('Staking Ledger Epoch Number (For Voting)')
             .setStyle(TextInputStyle.Short)
             .setRequired(true);
 
@@ -216,7 +216,7 @@ export class CreateDraftFundingRoundAction extends Action {
             new ActionRowBuilder<TextInputBuilder>().addComponents(nameInput),
             new ActionRowBuilder<TextInputBuilder>().addComponents(descriptionInput),
             new ActionRowBuilder<TextInputBuilder>().addComponents(budgetInput),
-            new ActionRowBuilder<TextInputBuilder>().addComponents(votingAddressInput),
+            new ActionRowBuilder<TextInputBuilder>().addComponents(stLedgerInput),
             new ActionRowBuilder<TextInputBuilder>().addComponents(votingOpenUntilInput)
         );
 
@@ -245,15 +245,23 @@ export class CreateDraftFundingRoundAction extends Action {
         const name = modalInteraction.fields.getTextInputValue(CreateDraftFundingRoundAction.INPUT_IDS.NAME);
         const description = modalInteraction.fields.getTextInputValue(CreateDraftFundingRoundAction.INPUT_IDS.DESCRIPTION);
         const budget = parseFloat(modalInteraction.fields.getTextInputValue(CreateDraftFundingRoundAction.INPUT_IDS.BUDGET));
-        const votingAddress = modalInteraction.fields.getTextInputValue(CreateDraftFundingRoundAction.INPUT_IDS.VOTING_ADDRESS);
+        const stLedger = modalInteraction.fields.getTextInputValue(CreateDraftFundingRoundAction.INPUT_IDS.STAKING_LEDGER_EPOCH);
         const votingOpenUntil = new Date(modalInteraction.fields.getTextInputValue(CreateDraftFundingRoundAction.INPUT_IDS.VOTING_OPEN_UNTIL));
 
+        let ledgerNum: number;
+        try {
+            ledgerNum = parseInt(stLedger);
+        } catch (error) {
+            throw new EndUserError('Invalid staking ledger epoch number');
+        }
+
+        // TOOD: fix isNaN logic
         if (isNaN(topicId) || isNaN(budget) || isNaN(votingOpenUntil.getTime())) {
             throw new EndUserError('Invalid input. Please check your entries and try again.');
         }
 
         try {
-            const fundingRound = await FundingRoundLogic.createDraftFundingRound(topicId, name, description, budget, votingAddress, votingOpenUntil);
+            const fundingRound = await FundingRoundLogic.createDraftFundingRound(topicId, name, description, budget, ledgerNum, votingOpenUntil);
             await this.showSetPhaseDates(interaction, fundingRound.id);
         } catch (error) {
             throw new EndUserError('Error creating funding round.', error);
@@ -273,7 +281,7 @@ export class CreateDraftFundingRoundAction extends Action {
             .addFields(
                 { name: 'Description', value: fundingRound.description },
                 { name: 'Budget', value: fundingRound.budget.toString() },
-                { name: 'Voting Address', value: fundingRound.votingAddress },
+                { name: 'Staking Ledger Epoch Number (For Voting)', value: fundingRound.stakingLedgerEpoch.toString() },
                 { name: 'Voting Open Until', value: fundingRound.votingOpenUntil.toISOString() },
                 { name: 'Start Date', value: fundingRound.startAt ? fundingRound.startAt.toISOString() : '❌ Not Set' },
                 { name: 'End Date', value: fundingRound.startAt ? fundingRound.endAt.toISOString() : '❌ Not Set' },
@@ -538,7 +546,7 @@ export class VoteFundingRoundAction extends PaginationComponent {
             .setDescription(fundingRound.description)
             .addFields(
                 { name: 'Budget', value: fundingRound.budget.toString(), inline: true },
-                { name: 'Voting Address', value: fundingRound.votingAddress, inline: true },
+                { name: 'Staking Ledger Epoch Number (For Voting)', value: fundingRound.stakingLedgerEpoch.toString(), inline: true },
                 { name: 'Voting Open Until', value: fundingRound.votingOpenUntil.toISOString(), inline: true },
                 { name: 'Status', value: fundingRound.status, inline: true },
                 { name: 'Start Date', value: fundingRound.startAt ? fundingRound.startAt.toISOString() : '❌ Not Set', inline: true },

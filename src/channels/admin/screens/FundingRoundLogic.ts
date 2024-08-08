@@ -6,7 +6,7 @@ import { FundingRoundAttributes, FundingRoundStatus, FundingRoundPhase, Proposal
 import { Op, Transaction } from 'sequelize';
 
 export class FundingRoundLogic {
-    static async createFundingRound(name: string, description: string, topicName: string, budget: number, votingAddress: string): Promise<FundingRound> {
+    static async createFundingRound(name: string, description: string, topicName: string, budget: number, stakingLedgerEpoch: number): Promise<FundingRound> {
         const topic = await Topic.findOne({ where: { name: topicName } });
         if (!topic) {
             throw new EndUserError('Topic not found');
@@ -17,7 +17,8 @@ export class FundingRoundLogic {
             description,
             topicId: topic.id,
             budget,
-            votingAddress,
+            votingAddress: null,
+            stakingLedgerEpoch,
             status: FundingRoundStatus.VOTING,
         });
     }
@@ -316,13 +317,14 @@ export class FundingRoundLogic {
         return result;
     }
 
-    static async createDraftFundingRound(topicId: number, name: string, description: string, budget: number, votingAddress: string, votingOpenUntil: Date): Promise<FundingRound> {
+    static async createDraftFundingRound(topicId: number, name: string, description: string, budget: number, stakingLedgerEpoch: number, votingOpenUntil: Date): Promise<FundingRound> {
         return await FundingRound.create({
             topicId,
             name,
             description,
             budget,
-            votingAddress,
+            votingAddress: null,
+            stakingLedgerEpoch,
             votingOpenUntil,
             status: FundingRoundStatus.VOTING,
         });
