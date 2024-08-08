@@ -94,7 +94,8 @@ export interface FundingRoundAttributes extends CoreAttributes {
   description: string;
   topicId: number;
   budget: number;
-  votingAddress: string;
+  votingAddress: string | null;
+  stakingLedgerEpoch: number;
   status: FundingRoundStatus;
   votingOpenUntil: Date | null;
   forumChannelId: string | null;

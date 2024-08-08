@@ -296,7 +296,8 @@ class FundingRound extends Model<FundingRoundAttributes, FundingRoundCreationAtt
   public description!: string;
   public topicId!: number;
   public budget!: number;
-  public votingAddress!: string;
+  public stakingLedgerEpoch!: number;
+  public votingAddress!: string; // TODO: this can be removed?
   public status!: FundingRoundStatus;
   public votingOpenUntil!: Date;
   public forumChannelId!: string;
@@ -350,6 +351,10 @@ FundingRound.init(
     },
     votingAddress: {
       type: DataTypes.STRING(255),
+      allowNull: true,
+    },
+    stakingLedgerEpoch: {
+      type: DataTypes.INTEGER,
       allowNull: false,
     },
     status: {
