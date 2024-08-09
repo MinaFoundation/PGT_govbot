@@ -1,5 +1,9 @@
-import type { Dashboard, Screen, Action } from './core/BaseClasses';
+import type { Dashboard, Screen, Action, TrackedInteraction } from './core/BaseClasses';
+import { InteractionProperties } from './core/Interaction';
 import { EndUserError } from './Errors';
+import logger from './logging';
+import { AnyInteractionWithValues } from './types/common';
+
 
 export class CustomIDOracle {
   static readonly SEPARATOR = ':';
@@ -106,3 +110,45 @@ export class CustomIDOracle {
     return this.parseCustomId(customId).slice(4);
   }
 }
+
+/**
+ * Oracle that retrieves arguments from all of the available sources:
+ * - Custom ID
+ * - Interaction Context (`TrackedIntraction.Context`)
+ * - Interaction Values (optional)
+ */
+export class ArgumentOracle {
+
+  static COMMON_ARGS = {
+    FUNDING_ROUND_ID: 'fundingRoundId',
+    PHASE: 'phase',
+  }
+
+  static getNamedArgument(intreaction: TrackedInteraction, argName: string, valuesIndex?:number): string {
+    const argFromCustomId: string | undefined = CustomIDOracle.getNamedArgument(intreaction.customId, argName);
+    
+    if (argFromCustomId) {
+      logger.debug(`Found argument ${argName} in custom ID: ${argFromCustomId}`);
+      return argFromCustomId.toLowerCase();
+    }
+
+    const argFromContext: string | undefined = intreaction.Context.get(argName);
+    if (argFromContext) {
+      logger.debug(`Found argument ${argName} in context: ${argFromContext}`);
+      return argFromContext.toLowerCase();
+    }
+
+    if (valuesIndex !== undefined) {
+      const parsedInteraction: AnyInteractionWithValues = InteractionProperties.toInteractionWithValuesOrError(intreaction.interaction);
+      const argFromValues: string | undefined = parsedInteraction.values[valuesIndex];
+      if (argFromValues) {
+        logger.debug(`Found argument ${argName} in values: ${argFromValues}`);
+        return argFromValues.toLowerCase();
+      } else {
+        throw new EndUserError(`Argument ${argName} not found in custom ID, context or values.`);
+      }
+    }
+
+    throw new EndUserError(`Argument ${argName} not found in custom ID or context.`);
+  }
+} 
