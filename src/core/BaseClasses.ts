@@ -6,6 +6,8 @@ import { AnyModalMessageComponent, AnyInteraction, HomeScreen, AnyInteractionWit
 import { InteractionProperties } from './Interaction';
 import logger from '../logging';
 import { EndUserError } from '../Errors';
+import { DiscordStatus } from '../channels/DiscordStatus';
+import { ModalBuilder } from '@discordjs/builders';
 
 export interface RenderArgs {
     successMessage?: string,
@@ -86,6 +88,15 @@ export class TrackedInteraction {
             return await parsedInteraction.update(args);
         } else {
             throw new EndUserError('Interaction is not updatable, so unable to update');
+        }
+    }
+
+    public async showModal(modalBuilder: ModalBuilder) {
+        const parsedInteraction = InteractionProperties.toShowModalOrUndefined(this.interaction);
+        if (parsedInteraction) {
+            return await parsedInteraction.showModal(modalBuilder);
+        } else {
+            throw new EndUserError('Interaction cannot show a modal');
         }
     }
 
@@ -174,12 +185,12 @@ export abstract class Action {
     }
 
     protected async handleInvalidOperation(interaction: TrackedInteraction, operationId: string): Promise<Message<boolean>> {
-        return await interaction.respond({ content: `🤷‍♀️ '${operationId}' operation not found on action ${this.fullCustomId}` })
+        return await DiscordStatus.Error.error(interaction, `🤷‍♀️ '${operationId}' operation not found on action ${this.fullCustomId}`);
     }
 
     protected async handleMissingOperation(interaction: TrackedInteraction): Promise<Message<boolean>> {
         // Re-render the current screen with an error message
-        return await interaction.respond({content: '4️⃣0️⃣4️⃣ Action operation to perform not found.'});
+        return await DiscordStatus.Error.error(interaction, 'Action operation to perform not found.');
     }
 
     abstract getComponent(...args: any[]): AnyModalMessageComponent;
