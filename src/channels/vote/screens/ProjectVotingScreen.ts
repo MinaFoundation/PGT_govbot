@@ -2,7 +2,7 @@
 
 import { Screen, Action, Dashboard, Permission, TrackedInteraction, RenderArgs } from '../../../core/BaseClasses';
 import { ActionRowBuilder, ButtonBuilder, ButtonStyle, EmbedBuilder, MessageActionRowComponentBuilder, StringSelectMenuBuilder, ModalBuilder, TextInputBuilder, TextInputStyle } from 'discord.js';
-import { CustomIDOracle } from '../../../CustomIDOracle';
+import { ArgumentOracle, CustomIDOracle } from '../../../CustomIDOracle';
 import { ProposalLogic } from '../../../logic/ProposalLogic';
 import { VoteLogic } from '../../../logic/VoteLogic';
 import { GPTSummarizerVoteLog, Proposal } from '../../../models';
@@ -159,32 +159,12 @@ export class SelectProjectAction extends PaginationComponent {
     };
 
     protected async getTotalPages(interaction: TrackedInteraction, phaseArg?: string): Promise<number> {
-        const fundingRoundIdRaw: string | undefined = CustomIDOracle.getNamedArgument(interaction.customId, 'fundingRoundId');
+        const fundingRoundIdRaw: string = ArgumentOracle.getNamedArgument(interaction, ArgumentOracle.COMMON_ARGS.FUNDING_ROUND_ID);
 
-        let fundingRoundId: number;
-
-        if (!fundingRoundIdRaw) {
-
-            const fundingRoundIdFromCntx = interaction.Context.get('fundingRoundId');
-            if (!fundingRoundIdFromCntx) {
-                throw new EndUserError('fundingRoundId neither passed in customId, not in context')
-            }
-
-            fundingRoundId = parseInt(fundingRoundIdFromCntx);
-
-        } else {
-            fundingRoundId = parseInt(fundingRoundIdRaw);
-        }
+        let fundingRoundId: number = parseInt(fundingRoundIdRaw);
 
 
-        let phase: string | undefined = CustomIDOracle.getNamedArgument(interaction.customId, 'phase') || phaseArg;
-        if (!phase) {
-            const phaseFromCntx = interaction.Context.get('phase');
-            if (!phaseFromCntx) {
-                throw new EndUserError('phase neither passed in customId, nor in args, nor the interaction has values')
-            }
-            phase = phaseFromCntx;
-        }
+        let phase: string = ArgumentOracle.getNamedArgument(interaction, ArgumentOracle.COMMON_ARGS.PHASE); 
         phase = phase.toLowerCase();
 
         const projects = await FundingRoundLogic.getActiveProposalsForPhase(fundingRoundId, phase);
@@ -192,32 +172,13 @@ export class SelectProjectAction extends PaginationComponent {
     }
 
     protected async getItemsForPage(interaction: TrackedInteraction, page: number): Promise<Proposal[]> {
-        const fundingRoundIdRaw: string | undefined = CustomIDOracle.getNamedArgument(interaction.customId, 'fundingRoundId');
+        const fundingRoundIdRaw: string = ArgumentOracle.getNamedArgument(interaction, ArgumentOracle.COMMON_ARGS.FUNDING_ROUND_ID);
 
-        let fundingRoundId: number;
+        let fundingRoundId: number = parseInt(fundingRoundIdRaw);
 
-        if (!fundingRoundIdRaw) {
+ 
 
-            const fundingRoundIdFromCntx = interaction.Context.get('fundingRoundId');
-            if (!fundingRoundIdFromCntx) {
-                throw new EndUserError('fundingRoundId neither passed in customId, not in context')
-            }
-
-            fundingRoundId = parseInt(fundingRoundIdFromCntx);
-
-        } else {
-            fundingRoundId = parseInt(fundingRoundIdRaw);
-        } 
-
-        let phase: string | undefined = CustomIDOracle.getNamedArgument(interaction.customId, 'phase');
-        if (!phase) {
-            const phaseFromCntx = interaction.Context.get('phase');
-            if (!phaseFromCntx) {
-                throw new EndUserError('phase neither passed in customId, nor in context')
-            }
-            phase = phaseFromCntx;
-        }
-        phase = phase.toLowerCase();
+        const phase: string = ArgumentOracle.getNamedArgument(interaction, ArgumentOracle.COMMON_ARGS.PHASE); 
 
         const projects = await FundingRoundLogic.getActiveProposalsForPhase(fundingRoundId, phase);
         return projects.slice(page * 25, (page + 1) * 25);

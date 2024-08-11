@@ -1,3 +1,4 @@
+import { Message } from "discord.js";
 import { TrackedInteraction } from "../core/BaseClasses";
 import { EndUserError, EndUserInfo, GovBotError } from "../Errors";
 import logger from "../logging";
@@ -51,10 +52,10 @@ export class DiscordStatus {
 
        },
 
-        async error(interaction: TrackedInteraction, message: string): Promise<void> {
+        async error(interaction: TrackedInteraction, message: string): Promise<Message<boolean>> {
             const data = DiscordStatus.Error.errorData(message);
 
-            await interaction.respond(data);
+            return await interaction.respond(data);
         },
 
         errorData(message: string): any {

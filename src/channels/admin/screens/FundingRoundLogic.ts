@@ -2,6 +2,7 @@ import sequelize from '../../../config/database';
 import { EndUserError } from '../../../Errors';
 import logger from '../../../logging';
 import { FundingRound, Topic, ConsiderationPhase, DeliberationPhase, FundingVotingPhase, SMEGroup, SMEGroupMembership, FundingRoundDeliberationCommitteeSelection, FundingRoundApprovalVote, TopicSMEGroupProposalCreationLimiter, Proposal } from '../../../models';
+import { FundingRoundMI, FundingRoundMIPhase, FundingRoundMIPhaseValue } from '../../../models/Interface';
 import { FundingRoundAttributes, FundingRoundStatus, FundingRoundPhase, ProposalStatus } from '../../../types';
 import { Op, Transaction } from 'sequelize';
 
@@ -87,35 +88,35 @@ export class FundingRoundLogic {
         return currentPhases[0];
     }
 
-    static async setFundingRoundPhase(fundingRoundId: number, phase: 'consideration' | 'deliberation' | 'voting' | 'round', startDate: Date, endDate: Date): Promise<void> {
+    static async setFundingRoundPhase(fundingRoundId: number, phase: FundingRoundMIPhaseValue, startDate: Date, endDate: Date): Promise<void> {
         const fundingRound = await this.getFundingRoundById(fundingRoundId);
         if (!fundingRound) {
             throw new EndUserError('Funding round not found');
         }
 
-        switch (phase.toLocaleLowerCase()) {
-            case 'consideration':
+        switch (phase.toString().toLocaleLowerCase()) {
+            case FundingRoundMI.PHASES.CONSIDERATION.toString().toLocaleLowerCase():
                 await ConsiderationPhase.upsert({
                     fundingRoundId,
                     startAt: startDate,
                     endAt: endDate,
                 });
                 break;
-            case 'deliberation':
+            case FundingRoundMI.PHASES.DELIBERATION.toString().toLocaleLowerCase():
                 await DeliberationPhase.upsert({
                     fundingRoundId,
                     startAt: startDate,
                     endAt: endDate,
                 });
                 break;
-            case 'voting':
+            case FundingRoundMI.PHASES.VOTING.toString().toLocaleLowerCase():
                 await FundingVotingPhase.upsert({
                     fundingRoundId,
                     startAt: startDate,
                     endAt: endDate,
                 });
                 break;
-            case 'round':
+            case FundingRoundMI.PHASES.ROUND.toString().toLocaleLowerCase():
                 await fundingRound.update({
                     startAt: startDate,
                     endAt: endDate,

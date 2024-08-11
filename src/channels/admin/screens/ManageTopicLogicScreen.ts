@@ -16,8 +16,26 @@ interface TopicCommitteeWithSMEGroup extends TopicCommitteeAttributes {
   }
 
 export class TopicLogic {
+
+  static getByIdOrError(topicId: number): Promise<Topic> {
+    return Topic.findByPk(topicId).then((topic) => {
+
+      if (!topic) {
+        throw new EndUserError(`Topic with ID ${topicId} not found`);
+      }
+    
+      return topic;
+    });
+  }
+
     static async getTotalTopicsCount(): Promise<number> {
         return await Topic.count();
+    }
+
+    static async getAllTopics(): Promise<Topic[]> {
+        return await Topic.findAll({
+            order: [['name', 'ASC']]
+        });
     }
 
     static async getPaginatedTopics(page: number, pageSize: number): Promise<Topic[]> {
