@@ -28,6 +28,15 @@ export class FundingRoundLogic {
         return await FundingRound.findByPk(id);
     }
 
+    static async getFundingRoundByIdOrError(fundingRoundId: number): Promise<FundingRound> {
+        const fundingRound = await this.getFundingRoundById(fundingRoundId);
+        if (!fundingRound) {
+            throw new EndUserError(`Funding round with id ${fundingRoundId} not found`);
+        }
+
+        return fundingRound;
+    }
+
     static async getFundingRoundPhase(fundingRoundId: number, phase: string) {
         switch (phase.toLowerCase()) {
             case 'consideration':
@@ -88,16 +97,14 @@ export class FundingRoundLogic {
         return currentPhases[0];
     }
 
-    static async setFundingRoundPhase(fundingRoundId: number, phase: FundingRoundMIPhaseValue, startDate: Date, endDate: Date): Promise<void> {
-        const fundingRound = await this.getFundingRoundById(fundingRoundId);
-        if (!fundingRound) {
-            throw new EndUserError('Funding round not found');
-        }
+    static async setFundingRoundPhase(fundingRoundId: number, phase: FundingRoundMIPhaseValue, stakingLedgerEpoch: number, startDate: Date, endDate: Date): Promise<void> {
+        const fundingRound = await this.getFundingRoundByIdOrError(fundingRoundId);
 
         switch (phase.toString().toLocaleLowerCase()) {
             case FundingRoundMI.PHASES.CONSIDERATION.toString().toLocaleLowerCase():
                 await ConsiderationPhase.upsert({
                     fundingRoundId,
+                    stakingLedgerEpoch,
                     startAt: startDate,
                     endAt: endDate,
                 });
@@ -105,6 +112,7 @@ export class FundingRoundLogic {
             case FundingRoundMI.PHASES.DELIBERATION.toString().toLocaleLowerCase():
                 await DeliberationPhase.upsert({
                     fundingRoundId,
+                    stakingLedgerEpoch,
                     startAt: startDate,
                     endAt: endDate,
                 });
@@ -112,6 +120,7 @@ export class FundingRoundLogic {
             case FundingRoundMI.PHASES.VOTING.toString().toLocaleLowerCase():
                 await FundingVotingPhase.upsert({
                     fundingRoundId,
+                    stakingLedgerEpoch,
                     startAt: startDate,
                     endAt: endDate,
                 });

@@ -1,6 +1,6 @@
 import { Screen, Action, Dashboard, Permission, TrackedInteraction, RenderArgs } from '../../../core/BaseClasses';
 import { ActionRowBuilder, ButtonBuilder, ButtonStyle, EmbedBuilder, MessageActionRowComponentBuilder, MessageCreateOptions, ModalBuilder, StringSelectMenuBuilder, TextChannel, TextInputBuilder, TextInputStyle } from 'discord.js';
-import { CustomIDOracle } from '../../../CustomIDOracle';
+import { ArgumentOracle, CustomIDOracle } from '../../../CustomIDOracle';
 import { ZkIgniteFacilitatorPermission } from '../permissions/ZkIgniteFacilitatorPermission';
 import { PaginationComponent } from '../../../components/PaginationComponent';
 import { FundingRoundLogic } from '../../admin/screens/FundingRoundLogic';
@@ -367,12 +367,8 @@ export class CreateDraftFundingRoundAction extends Action {
             throw new EndUserError('Invalid interaction type.');
         }
 
-        const fundingRoundId = CustomIDOracle.getNamedArgument(interaction.customId, FUNDING_ROUND_ID_ARG);
-        const phase = CustomIDOracle.getNamedArgument(interaction.customId, PHASE_ARG)?.toLowerCase() as keyof typeof CreateDraftFundingRoundAction.PHASE_NAMES;
-
-        if (!fundingRoundId || !phase) {
-            throw new EndUserError('Invalid funding round ID or phase.');
-        }
+        const fundingRoundId = ArgumentOracle.getNamedArgument(interaction, FUNDING_ROUND_ID_ARG);
+        const phase = ArgumentOracle.getNamedArgument(interaction, PHASE_ARG)?.toLowerCase() as keyof typeof CreateDraftFundingRoundAction.PHASE_NAMES;
 
         let startDate: Date;
         let endDate: Date;
@@ -406,7 +402,9 @@ export class CreateDraftFundingRoundAction extends Action {
         }
 
         try {
-            await FundingRoundLogic.setFundingRoundPhase(parseInt(fundingRoundId), mappedPhase, startDate, endDate);
+            // logic will be resused from #admin
+            throw new EndUserError('This should not be used (deprecated');
+            //await FundingRoundLogic.setFundingRoundPhase(parseInt(fundingRoundId), mappedPhase, startDate, endDate);
             await this.showSetPhaseDates(interaction, parseInt(fundingRoundId));
         } catch (error) {
             throw new EndUserError('Error setting phase dates', error);

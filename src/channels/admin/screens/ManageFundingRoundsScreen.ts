@@ -319,6 +319,7 @@ export class CreateFundingRoundAction extends Action {
 
         const startDate = new Date(modalInteraction.fields.getTextInputValue(ModifyFundingRoundAction.INPUT_IDS.START_DATE));
         const endDate = new Date(modalInteraction.fields.getTextInputValue(ModifyFundingRoundAction.INPUT_IDS.END_DATE));
+        const stakingLedgerEpoch = parseInt(modalInteraction.fields.getTextInputValue(ModifyFundingRoundAction.INPUT_IDS.STAKING_LEDGER_EPOCH));
 
         if (isNaN(startDate.getTime()) || isNaN(endDate.getTime())) {
             throw new EndUserError('Invalid date format. Please use YYYY-MM-DD HH:MM.');
@@ -353,7 +354,7 @@ export class CreateFundingRoundAction extends Action {
             if ((lowerPase !== 'consideration') && (lowerPase !== 'deliberation') && (lowerPase !== 'voting')) {
                 throw new EndUserError('Invalid phase.');
             }
-            await FundingRoundLogic.setFundingRoundPhase(parseInt(fundingRoundId), lowerPase, startDate, endDate);
+            await FundingRoundLogic.setFundingRoundPhase(parseInt(fundingRoundId), lowerPase, stakingLedgerEpoch, startDate, endDate);
 
             const updatedPhases = await FundingRoundLogic.getFundingRoundPhases(parseInt(fundingRoundId));
             const allPhasesSet = [
@@ -815,12 +816,8 @@ export class ModifyFundingRoundAction extends Action {
             throw new EndUserError('Invalid interaction type.')
         }
 
-        const fundingRoundId = CustomIDOracle.getNamedArgument(interaction.customId, ArgumentOracle.COMMON_ARGS.FUNDING_ROUND_ID);
-        const phase = CustomIDOracle.getNamedArgument(interaction.customId, ArgumentOracle.COMMON_ARGS.PHASE) as 'consideration' | 'deliberation' | 'voting' | 'round';
-
-        if (!fundingRoundId || !phase) {
-            throw new EndUserError('Invalid funding round ID or phase.');
-        }
+        const fundingRoundId = ArgumentOracle.getNamedArgument(interaction, ArgumentOracle.COMMON_ARGS.FUNDING_ROUND_ID);
+        const phase = ArgumentOracle.getNamedArgument(interaction, ArgumentOracle.COMMON_ARGS.PHASE) as 'consideration' | 'deliberation' | 'voting' | 'round';
 
         let startDate: Date;
         let endDate: Date;
@@ -840,6 +837,8 @@ export class ModifyFundingRoundAction extends Action {
         if (startDate >= endDate) {
             throw new EndUserError('Start date must be before end date.');
         }
+
+        const stakingLedgerEpochNum: number = parseInt(modalInteraction.fields.getTextInputValue(ModifyFundingRoundAction.INPUT_IDS.STAKING_LEDGER_EPOCH));
 
         try {
             const fundingRound = await FundingRoundLogic.getFundingRoundById(parseInt(fundingRoundId));
@@ -862,7 +861,7 @@ export class ModifyFundingRoundAction extends Action {
                 }
             }
 
-            await FundingRoundLogic.setFundingRoundPhase(parseInt(fundingRoundId), phase, startDate, endDate);
+            await FundingRoundLogic.setFundingRoundPhase(parseInt(fundingRoundId), phase, stakingLedgerEpochNum, startDate, endDate);
 
             const updatedPhases = await FundingRoundLogic.getFundingRoundPhases(parseInt(fundingRoundId));
             let allPhasesSet: boolean = ['consideration', 'deliberation', 'voting']
@@ -1921,6 +1920,7 @@ export class EditFundingRoundPhasesAction extends Action {
     private static readonly INPUT_IDS = {
         START_DATE: 'startDate',
         END_DATE: 'endDate',
+        STAKING_LEDGER_EPOCH: 'stLdEp',
     };
 
     private static readonly PHASE_NAMES = {
@@ -1965,6 +1965,10 @@ export class EditFundingRoundPhasesAction extends Action {
         for (const phase of phases) {
             embed.addFields({ name: `${phase.phase.charAt(0).toUpperCase() + phase.phase.slice(1)} Phase`, value: `Start: ${phase.startDate.toISOString()}\nEnd: ${phase.endDate.toISOString()}`, inline: false });
         }
+
+        embed.addFields(
+            { name: 'Staking Ledger Epoch', value: fundingRound.stakingLedgerEpoch.toString(), inline: false },
+        )
 
         const buttons = Object.values(EditFundingRoundPhasesAction.PHASE_NAMES).map(phase =>
             new ButtonBuilder()
@@ -2021,9 +2025,17 @@ export class EditFundingRoundPhasesAction extends Action {
             .setValue(endDate ? this.formatDate(endDate) : '')
             .setRequired(true);
 
+        const stakingLedgerEpochInput = new TextInputBuilder()
+            .setCustomId(EditFundingRoundPhasesAction.INPUT_IDS.STAKING_LEDGER_EPOCH)
+            .setLabel('Staking Ledger Epoch For Vote Counting')
+            .setStyle(TextInputStyle.Short)
+            .setValue(fundingRound.stakingLedgerEpoch ? fundingRound.stakingLedgerEpoch.toString(): '')
+            .setRequired(true);
+
         modal.addComponents(
             new ActionRowBuilder<TextInputBuilder>().addComponents(startDateInput),
-            new ActionRowBuilder<TextInputBuilder>().addComponents(endDateInput)
+            new ActionRowBuilder<TextInputBuilder>().addComponents(endDateInput),
+            new ActionRowBuilder<TextInputBuilder>().addComponents(stakingLedgerEpochInput),
         );
 
         await interaction.showModal(modal);
@@ -2035,15 +2047,12 @@ export class EditFundingRoundPhasesAction extends Action {
             throw new EndUserError('Invalid interaction type.');
         }
 
-        const phase: string = ArgumentOracle.getNamedArgument(interaction, ArgumentOracle.COMMON_ARGS.PHASE);
         const fundingRoundId: number = parseInt(ArgumentOracle.getNamedArgument(interaction, ArgumentOracle.COMMON_ARGS.FUNDING_ROUND_ID));
-
-        if (!phase || !fundingRoundId) {
-            throw new EndUserError('Invalid phase or funding round ID.');
-        }
+        const phase: string = ArgumentOracle.getNamedArgument(interaction, ArgumentOracle.COMMON_ARGS.PHASE);
 
         const startDate = new Date(modalInteraction.fields.getTextInputValue(EditFundingRoundPhasesAction.INPUT_IDS.START_DATE));
         const endDate = new Date(modalInteraction.fields.getTextInputValue(EditFundingRoundPhasesAction.INPUT_IDS.END_DATE));
+        const stakingLedgerEpochNum: number = parseInt(modalInteraction.fields.getTextInputValue(EditFundingRoundPhasesAction.INPUT_IDS.STAKING_LEDGER_EPOCH));
 
         if (isNaN(startDate.getTime()) || isNaN(endDate.getTime())) {
             throw new EndUserError('Invalid date format. Please use YYYY-MM-DD HH:MM.');
@@ -2057,12 +2066,12 @@ export class EditFundingRoundPhasesAction extends Action {
 
         try {
             if (phase === EditFundingRoundPhasesAction.PHASE_NAMES.ROUND) {
-                await FundingRoundLogic.updateFundingRound(fundingRoundId, { startAt: startDate, endAt: endDate });
+                await FundingRoundLogic.updateFundingRound(fundingRoundId,{startAt: startDate, endAt: endDate, stakingLedgerEpoch: stakingLedgerEpochNum });
             } else {
-                await FundingRoundLogic.setFundingRoundPhase(fundingRoundId, stringPhase, startDate, endDate);
+                await FundingRoundLogic.setFundingRoundPhase(fundingRoundId, stringPhase, stakingLedgerEpochNum, startDate, endDate);
             }
 
-            const updatedFundingRound = await FundingRoundLogic.getFundingRoundById(fundingRoundId);
+            const updatedFundingRound = await FundingRoundLogic.getFundingRoundByIdOrError(fundingRoundId);
             const updatedPhases = await FundingRoundLogic.getFundingRoundPhases(fundingRoundId);
 
             const embed = new EmbedBuilder()
@@ -2070,7 +2079,8 @@ export class EditFundingRoundPhasesAction extends Action {
                 .setTitle('Funding Round Phase Updated')
                 .setDescription(`The ${phase} phase for "${updatedFundingRound?.name}" has been successfully updated.`)
                 .addFields(
-                    { name: 'Funding Round Duration', value: `Start: ${updatedFundingRound?.startAt?.toISOString() || 'Not set'}\nEnd: ${updatedFundingRound?.endAt?.toISOString() || 'Not set'}`, inline: false },
+                    { name: 'Funding Round Duration', value: `Start: ${updatedFundingRound?.startAt?.toISOString() || 'Not set'}\nEnd: ${updatedFundingRound?.endAt?.toISOString() || 'Not set'}`, inline: false }, 
+                    { name: 'Staking Ledger Epoch', value: updatedFundingRound?.stakingLedgerEpoch.toString(), inline: false }
                 );
 
             for (const updatedPhase of updatedPhases) {
