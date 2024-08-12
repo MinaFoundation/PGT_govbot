@@ -9,14 +9,33 @@ import { allowedNodeEnvironmentFlags } from 'process';
 import { InteractionProperties } from '../../../core/Interaction';
 import { parsed } from 'yargs';
 import logger from '../../../logging';
+import { EndUserError } from '../../../Errors';
 
 interface TopicCommitteeWithSMEGroup extends TopicCommitteeAttributes {
     smeGroupName: string;
   }
 
 export class TopicLogic {
+
+  static getByIdOrError(topicId: number): Promise<Topic> {
+    return Topic.findByPk(topicId).then((topic) => {
+
+      if (!topic) {
+        throw new EndUserError(`Topic with ID ${topicId} not found`);
+      }
+    
+      return topic;
+    });
+  }
+
     static async getTotalTopicsCount(): Promise<number> {
         return await Topic.count();
+    }
+
+    static async getAllTopics(): Promise<Topic[]> {
+        return await Topic.findAll({
+            order: [['name', 'ASC']]
+        });
     }
 
     static async getPaginatedTopics(page: number, pageSize: number): Promise<Topic[]> {
@@ -45,7 +64,7 @@ export class TopicLogic {
     static async deleteTopicWithDependencies(topicId: number): Promise<void> {
         const topic = await this.getTopicById(topicId);
         if (!topic) {
-            throw new Error('Topic not found');
+            throw new EndUserError('Topic not found');
         }
 
         await Topic.sequelize!.transaction(async (t) => {
@@ -65,7 +84,7 @@ export class TopicLogic {
     static async setAllowedSMEGroups(topicId: number, smeGroupNames: string[]): Promise<void> {
         const topic = await this.getTopicById(topicId);
         if (!topic) {
-            throw new Error('Topic not found');
+            throw new EndUserError('Topic not found');
         }
 
         const smeGroups = await SMEGroup.findAll({
@@ -77,7 +96,7 @@ export class TopicLogic {
         if (smeGroups.length !== smeGroupNames.length) {
             const foundNames = smeGroups.map(group => group.name);
             const missingNames = smeGroupNames.filter(name => !foundNames.includes(name));
-            throw new Error(`The following SME groups were not found: ${missingNames.join(', ')}`);
+            throw new EndUserError(`The following SME groups were not found: ${missingNames.join(', ')}`);
         }
 
         await TopicSMEGroupProposalCreationLimiter.destroy({
@@ -95,7 +114,7 @@ export class TopicLogic {
     static async updateTopic(topicId: number, name: string, description: string): Promise<void> {
         const topic = await this.getTopicById(topicId);
         if (!topic) {
-            throw new Error('Topic not found');
+            throw new EndUserError('Topic not found');
         }
 
         await topic.update({ name, description });
@@ -104,7 +123,7 @@ export class TopicLogic {
     static async clearAllowedSMEGroups(topicId: number): Promise<void> {
         const topic = await this.getTopicById(topicId);
         if (!topic) {
-            throw new Error('Topic not found');
+            throw new EndUserError('Topic not found');
         }
 
         await TopicSMEGroupProposalCreationLimiter.destroy({
@@ -122,7 +141,7 @@ export class TopicLogic {
         if (smeGroups.length !== smeGroupNames.length) {
             const foundNames = smeGroups.map(group => group.name);
             const missingNames = smeGroupNames.filter(name => !foundNames.includes(name));
-            throw new Error(`The following SME groups were not found: ${missingNames.join(', ')}`);
+            throw new EndUserError(`The following SME groups were not found: ${missingNames.join(', ')}`);
         }
     }
 
@@ -160,7 +179,7 @@ export class TopicLogic {
         });
 
         if (!topic) {
-            throw new Error('Topic not found');
+            throw new EndUserError('Topic not found');
         }
 
         const committeesQuery: Promise<TopicCommittee[]> = TopicCommittee.findAll({
@@ -214,12 +233,12 @@ export class TopicLogic {
       static async addTopicCommittee(topicId: number, smeGroupName: string, numUsers: number): Promise<TopicCommitteeWithSMEGroup> {
         const topic = await Topic.findByPk(topicId);
         if (!topic) {
-          throw new Error('Topic not found');
+          throw new EndUserError('Topic not found');
         }
     
         const smeGroup = await SMEGroup.findOne({ where: { name: smeGroupName } });
         if (!smeGroup) {
-          throw new Error('SME Group not found');
+          throw new EndUserError('SME Group not found');
         }
     
         const existingCommittee = await TopicCommittee.findOne({
@@ -227,7 +246,7 @@ export class TopicLogic {
         });
     
         if (existingCommittee) {
-          throw new Error('A committee for this SME group already exists for this topic');
+          throw new EndUserError('A committee for this SME group already exists for this topic');
         }
     
         const committee = await TopicCommittee.create({
@@ -248,12 +267,12 @@ export class TopicLogic {
       static async updateTopicCommittee(committeeId: number, numUsers: number): Promise<TopicCommitteeWithSMEGroup> {
         const committee = await TopicCommittee.findByPk(committeeId);
         if (!committee) {
-          throw new Error('Committee not found');
+          throw new EndUserError('Committee not found');
         }
     
         const smeGroup = await SMEGroup.findByPk(committee.smeGroupId);
         if (!smeGroup) {
-          throw new Error('Associated SME Group not found');
+          throw new EndUserError('Associated SME Group not found');
         }
     
         await committee.update({ numUsers });
@@ -270,7 +289,7 @@ export class TopicLogic {
       static async removeTopicCommittee(committeeId: number): Promise<void> {
         const committee = await TopicCommittee.findByPk(committeeId);
         if (!committee) {
-          throw new Error('Committee not found');
+          throw new EndUserError('Committee not found');
         }
     
         await committee.destroy();
@@ -284,7 +303,7 @@ export class TopicLogic {
     
         const smeGroup = await SMEGroup.findByPk(committee.smeGroupId);
         if (!smeGroup) {
-          throw new Error('Associated SME Group not found');
+          throw new EndUserError('Associated SME Group not found');
         }
     
         return {
@@ -307,7 +326,7 @@ class TopicsPaginationAction extends PaginationComponent {
         return []
     }
     getComponent(...args: any[]): AnyModalMessageComponent {
-        throw new Error('Method not implemented.');
+        throw new EndUserError('Method not implemented.');
     }
     public static readonly ID = 'topicsPagination';
 
@@ -441,16 +460,14 @@ class SelectTopicAction extends Action {
     private async handleSelectTopic(interaction: TrackedInteraction): Promise<void> {
         const rawInteraction = interaction.interaction;
         if (!('values' in rawInteraction)) {
-            await interaction.respond({ content: 'Invalid interaction type.', ephemeral: true });
-            return;
+            throw new EndUserError('Invalid interaction type.');
         }
 
         const topicId = parseInt(rawInteraction.values[0]);
         const topicDetails = await TopicLogic.getTopicDetails(topicId);
 
         if (!topicDetails) {
-            await interaction.respond({ content: 'Selected topic not found.', ephemeral: true });
-            return;
+            throw new EndUserError('Selected topic not found.');
         }
 
         const embed = new EmbedBuilder()
@@ -545,8 +562,7 @@ class AddTopicAction extends Action {
     protected async handleAddTopicFormDisplay(interaction: TrackedInteraction): Promise<void> {
         const rawInteraction = interaction.interaction;
         if (!('showModal' in rawInteraction)) {
-            await interaction.respond({ content: '🚫 This interaction does not support modals', ephemeral: true });
-            return;
+            throw new EndUserError('This interaction does not support modals');
         }
         const customId = CustomIDOracle.addArgumentsToAction(this, AddTopicAction.Operations.ADD_TOPIC_SUBMIT);
         const modal = new ModalBuilder()
@@ -584,8 +600,7 @@ class AddTopicAction extends Action {
     protected async handleAddTopicFormSubmit(interaction: TrackedInteraction): Promise<void> {
         const rawInteraction = interaction.interaction;
         if (!rawInteraction.isModalSubmit()) {
-            await interaction.respond({ content: '🚫 Only modal submit interactions are supported for this operation.', ephemeral: true });
-            return;
+            throw new EndUserError('Only modal submit interactions are supported for this operation.');
         }
 
         const name = rawInteraction.fields.getTextInputValue(AddTopicAction.InputIds.NAME);
@@ -593,8 +608,7 @@ class AddTopicAction extends Action {
         const allowedSMEGroups = rawInteraction.fields.getTextInputValue(AddTopicAction.InputIds.ALLOWED_SME_GROUPS);
 
         if (!name || !description) {
-            await interaction.respond({ content: '🚫 Please fill out all required fields', ephemeral: true });
-            return;
+            throw new EndUserError('Please fill out all required fields');
         }
 
         try {
@@ -669,15 +683,13 @@ class RemoveTopicAction extends Action {
     private async handleConfirmRemove(interaction: TrackedInteraction): Promise<void> {
         const topicId = CustomIDOracle.getNamedArgument(interaction.customId, 'topicId');
         if (!topicId) {
-            await interaction.respond({ content: 'Invalid topic ID.', ephemeral: true });
-            return;
+            throw new EndUserError('Invalid topic ID.');
         }
 
         try {
             const topic = await TopicLogic.getTopicById(parseInt(topicId));
             if (!topic) {
-                await interaction.respond({ content: 'Topic not found.', ephemeral: true });
-                return;
+                throw new EndUserError('Topic not found.');
             }
 
             const embed = new EmbedBuilder()
@@ -714,15 +726,14 @@ class RemoveTopicAction extends Action {
             });
         } catch (error) {
             logger.error('Error fetching topic details:', error);
-            await interaction.respond({ content: 'An error occurred while fetching topic details. Please try again later.', ephemeral: true });
+            throw new EndUserError('An error occurred while fetching topic details. Please try again later.')
         }
     }
 
     private async handleExecuteRemove(interaction: TrackedInteraction): Promise<void> {
         const topicId = CustomIDOracle.getNamedArgument(interaction.customId, 'topicId');
         if (!topicId) {
-            await interaction.respond({ content: 'Invalid topic ID.', ephemeral: true });
-            return;
+            throw new EndUserError('Invalid topic ID.');
         }
 
         try {
@@ -774,20 +785,17 @@ class EditTopicAction extends Action {
     private async handleShowForm(interaction: TrackedInteraction): Promise<void> {
         const topicId = CustomIDOracle.getNamedArgument(interaction.customId, 'topicId');
         if (!topicId) {
-            await interaction.respond({ content: 'Invalid topic ID.', ephemeral: true });
-            return;
+            throw new EndUserError('Invalid topic ID.');
         }
 
         const topicDetails = await TopicLogic.getTopicDetails(parseInt(topicId));
         if (!topicDetails) {
-            await interaction.respond({ content: 'Topic not found.', ephemeral: true });
-            return;
+            throw new EndUserError('Topic not found.');
         }
 
         const rawInteraction = interaction.interaction;
         if (!('showModal' in rawInteraction)) {
-            await interaction.respond({ content: '🚫 This interaction does not support modals', ephemeral: true });
-            return;
+            throw new EndUserError('This interaction does not support modals');
         }
 
         const modal = new ModalBuilder()
@@ -841,14 +849,12 @@ class EditTopicAction extends Action {
     private async handleSubmitForm(interaction: TrackedInteraction): Promise<void> {
         const rawInteraction = interaction.interaction;
         if (!rawInteraction.isModalSubmit()) {
-            await interaction.respond({ content: '🚫 Only modal submit interactions are supported for this operation.', ephemeral: true });
-            return;
+            throw new EndUserError('Only modal submit interactions are supported for this operation.');
         }
 
         const topicId = CustomIDOracle.getNamedArgument(interaction.customId, 'topicId');
         if (!topicId) {
-            await interaction.respond({ content: 'Invalid topic ID.', ephemeral: true });
-            return;
+            throw new EndUserError('Invalid topic ID.');
         }
 
         const name = rawInteraction.fields.getTextInputValue(EditTopicAction.InputIds.NAME);
@@ -856,8 +862,7 @@ class EditTopicAction extends Action {
         const allowedSMEGroups = rawInteraction.fields.getTextInputValue(EditTopicAction.InputIds.ALLOWED_SME_GROUPS);
 
         if (!name || !description) {
-            await interaction.respond({ content: '🚫 Please fill out all required fields', ephemeral: true });
-            return;
+            throw new EndUserError('Please fill out all required fields');
         }
 
         try {
@@ -947,15 +952,13 @@ export class ManageTopicCommitteesAction extends Action {
   private async handleAddCommitteeForm(interaction: TrackedInteraction): Promise<void> {
     const topicId = CustomIDOracle.getNamedArgument(interaction.customId, 'topicId');
     if (!topicId) {
-      await interaction.respond({ content: 'Invalid topic ID.', ephemeral: true });
-      return;
+      throw new EndUserError('Invalid topic ID.');
     }
 
     let parsedInteraction = InteractionProperties.toShowModalOrUndefined(interaction.interaction);
 
     if (!parsedInteraction) {
-      await interaction.respond({ content: 'Interaction without .showModal() is not supported', ephemeral: true });
-      return;
+      throw new EndUserError('Interaction without .showModal() is not supported');
     }
 
     const modal = new ModalBuilder()
@@ -985,14 +988,13 @@ export class ManageTopicCommitteesAction extends Action {
   private async handleAddCommitteeSubmit(interaction: TrackedInteraction): Promise<void> {
     const topicId = CustomIDOracle.getNamedArgument(interaction.customId, 'topicId');
     if (!topicId) {
-      await interaction.respond({ content: 'Invalid topic ID.', ephemeral: true });
-      return;
+      throw new EndUserError('Invalid topic ID.');
     }
 
     const parsedInteraction = InteractionProperties.toInteractionWithFieldsOrUndefined(interaction.interaction);
 
     if (!parsedInteraction) {
-      await interaction.respond({ content: 'Interaction without fields is not supported', ephemeral: true });
+      throw new EndUserError('Interaction without fields is not supported')
       return
     }
 
@@ -1000,8 +1002,7 @@ export class ManageTopicCommitteesAction extends Action {
     const numUsers = parseInt(parsedInteraction.fields.getTextInputValue(ManageTopicCommitteesAction.InputIds.NUM_USERS));
 
     if (isNaN(numUsers)) {
-      await interaction.respond({ content: 'Invalid input. Please enter a valid number for required members.', ephemeral: true });
-      return;
+      throw new EndUserError('Invalid input. Please enter a valid number for required members.');
     }
 
     try {
@@ -1017,20 +1018,17 @@ export class ManageTopicCommitteesAction extends Action {
     const parsedInteraction = InteractionProperties.toShowModalOrUndefined(interaction.interaction);
 
     if (!parsedInteraction) {
-      await interaction.respond({ content: 'Interaction without .showModal() is not supported', ephemeral: true });
-      return;
+      throw new EndUserError('Interaction without .showModal() is not supported');
     }
 
     const committeeId = CustomIDOracle.getNamedArgument(interaction.customId, 'committeeId');
     if (!committeeId) {
-      await interaction.respond({ content: 'Invalid committee ID.', ephemeral: true });
-      return;
+      throw new EndUserError('Invalid committee ID.');
     }
 
     const committee = await TopicLogic.getCommitteeDetails(parseInt(committeeId));
     if (!committee) {
-      await interaction.respond({ content: 'Committee not found.', ephemeral: true });
-      return;
+      throw new EndUserError('Committee not found.');
     }
 
     const modal = new ModalBuilder()
@@ -1056,21 +1054,19 @@ export class ManageTopicCommitteesAction extends Action {
     const parsedInteraction = InteractionProperties.toInteractionWithFieldsOrUndefined(interaction.interaction);
 
     if (!parsedInteraction) {
-      await interaction.respond({ content: 'Interaction without fields is not supported', ephemeral: true });
+      throw new EndUserError('Interaction without fields is not supported')
       return
     }
 
     const committeeId = CustomIDOracle.getNamedArgument(interaction.customId, 'committeeId');
     if (!committeeId) {
-      await interaction.respond({ content: 'Invalid committee ID.', ephemeral: true });
-      return;
+      throw new EndUserError('Invalid committee ID.');
     }
 
     const numUsers = parseInt(parsedInteraction.fields.getTextInputValue(ManageTopicCommitteesAction.InputIds.NUM_USERS));
 
     if (isNaN(numUsers)) {
-      await interaction.respond({ content: 'Invalid input. Please enter a valid number for required members.', ephemeral: true });
-      return;
+      throw new EndUserError('Invalid input. Please enter a valid number for required members.');
     }
 
     try {
@@ -1078,7 +1074,7 @@ export class ManageTopicCommitteesAction extends Action {
       
       const committee = await TopicCommittee.findByPk(committeeId); 
         if (!committee) {
-            throw new Error(`Committee with ID ${committeeId} not found`);
+            throw new EndUserError(`Committee with ID ${committeeId} not found`);
         }
       interaction.Context.set('topicId', committee.topicId.toString());
 
@@ -1091,14 +1087,12 @@ export class ManageTopicCommitteesAction extends Action {
   private async handleRemoveCommitteeConfirm(interaction: TrackedInteraction): Promise<void> {
     const committeeId = CustomIDOracle.getNamedArgument(interaction.customId, 'committeeId');
     if (!committeeId) {
-      await interaction.respond({ content: 'Invalid committee ID.', ephemeral: true });
-      return;
+      throw new EndUserError('Invalid committee ID.');
     }
 
     const committee = await TopicLogic.getCommitteeDetails(parseInt(committeeId));
     if (!committee) {
-      await interaction.respond({ content: 'Committee not found.', ephemeral: true });
-      return;
+      throw new EndUserError('Committee not found.');
     }
 
     const embed = new EmbedBuilder()
@@ -1125,8 +1119,7 @@ export class ManageTopicCommitteesAction extends Action {
   private async handleRemoveCommitteeExecute(interaction: TrackedInteraction): Promise<void> {
     const committeeId = CustomIDOracle.getNamedArgument(interaction.customId, 'committeeId');
     if (!committeeId) {
-      await interaction.respond({ content: 'Invalid committee ID.', ephemeral: true });
-      return;
+      throw new EndUserError('Invalid committee ID.');
     }
 
     try {
@@ -1180,7 +1173,7 @@ export class CommitteePaginationAction extends PaginationComponent {
 
       const topicId = topicIdFromCustomId ? topicIdFromCustomId : contextTopicId;
 
-      if (!topicId) throw new Error('Topic ID not provided');
+      if (!topicId) throw new EndUserError('Topic ID not provided');
       const committees = await TopicLogic.getTopicCommittees(parseInt(topicId));
       return Math.ceil(committees.length / 3); // 4 committees per page
     }
@@ -1190,7 +1183,7 @@ export class CommitteePaginationAction extends PaginationComponent {
         const contextTopicId = interaction.Context.get('topicId');
   
         const topicId = topicIdFromCustomId ? topicIdFromCustomId : contextTopicId;
-      if (!topicId) throw new Error('Topic ID not provided');
+      if (!topicId) throw new EndUserError('Topic ID not provided');
       const committees = await TopicLogic.getTopicCommittees(parseInt(topicId));
       return committees.slice(page * 3, (page + 1) * 3);
     }
@@ -1207,8 +1200,7 @@ export class CommitteePaginationAction extends PaginationComponent {
 
       
       if (!topicId) {
-        await interaction.respond({ content: 'Topic ID missing.', ephemeral: true });
-        return;
+        throw new EndUserError('Topic ID missing.');
       }
   
       const currentPage = this.getCurrentPage(interaction);

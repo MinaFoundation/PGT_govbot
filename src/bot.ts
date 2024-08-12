@@ -4,7 +4,7 @@ import { DashboardManager } from './core/DashboardManager';
 import { AdminDashboard } from './channels/admin/dashboard';
 import { syncDatabase } from './models';
 import { AdminHomeScreen } from './channels/admin/screens/AdminHomeScreen';
-import { HomeScreen } from './types/common';
+import { AnyInteraction, HomeScreen } from './types/common';
 import { FundingRoundInitDashboard } from './channels/funding-round-init/FundingRoundInitDashboard';
 import { FundingRoundInitScreen } from './channels/funding-round-init/screens/FundingRoundInitScreen';
 import { ProposeDashboard } from './channels/propose/ProposeDashboard';
@@ -16,10 +16,12 @@ import { CommitteeDeliberationHomeScreen } from './channels/deliberate/Committee
 import { ConsiderDashboard } from './channels/consider/ConsiderDashboard';
 import { ConsiderationHomeScreen } from './channels/consider/screens/ConsiderationHomeScreen';
 import logger from './logging';
+import { DiscordStatus } from './channels/DiscordStatus';
+import { TrackedInteraction } from './core/BaseClasses';
 
 config();
 
-const client = new Client({
+export const client = new Client({
   intents: [GatewayIntentBits.Guilds, GatewayIntentBits.GuildMessages]
 });
 
@@ -41,14 +43,16 @@ client.once('ready', async () => {
   dashboardManager.registerDashboard('funding-round-init', fundingRoundInitDashboard);
 
   const proposeDashboard = new ProposeDashboard(ProposeDashboard.ID);
-  const proposeHomeScreen: HomeScreen = new ProposalHomeScreen(proposeDashboard, ProposalHomeScreen.ID);
+  const proposeHomeScreen: ProposalHomeScreen = new ProposalHomeScreen(proposeDashboard, ProposalHomeScreen.ID);
   proposeDashboard.homeScreen = proposeHomeScreen;
   dashboardManager.registerDashboard('propose', proposeDashboard);
+  dashboardManager.registerDashboard('proposals', proposeDashboard);
 
   const voteDashboard = new VoteDashboard(VoteDashboard.ID);
   const voteHomeScreen: HomeScreen = new VoteHomeScreen(voteDashboard, VoteHomeScreen.ID);
   voteDashboard.homeScreen = voteHomeScreen;
   dashboardManager.registerDashboard('vote', voteDashboard);
+  dashboardManager.registerDashboard('proposals', voteDashboard);
 
   const committeeDeliberationDashboard = new CommitteeDeliberationDashboard(CommitteeDeliberationDashboard.ID);
   const deliberationHomeScreen: HomeScreen = new CommitteeDeliberationHomeScreen(committeeDeliberationDashboard, CommitteeDeliberationHomeScreen.ID);
@@ -59,7 +63,6 @@ client.once('ready', async () => {
   const considerHomeScreen: HomeScreen = new ConsiderationHomeScreen(considerDashboard, CommitteeDeliberationHomeScreen.ID);
   considerDashboard.homeScreen = considerHomeScreen;
   dashboardManager.registerDashboard('consider', considerDashboard);
-
 
 
   // Render initial screen in #admin channel
@@ -131,6 +134,8 @@ client.on('interactionCreate', async (interaction: Interaction<CacheType>) => {
   await dashboardManager.handleInteraction(interaction);
 } catch (error) {
     logger.error(error);
+    const trackedInteratction = new TrackedInteraction(interaction as AnyInteraction);
+    await DiscordStatus.handleException(trackedInteratction, error);
   }
 });
 

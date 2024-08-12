@@ -4,20 +4,22 @@ import { ProposalLogic } from './ProposalLogic';
 import { FundingRoundApprovalVote, GPTSummarizerVoteLog, SMEConsiderationVoteLog } from '../models';
 import { FundingRoundStatus, ProposalStatus } from '../types';
 import { FundingRoundLogic } from '../channels/admin/screens/FundingRoundLogic';
+import { EndUserError } from '../Errors';
+
 
 export class VoteLogic {
   static async voteFundingRound(userId: string, fundingRoundId: number): Promise<void> {
     const fundingRound = await FundingRoundLogic.getFundingRoundById(fundingRoundId);
     if (!fundingRound) {
-      throw new Error('Funding round not found');
+      throw new EndUserError('Funding round not found');
     }
 
     if (fundingRound.status !== FundingRoundStatus.VOTING) {
-      throw new Error('This funding round is not open for voting');
+      throw new EndUserError('This funding round is not open for voting');
     }
 
     if (fundingRound.votingOpenUntil && fundingRound.votingOpenUntil < new Date()) {
-      throw new Error('Voting period for this funding round has ended');
+      throw new EndUserError('Voting period for this funding round has ended');
     }
 
     await FundingRoundApprovalVote.upsert({
@@ -30,15 +32,15 @@ export class VoteLogic {
   static async unvoteFundingRound(userId: string, fundingRoundId: number): Promise<void> {
     const fundingRound = await FundingRoundLogic.getFundingRoundById(fundingRoundId);
     if (!fundingRound) {
-      throw new Error('Funding round not found');
+      throw new EndUserError('Funding round not found');
     }
 
     if (fundingRound.status !== FundingRoundStatus.VOTING) {
-      throw new Error('This funding round is not open for voting');
+      throw new EndUserError('This funding round is not open for voting');
     }
 
     if (fundingRound.votingOpenUntil && fundingRound.votingOpenUntil < new Date()) {
-      throw new Error('Voting period for this funding round has ended');
+      throw new EndUserError('Voting period for this funding round has ended');
     }
 
     await FundingRoundApprovalVote.upsert({
@@ -51,26 +53,26 @@ export class VoteLogic {
   static async submitDeliberationReasoning(userId: string, projectId: number, fundingRoundId: number, reasoning: string, reason: string | null = null): Promise<void> {
     const proposal = await ProposalLogic.getProposalById(projectId);
     if (!proposal) {
-      throw new Error('Project not found');
+      throw new EndUserError('Project not found');
     }
 
     const fundingRound = await FundingRoundLogic.getFundingRoundById(fundingRoundId);
     if (!fundingRound) {
-      throw new Error('Funding round not found');
+      throw new EndUserError('Funding round not found');
     }
 
     if (proposal.status !== ProposalStatus.DELIBERATION_PHASE) {
-      throw new Error('This project is not in the deliberation phase');
+      throw new EndUserError('This project is not in the deliberation phase');
     }
 
     const deliberationPhase = await FundingRoundLogic.getFundingRoundPhase(fundingRoundId, 'deliberation');
     if (!deliberationPhase) {
-      throw new Error('Deliberation phase not found for this funding round');
+      throw new EndUserError('Deliberation phase not found for this funding round');
     }
 
     const now = new Date();
     if (now < deliberationPhase.startAt || now > deliberationPhase.endAt) {
-      throw new Error('Deliberation phase is not active');
+      throw new EndUserError('Deliberation phase is not active');
     }
 
     await GPTSummarizerVoteLog.create({
@@ -104,7 +106,7 @@ export class VoteLogic {
   static async canChangeVote(userId: string, fundingRoundId: number): Promise<boolean> {
     const fundingRound = await FundingRoundLogic.getFundingRoundById(fundingRoundId);
     if (!fundingRound) {
-      throw new Error('Funding round not found');
+      throw new EndUserError('Funding round not found');
     }
 
     if (fundingRound.status !== FundingRoundStatus.VOTING) {
@@ -162,11 +164,11 @@ export class VoteLogic {
   static async recordConsiderationVote(userId: string, projectId: number, isPass: boolean, reason: string | null): Promise<void> {
     const proposal = await ProposalLogic.getProposalById(projectId);
     if (!proposal) {
-      throw new Error('Project not found');
+      throw new EndUserError('Project not found');
     }
 
     if (proposal.status !== ProposalStatus.CONSIDERATION_PHASE) {
-      throw new Error('This project is not in the consideration phase');
+      throw new EndUserError('This project is not in the consideration phase');
     }
 
     await SMEConsiderationVoteLog.create({

@@ -13,6 +13,14 @@ export class InteractionProperties<T> {
         }
       }
 
+    static toInteractionWithValuesOrError(interaction: AnyInteraction): AnyInteractionWithValues {
+        const interactionWithValues: AnyInteractionWithValues | undefined = this.toInteractionWithValuesOrUndefined(interaction);
+        if (interactionWithValues === undefined) {
+            throw new Error('Interaction does not have values.');
+        }
+        return interactionWithValues;
+    }
+
     static toDefineChannelOrUndefined(interaction: AnyInteraction): AnyInteractionWithDefinedChannel | undefined {
         if (interaction !== null && typeof interaction === 'object' && 'channel' in interaction && interaction.channel !== null) {
             return interaction as AnyInteractionWithDefinedChannel;
@@ -32,6 +40,14 @@ export class InteractionProperties<T> {
         }
     }
 
+    static toShowModalOrError<T extends AnyInteraction>(interaction: T): AnyInteractionWithShowModal & T {
+        const modalInteraction: AnyInteractionWithShowModal & T | undefined = this.toShowModalOrUndefined(interaction);
+        if (modalInteraction === undefined) {
+            throw new Error('Interaction does not have a showModal() method');
+        }
+        return modalInteraction;
+    }
+
     static toInteractionWithFieldsOrUndefined<T extends AnyInteraction>(interaction: AnyInteraction): AnyIntreactionWithFields & T | undefined {
         if (interaction !== null && typeof interaction === 'object' && 'fields' in interaction) {
             return interaction as AnyIntreactionWithFields & T;
@@ -44,5 +60,13 @@ export class InteractionProperties<T> {
         if (interaction instanceof ModalSubmitInteraction) {
             return interaction as ModalSubmitInteraction;
         }
+    }
+
+    static toModalSubmitInteractionOrError(interaction: AnyInteraction): ModalSubmitInteraction {
+        const modalSubmitInteraction: ModalSubmitInteraction | undefined = this.toModalSubmitInteractionOrUndefined(interaction);
+        if (modalSubmitInteraction === undefined) {
+            throw new Error('Interaction is not not a submission of a modal.');
+        }
+        return modalSubmitInteraction;
     }
 }

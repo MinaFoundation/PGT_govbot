@@ -10,6 +10,7 @@ import { InteractionProperties } from '../../../core/Interaction';
 import { FundingRoundVotingScreen, MemberVoteFundingRoundAction } from './FundingRoundVotingScreen';
 import { ProjectVotingScreen, SelectProjectAction } from './ProjectVotingScreen';
 import { FundingRoundLogic } from '../../admin/screens/FundingRoundLogic';
+import { EndUserError } from '../../../Errors';
 
 export class FundingRoundSelectionScreen extends Screen {
   public static readonly ID = 'fundingRoundSelection';
@@ -99,8 +100,7 @@ export class SelectFundingRoundAction extends PaginationComponent {
     const fundingRounds = await this.getItemsForPage(interaction, currentPage);
 
     if (fundingRounds.length === 0) {
-      await interaction.respond({ content: 'There are no eligible funding rounds for voting at the moment.', ephemeral: true });
-      return;
+      throw new EndUserError('There are no eligible funding rounds for voting at the moment.');
     }
 
     const embed = new EmbedBuilder()
@@ -133,16 +133,14 @@ export class SelectFundingRoundAction extends PaginationComponent {
   private async handleSelectFundingRound(interaction: TrackedInteraction): Promise<void> {
     const interactionWithValues = InteractionProperties.toInteractionWithValuesOrUndefined(interaction.interaction);
     if (!interactionWithValues) {
-      await interaction.respond({ content: 'Invalid interaction type.', ephemeral: true });
-      return;
+      throw new EndUserError('Invalid interaction type.');
     }
 
     const fundingRoundId = parseInt(interactionWithValues.values[0]);
     const fundingRound = await FundingRoundLogic.getFundingRoundById(fundingRoundId);
 
     if (!fundingRound) {
-      await interaction.respond({ content: 'Funding round not found.', ephemeral: true });
-      return;
+      throw new EndUserError('Funding round not found.');
     }
 
     interaction.Context.set('fundingRoundId', fundingRoundId.toString());
@@ -155,7 +153,7 @@ export class SelectFundingRoundAction extends PaginationComponent {
     } else if (fundingRound.status === FundingRoundStatus.APPROVED) {
       await (this.screen as FundingRoundSelectionScreen).projectVotingScreen.render(interaction);
     } else {
-      await interaction.respond({ content: 'This funding round is not currently open for voting.', ephemeral: true });
+      throw new EndUserError('This funding round is not currently open for voting.')
     }
   }
 

@@ -2,7 +2,7 @@
 
 import { Screen, Action, Dashboard, Permission, TrackedInteraction, RenderArgs } from '../../../core/BaseClasses';
 import { ActionRowBuilder, ButtonBuilder, ButtonStyle, EmbedBuilder, MessageActionRowComponentBuilder, StringSelectMenuBuilder, ModalBuilder, TextInputBuilder, TextInputStyle } from 'discord.js';
-import { CustomIDOracle } from '../../../CustomIDOracle';
+import { ArgumentOracle, CustomIDOracle } from '../../../CustomIDOracle';
 import { ProposalLogic } from '../../../logic/ProposalLogic';
 import { VoteLogic } from '../../../logic/VoteLogic';
 import { GPTSummarizerVoteLog, Proposal } from '../../../models';
@@ -11,6 +11,8 @@ import { InteractionProperties } from '../../../core/Interaction';
 import { FundingRoundLogic } from '../../admin/screens/FundingRoundLogic';
 import { OCVLinkGenerator } from '../../../utils/OCVLinkGenerator';
 import logger from '../../../logging';
+import { DiscordStatus } from '../../DiscordStatus';
+import { EndUserError, EndUserInfo } from '../../../Errors';
 
 export class ProjectVotingScreen extends Screen {
     public static readonly ID = 'projectVoting';
@@ -157,34 +159,12 @@ export class SelectProjectAction extends PaginationComponent {
     };
 
     protected async getTotalPages(interaction: TrackedInteraction, phaseArg?: string): Promise<number> {
-        const fundingRoundIdRaw: string | undefined = CustomIDOracle.getNamedArgument(interaction.customId, 'fundingRoundId');
+        const fundingRoundIdRaw: string = ArgumentOracle.getNamedArgument(interaction, ArgumentOracle.COMMON_ARGS.FUNDING_ROUND_ID);
 
-        let fundingRoundId: number;
-
-        if (!fundingRoundIdRaw) {
-
-            const fundingRoundIdFromCntx = interaction.Context.get('fundingRoundId');
-            if (!fundingRoundIdFromCntx) {
-                await interaction.respond({ content: 'fundingRoundId neither passed in customId, not in context', ephemeral: true });
-                return 0;
-            }
-
-            fundingRoundId = parseInt(fundingRoundIdFromCntx);
-
-        } else {
-            fundingRoundId = parseInt(fundingRoundIdRaw);
-        }
+        let fundingRoundId: number = parseInt(fundingRoundIdRaw);
 
 
-        let phase: string | undefined = CustomIDOracle.getNamedArgument(interaction.customId, 'phase') || phaseArg;
-        if (!phase) {
-            const phaseFromCntx = interaction.Context.get('phase');
-            if (!phaseFromCntx) {
-                await interaction.respond({ content: 'phase neither passed in customId, nor in args, nor the interaction has values', ephemeral: true });
-                return 0;
-            }
-            phase = phaseFromCntx;
-        }
+        let phase: string = ArgumentOracle.getNamedArgument(interaction, ArgumentOracle.COMMON_ARGS.PHASE); 
         phase = phase.toLowerCase();
 
         const projects = await FundingRoundLogic.getActiveProposalsForPhase(fundingRoundId, phase);
@@ -192,34 +172,13 @@ export class SelectProjectAction extends PaginationComponent {
     }
 
     protected async getItemsForPage(interaction: TrackedInteraction, page: number): Promise<Proposal[]> {
-        const fundingRoundIdRaw: string | undefined = CustomIDOracle.getNamedArgument(interaction.customId, 'fundingRoundId');
+        const fundingRoundIdRaw: string = ArgumentOracle.getNamedArgument(interaction, ArgumentOracle.COMMON_ARGS.FUNDING_ROUND_ID);
 
-        let fundingRoundId: number;
+        let fundingRoundId: number = parseInt(fundingRoundIdRaw);
 
-        if (!fundingRoundIdRaw) {
+ 
 
-            const fundingRoundIdFromCntx = interaction.Context.get('fundingRoundId');
-            if (!fundingRoundIdFromCntx) {
-                await interaction.respond({ content: 'fundingRoundId neither passed in customId, not in context', ephemeral: true });
-                return [];
-            }
-
-            fundingRoundId = parseInt(fundingRoundIdFromCntx);
-
-        } else {
-            fundingRoundId = parseInt(fundingRoundIdRaw);
-        } 
-
-        let phase: string | undefined = CustomIDOracle.getNamedArgument(interaction.customId, 'phase');
-        if (!phase) {
-            const phaseFromCntx = interaction.Context.get('phase');
-            if (!phaseFromCntx) {
-                await interaction.respond({ content: 'phase neither passed in customId, nor in context', ephemeral: true });
-                return [];
-            }
-            phase = phaseFromCntx;
-        }
-        phase = phase.toLowerCase();
+        const phase: string = ArgumentOracle.getNamedArgument(interaction, ArgumentOracle.COMMON_ARGS.PHASE); 
 
         const projects = await FundingRoundLogic.getActiveProposalsForPhase(fundingRoundId, phase);
         return projects.slice(page * 25, (page + 1) * 25);
@@ -282,8 +241,7 @@ export class SelectProjectAction extends PaginationComponent {
 
         const fundingRoundIdRaw: string | undefined = CustomIDOracle.getNamedArgument(interaction.customId, 'fundingRoundId');
         if (!fundingRoundIdRaw) {
-            await interaction.respond({ content: 'fundingRoundId not passed in customId', ephemeral: true });
-            return;
+            throw new EndUserError('fundingRoundId not passed in customId');
         }
         const fundingRoundId: number = parseInt(fundingRoundIdRaw);
 
@@ -293,8 +251,7 @@ export class SelectProjectAction extends PaginationComponent {
         if (!phase) {
             const parsedInteraction = InteractionProperties.toInteractionWithValuesOrUndefined(interaction.interaction);
             if (!parsedInteraction) {
-                await interaction.respond({ content: 'phase neither passed in customId, nor the interaction has values', ephemeral: true });
-                return;
+                throw new EndUserError('phase neither passed in customId, nor the interaction has values');
             }
             const chosenPhase: string = parsedInteraction.values[0];
             parsedPhase = chosenPhase.toLocaleLowerCase();
@@ -305,8 +262,7 @@ export class SelectProjectAction extends PaginationComponent {
 
 
         if (projects.length === 0) {
-            await interaction.respond({ content: 'ℹ️ There are no active projects for voting in this phase at the moment.', ephemeral: true });
-            return;
+            throw new EndUserInfo('ℹ️ There are no active projects for voting in this phase at the moment.');
         }
 
         const displayData = this.getSelectProjectComponent(interaction, fundingRoundId, parsedPhase);
@@ -314,26 +270,23 @@ export class SelectProjectAction extends PaginationComponent {
     }
 
     private async handleSelectProject(interaction: TrackedInteraction): Promise<void> {
-        const interactionWithValues = InteractionProperties.toInteractionWithValuesOrUndefined(interaction.interaction);
-        if (!interactionWithValues) {
-            await interaction.respond({ content: 'Invalid interaction type.', ephemeral: true });
+        const projectId = interaction.getFromValuesCustomIdOrContext(0, "projectId");
+        if (!projectId) {
+            await DiscordStatus.Error.error(interaction, 'projectId argument not provided');
             return;
         }
 
-        const projectId = parseInt(interactionWithValues.values[0]);
         const fundingRoundIdFromCI: string | undefined = CustomIDOracle.getNamedArgument(interaction.customId, 'fundingRoundId');
 
         if (!fundingRoundIdFromCI) {
-            await interaction.respond({ content: 'fundingRoundId not passed in customId', ephemeral: true });
-            return;
+            throw new EndUserError('fundingRoundId not passed in customId');
         }
 
         const fundingRoundId: number = parseInt(fundingRoundIdFromCI);
         const phase = CustomIDOracle.getNamedArgument(interaction.customId, 'phase');
 
         if (!phase) {
-            await interaction.respond({ content: 'Phase not passed in cutomId', ephemeral: true });
-            return;
+            throw new EndUserError('Phase not passed in cutomId');
         }
 
         interaction.Context.set('projectId', projectId.toString());
@@ -395,8 +348,7 @@ class VoteProjectAction extends Action {
         const fundingRound = await FundingRoundLogic.getFundingRoundById(fundingRoundId);
 
         if (!project || !fundingRound) {
-            await interaction.respond({ content: 'Project or Funding Round not found.', ephemeral: true });
-            return;
+            throw new EndUserError('Project or Funding Round not found.');
         }
 
         const hasUserSubmittedReasoning: boolean = await VoteLogic.hasUserSubmittedDeliberationReasoning(interaction.interaction.user.id, projectId);
@@ -490,13 +442,11 @@ class VoteProjectAction extends Action {
         const fundingRoundIdRaw = CustomIDOracle.getNamedArgument(interaction.customId, 'fundingRoundId');
 
         if (!projectIdRaw) {
-            await interaction.respond({ content: 'projectId not passed in customId', ephemeral: true });
-            return;
+            throw new EndUserError('projectId not passed in customId');
         }
 
         if (!fundingRoundIdRaw) {
-            await interaction.respond({ content: 'fundingRoundId not passed in customId', ephemeral: true });
-            return;
+            throw new EndUserError('fundingRoundId not passed in customId');
         }
 
         const projectId: number = parseInt(projectIdRaw);
@@ -531,8 +481,7 @@ class VoteProjectAction extends Action {
 
         const modalInteraction = InteractionProperties.toShowModalOrUndefined(interaction.interaction);
         if (!modalInteraction) {
-            await interaction.respond({ content: 'Failed to show modal. Please try again.', ephemeral: true });
-            return;
+            throw new EndUserError('Failed to show modal. Please try again.');
         }
 
         await modalInteraction.showModal(modal);
@@ -541,21 +490,18 @@ class VoteProjectAction extends Action {
     public async handleModalSubmit(interaction: TrackedInteraction): Promise<void> {
         const modalInteraction = InteractionProperties.toModalSubmitInteractionOrUndefined(interaction.interaction);
         if (!modalInteraction) {
-            await interaction.respond({ content: 'Invalid interaction type.', ephemeral: true });
-            return;
+            throw new EndUserError('Invalid interaction type.');
         }
 
         const projectIdRaw = CustomIDOracle.getNamedArgument(interaction.customId, 'projectId');
         const fundingRoundIdRaw = CustomIDOracle.getNamedArgument(interaction.customId, 'fundingRoundId');
 
         if (!projectIdRaw) {
-            await interaction.respond({ content: 'projectId not passed in customId', ephemeral: true });
-            return;
+            throw new EndUserError('projectId not passed in customId');
         }
 
         if (!fundingRoundIdRaw) {
-            await interaction.respond({ content: 'fundingRoundId not passed in customId', ephemeral: true });
-            return;
+            throw new EndUserError('fundingRoundId not passed in customId');
         }
 
         const projectId: number = parseInt(projectIdRaw);
@@ -585,7 +531,8 @@ class VoteProjectAction extends Action {
 
             await interaction.respond({ embeds: [embed], ephemeral: true });
         } catch (error) {
-            await interaction.respond({ content: `Error submitting reasoning: ${error instanceof Error ? error.message : 'Unknown error'}`, ephemeral: true });
+            logger.error('Error submitting reasoning');
+            throw new EndUserError('Failed to submit reasoning', error);
         }
     }
 

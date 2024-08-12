@@ -9,6 +9,7 @@ import { ConsiderationLogic } from '../../../logic/ConsiderationLogic';
 import { FundingRound, Proposal } from '../../../models';
 import { IHomeScreen } from '../../../types/common';
 import { CONSIDERATION_CONSTANTS } from '../Constants';
+import { EndUserError } from '../../../Errors';
 
 export class ConsiderationHomeScreen extends Screen implements IHomeScreen {
     public static readonly ID = CONSIDERATION_CONSTANTS.SCREEN_IDS.HOME;
@@ -119,8 +120,7 @@ class SelectFundingRoundAction extends Action {
     private async handleSelectFundingRound(interaction: TrackedInteraction): Promise<void> {
         const interactionWithValues = InteractionProperties.toInteractionWithValuesOrUndefined(interaction.interaction);
         if (!interactionWithValues) {
-            await interaction.respond({ content: 'Invalid interaction type.', ephemeral: true });
-            return;
+            throw new EndUserError('Invalid interaction type.');
         }
 
         const fundingRoundId = parseInt(interactionWithValues.values[0]);
@@ -163,8 +163,7 @@ class SelectVoteTypeAction extends Action {
         const { fundingRoundId } = args;
         const fundingRound = await FundingRound.findByPk(fundingRoundId);
         if (!fundingRound) {
-            await interaction.respond({ content: 'Funding round not found.', ephemeral: true });
-            return;
+            throw new EndUserError('Funding round not found.');
         }
 
         const userId = interaction.interaction.user.id;
@@ -210,8 +209,7 @@ class SelectVoteTypeAction extends Action {
         const voteType = CustomIDOracle.getNamedArgument(interaction.customId, CONSIDERATION_CONSTANTS.CUSTOM_ID_ARGS.VOTE_TYPE);
         const fundingRoundIdRaw: string | undefined = CustomIDOracle.getNamedArgument(interaction.customId, CONSIDERATION_CONSTANTS.CUSTOM_ID_ARGS.FUNDING_ROUND_ID);
         if (!fundingRoundIdRaw) {
-            await interaction.respond({ content: 'fundingRoundId not provided in customId.', ephemeral: true });
-            return;
+            throw new EndUserError('fundingRoundId not provided in customId.');
         }
         const fundingRoundId = parseInt(fundingRoundIdRaw);
 
@@ -229,7 +227,7 @@ class SelectVoteTypeAction extends Action {
                 { fundingRoundId, showUnvoted: false }
             );
         } else {
-            await interaction.respond({ content: 'Invalid vote type selected.', ephemeral: true });
+            throw new EndUserError('Invalid vote type selected.')
         }
     }
 
@@ -238,7 +236,7 @@ class SelectVoteTypeAction extends Action {
     }
 
     getComponent(): ButtonBuilder {
-        throw new Error('SelectVoteTypeAction does not have a standalone component.');
+        throw new EndUserError('SelectVoteTypeAction does not have a standalone component.');
     }
 }
 
@@ -294,8 +292,7 @@ class SelectProjectAction extends PaginationComponent {
         const projects = await this.getItemsForPage(interaction, currentPage, showUnvoted);
 
         if (projects.length === 0) {
-            await interaction.respond({ content: 'There are no eligible projects to vote on at the moment.', ephemeral: true });
-            return;
+            throw new EndUserError('There are no eligible projects to vote on at the moment.');
         }
 
         const embed = new EmbedBuilder()
@@ -337,8 +334,7 @@ class SelectProjectAction extends PaginationComponent {
     private async handleSelectProject(interaction: TrackedInteraction): Promise<void> {
         const interactionWithValues = InteractionProperties.toInteractionWithValuesOrUndefined(interaction.interaction);
         if (!interactionWithValues) {
-            await interaction.respond({ content: 'Invalid interaction type.', ephemeral: true });
-            return;
+            throw new EndUserError('Invalid interaction type.');
         }
 
         const projectId = parseInt(interactionWithValues.values[0]);
@@ -389,8 +385,7 @@ class SMEConsiderationVoteAction extends Action {
         const existingVote = await ConsiderationLogic.mostRecentSMEVote(interaction.interaction.user.id, projectId);
 
         if (!project || !fundingRound) {
-            await interaction.respond({ content: 'Project or Funding Round not found.', ephemeral: true });
-            return;
+            throw new EndUserError('Project or Funding Round not found.');
         }
 
         const embed = new EmbedBuilder()
@@ -436,8 +431,7 @@ class SMEConsiderationVoteAction extends Action {
         const vote = CustomIDOracle.getNamedArgument(interaction.customId, CONSIDERATION_CONSTANTS.CUSTOM_ID_ARGS.VOTE);
 
         if (!vote) {
-            await interaction.respond({ content: 'vote not provided in customId', ephemeral: true });
-            return;
+            throw new EndUserError('vote not provided in customId');
         }
 
         const isApprove = vote === CONSIDERATION_CONSTANTS.VOTE_OPTIONS.APPROVE;
@@ -456,8 +450,7 @@ class SMEConsiderationVoteAction extends Action {
 
         const modalInteraction = InteractionProperties.toShowModalOrUndefined(interaction.interaction);
         if (!modalInteraction) {
-            await interaction.respond({ content: 'Failed to show modal. Please try again.', ephemeral: true });
-            return;
+            throw new EndUserError('Failed to show modal. Please try again.');
         }
 
         await modalInteraction.showModal(modal);
@@ -466,8 +459,7 @@ class SMEConsiderationVoteAction extends Action {
     private async handleConfirmVote(interaction: TrackedInteraction): Promise<void> {
         const modalInteraction = InteractionProperties.toModalSubmitInteractionOrUndefined(interaction.interaction);
         if (!modalInteraction) {
-            await interaction.respond({ content: 'Invalid interaction type.', ephemeral: true });
-            return;
+            throw new EndUserError('Invalid interaction type.');
         }
 
         const projectId = parseInt(CustomIDOracle.getNamedArgument(interaction.customId, CONSIDERATION_CONSTANTS.CUSTOM_ID_ARGS.PROJECT_ID) || '');
@@ -493,7 +485,7 @@ class SMEConsiderationVoteAction extends Action {
 
             await interaction.respond({ embeds: [embed], ephemeral: true });
         } catch (error) {
-            await interaction.respond({ content: `Error submitting vote: ${error instanceof Error ? error.message : 'Unknown error'}`, ephemeral: true });
+            throw new EndUserError(`Error submitting vote`, error);
         }
     }
 
@@ -502,6 +494,6 @@ class SMEConsiderationVoteAction extends Action {
     }
 
     getComponent(): ButtonBuilder {
-        throw new Error('SMEConsiderationVoteAction does not have a standalone component.');
+        throw new EndUserError('SMEConsiderationVoteAction does not have a standalone component.');
     }
 }

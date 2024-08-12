@@ -2,9 +2,12 @@
 // BaseClasses.ts
 import { InteractionResponse, Message, MessageComponentInteraction } from 'discord.js';
 import { CustomIDOracle } from '../CustomIDOracle';
-import { AnyModalMessageComponent, AnyInteraction, HomeScreen } from '../types/common';
+import { AnyModalMessageComponent, AnyInteraction, HomeScreen, AnyInteractionWithValues } from '../types/common';
 import { InteractionProperties } from './Interaction';
 import logger from '../logging';
+import { EndUserError } from '../Errors';
+import { DiscordStatus } from '../channels/DiscordStatus';
+import { ModalBuilder } from '@discordjs/builders';
 
 export interface RenderArgs {
     successMessage?: string,
@@ -18,6 +21,32 @@ export class TrackedInteraction {
 
     constructor(interaction: AnyInteraction) {
         this.interaction = interaction;
+    }
+
+    public getFromCustomId(name: string): string | undefined {
+        return CustomIDOracle.getNamedArgument(this.customId, name);
+    }
+
+    public getFromValuesCustomIdOrContext(index: number, name: string) {
+        const interactionWithValues: AnyInteractionWithValues | undefined = InteractionProperties.toInteractionWithValuesOrUndefined(this.interaction);
+        logger.trace(`Looking for value at index ${index} for name ${name}, in ${this.interaction.customId}`); 
+        if (interactionWithValues) {
+            const value = interactionWithValues.values[index];
+            logger.trace(`Interaction values: ${interactionWithValues.values}, returning value at index ${index}: ${value}`);
+            return value;
+        }
+
+        const valueFromCustomId = this.getFromCustomId(name);
+        if (valueFromCustomId) {
+            logger.trace(`Returning value from custom_id: ${valueFromCustomId}`);
+            return valueFromCustomId;
+        }
+
+        const valueFromContext = this.Context.get(name);
+        if (valueFromContext) {
+            logger.trace(`Returning value from context: ${valueFromContext}`);
+        }
+        return valueFromContext;
     }
 
     get customId(): string {
@@ -58,7 +87,16 @@ export class TrackedInteraction {
         if (parsedInteraction) {
             return await parsedInteraction.update(args);
         } else {
-            throw new Error('Interaction is not updatable, so unable to update');
+            throw new EndUserError('Interaction is not updatable, so unable to update');
+        }
+    }
+
+    public async showModal(modalBuilder: ModalBuilder) {
+        const parsedInteraction = InteractionProperties.toShowModalOrUndefined(this.interaction);
+        if (parsedInteraction) {
+            return await parsedInteraction.showModal(modalBuilder);
+        } else {
+            throw new EndUserError('Interaction cannot show a modal');
         }
     }
 
@@ -143,16 +181,16 @@ export abstract class Action {
 
     protected async handleInvalidInteraction(interaction: TrackedInteraction): Promise<void> {
         // Implement error handling and redirection to home screen
-        await interaction.respond({ content: '🤷‍♀️ Invalid interaction', ephemeral: true });
+        throw new EndUserError('Invalid interaction')
     }
 
     protected async handleInvalidOperation(interaction: TrackedInteraction, operationId: string): Promise<Message<boolean>> {
-        return await interaction.respond({ content: `🤷‍♀️ '${operationId}' operation not found on action ${this.fullCustomId}` })
+        return await DiscordStatus.Error.error(interaction, `🤷‍♀️ '${operationId}' operation not found on action ${this.fullCustomId}`);
     }
 
     protected async handleMissingOperation(interaction: TrackedInteraction): Promise<Message<boolean>> {
         // Re-render the current screen with an error message
-        return await interaction.respond({content: '4️⃣0️⃣4️⃣ Action operation to perform not found.'});
+        return await DiscordStatus.Error.error(interaction, 'Action operation to perform not found.');
     }
 
     abstract getComponent(...args: any[]): AnyModalMessageComponent;
@@ -207,7 +245,7 @@ export abstract class Screen {
         try {
             await interaction.respond(responseArgs);
         } catch (error) {
-            logger.info('Error in render: ', error);
+            throw new EndUserError('Error rendering screen', error);
         }
         return;
     }
@@ -222,7 +260,7 @@ export abstract class Screen {
                 await interaction.respond(responseArgs);
             }
         } catch (error) {
-            logger.info('Error in re-render:\n', error);
+            throw new EndUserError('Error rendering screen', error);
         }
     }
 
@@ -249,7 +287,7 @@ export abstract class Screen {
      * @returns 
      */
     protected async handlePermissionDeniedResponse(interaction: TrackedInteraction) {
-        return await interaction.respond({ content: '✋ Insufficient permissions to perform this action.', ephemeral: true });
+        throw new EndUserError('Insufficient permissions to perform this action.')
     }
 
     /**
@@ -306,9 +344,14 @@ export abstract class Dashboard {
     public readonly ID: string;
     protected screens: Map<string, Screen> = new Map();
     protected _homeScreen: HomeScreen | undefined;
+    protected routes: Dashboard[] = [];
 
-    constructor(dashBoardId: string) {
+    constructor(dashBoardId: string, routes?: Dashboard[]) {
         this.ID = dashBoardId;
+
+        if (routes) {
+            this.routes = routes;
+        }
     }
 
     /**
@@ -328,7 +371,7 @@ export abstract class Dashboard {
 
     async handleInteraction(interaction: TrackedInteraction): Promise<void> {
         if (!this._homeScreen) {
-            throw new Error('Home screen not set.');
+            throw new EndUserError('Home screen not set.');
         }
 
         logger.info("[Dashboard] Handling interaction ", interaction.customId);
@@ -339,11 +382,35 @@ export abstract class Dashboard {
             return;
         }
 
-        const screen = this.getScreen(screenId);
+        // 1. Try to get the screen in this dashboard
+        let screen = this.getScreen(screenId);
+
+        // 2. If screen is not found in this dashboard, try to find it in the routes
+        if (!screen) {
+            for (const route of this.routes) {
+                screen = route.getScreen(screenId);
+                if (screen) {
+                    logger.debug(`Screen '${screenId}' found in routed dashboard '${route.ID}'`);
+                    break;
+                }
+            }
+        }
+
         if (screen) {
             await screen.handleInteraction(interaction);
         } else {
-            await interaction.respond({ content: `🤷‍♀️ Invalid screen: ${screenId}`, ephemeral: true });
+            const {DiscordStatus} = await import('../channels/DiscordStatus');
+            await DiscordStatus.Error.error(interaction, `Screen '${screenId}' not found in dashboard '${this.ID}'`);
+
+            const allRegisteredScreens = Array.from(this.screens.keys());
+            let allRoutedScreens: string[] = [];
+
+            for (const route of this.routes) {
+                allRoutedScreens = allRoutedScreens.concat(Array.from(route.screens.keys()));
+            }
+
+            logger.error(`Screen '${screenId}' not found in dashboard '${this.ID}.\nRegistered screens: ${allRegisteredScreens}.\nRouted screens: ${allRoutedScreens}`);
+            throw new EndUserError(`Screen '${screenId}' not found in dashboard '${this.ID}'`);
         }
     }
 
@@ -353,7 +420,7 @@ export abstract class Dashboard {
 
     public registerScreen(screen: Screen, screenId: string): void {
         if (!screenId) {
-            throw new Error(`Failed to add screen to dashboard ${this.ID}. Screen ID not set.`);
+            throw new EndUserError(`Failed to add screen to dashboard ${this.ID}. Screen ID not set.`);
         }
 
         this.screens.set(screenId, screen);

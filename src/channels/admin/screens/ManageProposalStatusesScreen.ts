@@ -12,6 +12,7 @@ import { AnyInteractionWithValues } from '../../../types/common';
 import { InteractionProperties } from '../../../core/Interaction';
 import { ProposalStatus } from '../../../types';
 import { errorMonitor } from 'events';
+import { EndUserError } from '../../../Errors';
 
 export class ManageProposalStatusesScreen extends Screen {
     public static readonly ID = 'manageProposalStatuses';
@@ -121,7 +122,7 @@ export class SelectFundingRoundAction extends PaginationComponent {
 
         if (!parsedInteraction) {
             await DiscordStatus.Error.error(interaction, 'Interaction does not have values');
-            throw new Error('Interaction does not have values');
+            throw new EndUserError('Interaction does not have values');
         }
 
         const fundingRoundId = parsedInteraction.values[0];
@@ -158,7 +159,7 @@ export class SelectProposalAction extends PaginationComponent {
 
         if (!fundingRoundId) {
             await DiscordStatus.Error.error(interaction, 'Funding Round ID not found in customId');
-            throw new Error('Funding Round ID not found in customId');
+            throw new EndUserError('Funding Round ID not found in customId');
         }
         const proposals = await AdminProposalLogic.getProposalsForFundingRound(parseInt(fundingRoundId));
         return Math.ceil(proposals.length / 25);
@@ -174,7 +175,7 @@ export class SelectProposalAction extends PaginationComponent {
 
         if (!fundingRoundId) {
             await DiscordStatus.Error.error(interaction, 'Funding Round ID not found in customId');
-            throw new Error('Funding Round ID not found in customId');
+            throw new EndUserError('Funding Round ID not found in customId');
         }
 
         const proposals = await AdminProposalLogic.getProposalsForFundingRound(parseInt(fundingRoundId));
@@ -202,7 +203,7 @@ export class SelectProposalAction extends PaginationComponent {
 
         if (!fundingRoundId) {
             await DiscordStatus.Error.error(interaction, 'Funding Round ID not found in customId or arg');
-            throw new Error(`Funding Round ID not found in customId or context or arg`);
+            throw new EndUserError(`Funding Round ID not found in customId or context or arg`);
         }
 
         const currentPage = this.getCurrentPage(interaction);
@@ -243,7 +244,7 @@ export class SelectProposalAction extends PaginationComponent {
         const parsedInteraction: AnyInteractionWithValues | undefined = InteractionProperties.toInteractionWithValuesOrUndefined(interaction.interaction);
         if (!parsedInteraction) {
             await DiscordStatus.Error.error(interaction, 'Interaction does not have values');
-            throw new Error('Interaction does not have values');
+            throw new EndUserError('Interaction does not have values');
         }
 
         const proposalId = parsedInteraction.values[0];
@@ -335,7 +336,7 @@ export class UpdateProposalStatusAction extends Action {
 
         if (!parsedInteraction) {
             await DiscordStatus.Error.error(interaction, 'Interaction does not have values');
-            throw new Error('Interaction does not have values');
+            throw new EndUserError('Interaction does not have values');
         }
 
         const proposalIdFromCustomId: string | undefined = CustomIDOracle.getNamedArgument(interaction.customId, 'proposalId');
@@ -350,7 +351,7 @@ export class UpdateProposalStatusAction extends Action {
         const newStatus = parsedInteraction.values[0] as ProposalStatus;
 
         try {
-            const updatedProposal = await AdminProposalLogic.updateProposalStatus(parseInt(proposalId), newStatus);
+            const updatedProposal = await AdminProposalLogic.updateProposalStatus(parseInt(proposalId), newStatus, this.screen);
 
             const embed = new EmbedBuilder()
                 .setColor('#00FF00')
@@ -367,7 +368,7 @@ export class UpdateProposalStatusAction extends Action {
 
             if (!updatedProposal.fundingRoundId) {
                 await DiscordStatus.Warning.warning(interaction, `Proposal does not have a Funding Round associated`);
-                throw new Error(`Proposal ${updatedProposal.id} does not have a Funding Round associated`);
+                throw new EndUserError(`Proposal ${updatedProposal.id} does not have a Funding Round associated`);
             }
 
             const backButton = new ButtonBuilder()

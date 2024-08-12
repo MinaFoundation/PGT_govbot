@@ -1,6 +1,6 @@
 {
   "name": "mina-govbot",
-  "version": "0.0.4",
+  "version": "0.0.5",
   "description": "Discord bot for collective decision making for Mina Protocol",
   "main": "index.js",
   "directories": {

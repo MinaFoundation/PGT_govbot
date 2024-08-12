@@ -94,9 +94,11 @@ export interface FundingRoundAttributes extends CoreAttributes {
   description: string;
   topicId: number;
   budget: number;
-  votingAddress: string;
+  votingAddress: string | null;
+  stakingLedgerEpoch: number;
   status: FundingRoundStatus;
   votingOpenUntil: Date | null;
+  forumChannelId: string | null;
   startAt: Date | null;
   endAt: Date | null;
 }
@@ -106,6 +108,7 @@ export interface FundingRoundCreationAttributes extends Optional<FundingRoundAtt
 
 export interface FundingRoundPhaseAttributes extends CoreAttributes {
   fundingRoundId: number;
+  stakingLedgerEpoch: number;
   startAt: Date;
   endAt: Date;
 }
@@ -136,6 +139,7 @@ export interface ProposalAttributes extends CoreAttributes {
   budget: number;
   uri: string;
   fundingRoundId: number | null;
+  forumThreadId: string | null;
   status: ProposalStatus;
 }
 

@@ -1,4 +1,7 @@
 // DashboardManager.ts
+import { DiscordStatus } from '../channels/DiscordStatus';
+import { EndUserError } from '../Errors';
+import logger from '../logging';
 import { AnyInteraction, AnyNamedChannelInteraction } from '../types/common';
 import { Dashboard, TrackedInteraction } from './BaseClasses';
 
@@ -14,14 +17,25 @@ export class DashboardManager {
     const channelName = this.isNamedChannelInteraction(interaction) ? interaction.channel.name : undefined;
     
     if (!channelName) {
-      await trackedInteratction.respond({ content: 'Error: Unable to determine the channel.', ephemeral: true });
-      return;
+      await DiscordStatus.Error.error(trackedInteratction, 'No channel name found in interaction');
+      throw new EndUserError('No channel name found in interaction');
     }
 
-    const dashboard = this.dashboards.get(channelName);
+
+    let parentMostChannelName: string = channelName;
+
+    if (interaction.channel?.isThread()) {
+      const parentChannel = interaction.channel.parent;
+
+      if (parentChannel) {
+        parentMostChannelName = parentChannel.name;
+      }
+    }
+
+    const dashboard = this.dashboards.get(parentMostChannelName);
     if (!dashboard) {
-      await trackedInteratction.respond({ content: 'Error: No dashboard found for this channel.', ephemeral: true });
-      return;
+      await DiscordStatus.Error.error(trackedInteratction, `No dashboard found for channel '${parentMostChannelName}'`);
+      throw new EndUserError(`No dashboard found for channel '${parentMostChannelName}'`);
     }
 
     await dashboard.handleInteraction(trackedInteratction)

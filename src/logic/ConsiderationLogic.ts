@@ -3,6 +3,7 @@
 import { FundingRound, Proposal, SMEConsiderationVoteLog, TopicCommittee, ConsiderationPhase, SMEGroupMembership } from '../models';
 import { Op } from 'sequelize';
 import { ProposalStatus } from '../types';
+import { EndUserError } from '../Errors';
 
 export class ConsiderationLogic {
     static async getEligibleFundingRounds(userId: string): Promise<FundingRound[]> {
@@ -93,21 +94,21 @@ export class ConsiderationLogic {
         const fundingRound = await FundingRound.findByPk(fundingRoundId);
 
         if (!project || !fundingRound) {
-            throw new Error('Project or Funding Round not found.');
+            throw new EndUserError('Project or Funding Round not found.');
         }
 
         if (project.status !== ProposalStatus.CONSIDERATION_PHASE) {
-            throw new Error('This project is not in the consideration phase.');
+            throw new EndUserError('This project is not in the consideration phase.');
         }
 
         const considerationPhase = await ConsiderationPhase.findOne({ where: { fundingRoundId } });
         if (!considerationPhase) {
-            throw new Error('Consideration phase not found for this funding round.');
+            throw new EndUserError('Consideration phase not found for this funding round.');
         }
 
         const now = new Date();
         if (now < considerationPhase.startAt || now > considerationPhase.endAt) {
-            throw new Error('Consideration phase is not active.');
+            throw new EndUserError('Consideration phase is not active.');
         }
 
         await SMEConsiderationVoteLog.create({

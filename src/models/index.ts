@@ -296,9 +296,11 @@ class FundingRound extends Model<FundingRoundAttributes, FundingRoundCreationAtt
   public description!: string;
   public topicId!: number;
   public budget!: number;
-  public votingAddress!: string;
+  public stakingLedgerEpoch!: number;
+  public votingAddress!: string; // TODO: this can be removed?
   public status!: FundingRoundStatus;
   public votingOpenUntil!: Date;
+  public forumChannelId!: string;
   public startAt!: Date;
   public endAt!: Date;
   public readonly createdAt!: Date;
@@ -349,6 +351,10 @@ FundingRound.init(
     },
     votingAddress: {
       type: DataTypes.STRING(255),
+      allowNull: true,
+    },
+    stakingLedgerEpoch: {
+      type: DataTypes.INTEGER,
       allowNull: false,
     },
     status: {
@@ -358,6 +364,10 @@ FundingRound.init(
     },
     votingOpenUntil: {
       type: DataTypes.DATE,
+      allowNull: true,
+    },
+    forumChannelId: {
+      type: DataTypes.STRING,
       allowNull: true,
     },
     startAt: {
@@ -466,6 +476,7 @@ TopicSMEGroupProposalCreationLimiter.init(
 class ConsiderationPhase extends Model<ConsiderationPhaseAttributes, ConsiderationPhaseCreationAttributes> implements ConsiderationPhaseAttributes {
   public id!: number;
   public fundingRoundId!: number;
+  stakingLedgerEpoch!: number;
   public startAt!: Date;
   public endAt!: Date;
   public readonly createdAt!: Date;
@@ -488,6 +499,10 @@ ConsiderationPhase.init(
         key: 'id',
       },
     },
+    stakingLedgerEpoch: {
+      type: DataTypes.INTEGER,
+      allowNull: false,
+    },
     startAt: {
       type: DataTypes.DATE,
       allowNull: false,
@@ -506,6 +521,7 @@ ConsiderationPhase.init(
 class DeliberationPhase extends Model<DeliberationPhaseAttributes, DeliberationPhaseCreationAttributes> implements DeliberationPhaseAttributes {
   public id!: number;
   public fundingRoundId!: number;
+  stakingLedgerEpoch!: number;
   public startAt!: Date;
   public endAt!: Date;
   public readonly createdAt!: Date;
@@ -528,6 +544,10 @@ DeliberationPhase.init(
         key: 'id',
       },
     },
+    stakingLedgerEpoch: {
+      type: DataTypes.INTEGER,
+      allowNull: false,
+    },
     startAt: {
       type: DataTypes.DATE,
       allowNull: false,
@@ -546,6 +566,7 @@ DeliberationPhase.init(
 class FundingVotingPhase extends Model<FundingVotingPhaseAttributes, FundingVotingPhaseCreationAttributes> implements FundingVotingPhaseAttributes {
   public id!: number;
   public fundingRoundId!: number;
+  stakingLedgerEpoch!: number;
   public startAt!: Date;
   public endAt!: Date;
   public readonly createdAt!: Date;
@@ -567,6 +588,10 @@ FundingVotingPhase.init(
         model: FundingRound,
         key: 'id',
       },
+    },
+    stakingLedgerEpoch: {
+      type: DataTypes.INTEGER,
+      allowNull: false,
     },
     startAt: {
       type: DataTypes.DATE,
@@ -590,6 +615,7 @@ class Proposal extends Model<ProposalAttributes, ProposalCreationAttributes> imp
   public budget!: number;
   public uri!: string;
   public fundingRoundId!: number | null;
+  public forumThreadId!: string | null;
   public status!: ProposalStatus;
   public readonly createdAt!: Date;
   public readonly updatedAt!: Date;
@@ -630,6 +656,10 @@ Proposal.init(
       type: DataTypes.ENUM(...Object.values(ProposalStatus)),
       allowNull: false,
       defaultValue: ProposalStatus.DRAFT,
+    },
+    forumThreadId: {
+      type: DataTypes.STRING,
+      allowNull: true,
     },
   },
   {

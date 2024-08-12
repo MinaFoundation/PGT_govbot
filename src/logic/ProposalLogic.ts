@@ -1,5 +1,8 @@
+import { EndUserError } from '../Errors';
+import logger from '../logging';
 import { Proposal, FundingRound, TopicSMEGroupProposalCreationLimiter, SMEGroupMembership } from '../models';
 import { FundingRoundStatus, ProposalAttributes, ProposalCreationAttributes, ProposalStatus } from '../types';
+import { Screen } from '../core/BaseClasses';
 
 export class ProposalLogic {
   static async getUserDraftProposals(userId: string): Promise<Proposal[]> {
@@ -23,12 +26,22 @@ export class ProposalLogic {
     });
   }
 
-  static async updateProposal(id: number, data: Partial<ProposalAttributes>): Promise<Proposal | null> {
+  static async updateProposal(id: number, data: Partial<ProposalAttributes>, screen?: any): Promise<Proposal | null> {
     const proposal = await Proposal.findByPk(id);
     if (!proposal) {
       return null;
     }
-    return await proposal.update(data);
+    await proposal.update(data);
+
+    if (screen && proposal.fundingRoundId && proposal.forumThreadId) {
+      try {
+        const { ProposalsForumManager } = await import('../channels/proposals/ProposalsForumManager');
+        await ProposalsForumManager.refreshThread(proposal, screen);
+      } catch (error) {
+        logger.error('Error refreshing forum thread:', error);
+      }
+    }
+    return proposal
   }
 
   static async deleteProposal(id: number): Promise<boolean> {
@@ -36,11 +49,21 @@ export class ProposalLogic {
     if (!proposal) {
       return false;
     }
+
+    if (proposal.forumThreadId) {
+      try {
+        const { ProposalsForumManager } = await import('../channels/proposals/ProposalsForumManager');
+        await ProposalsForumManager.deleteThread(proposal);
+      } catch (error) {
+        logger.error('Error deleting forum thread:', error);
+      }
+    }
+
     await proposal.destroy();
     return true;
   }
 
-  static async submitProposalToFundingRound(proposalId: number, fundingRoundId: number): Promise<Proposal | null> {
+  static async submitProposalToFundingRound(proposalId: number, fundingRoundId: number, screen?: any): Promise<Proposal | null> {
     const proposal = await Proposal.findByPk(proposalId);
     const fundingRound = await FundingRound.findByPk(fundingRoundId);
 
@@ -49,19 +72,32 @@ export class ProposalLogic {
     }
 
     if (proposal.status !== ProposalStatus.DRAFT) {
-      throw new Error('Only draft proposals can be submitted to funding rounds.');
+      throw new EndUserError('Only draft proposals can be submitted to funding rounds.');
     }
 
     // Check if the user has permission to submit to this funding round
     const hasPermission = await this.userHasPermissionToSubmit(proposal.proposerDuid, fundingRound.topicId);
     if (!hasPermission) {
-      throw new Error('You do not have permission to submit proposals to this funding round.');
+      throw new EndUserError('You do not have permission to submit proposals to this funding round.');
     }
 
-    return await proposal.update({
+    await proposal.update({
       fundingRoundId: fundingRoundId,
       status: ProposalStatus.CONSIDERATION_PHASE
     });
+
+    if (screen) {
+
+      try {
+        const { ProposalsForumManager } = await import('../channels/proposals/ProposalsForumManager');
+        await ProposalsForumManager.createThread(proposal, fundingRound, screen);
+      } catch (error) {
+        logger.error('Error creating forum thread for proposal:', error);
+        //TODO: Consider whether to revert the proposal update or not?
+      }
+
+    }
+    return proposal;
   }
 
   static async getUserProposalsForFundingRound(userId: string, fundingRoundId: number): Promise<Proposal[]> {
@@ -74,17 +110,54 @@ export class ProposalLogic {
     });
   }
 
-  static async cancelProposal(proposalId: number): Promise<Proposal | null> {
+  static async cancelProposal(proposalId: number, screen?: Screen): Promise<Proposal> {
     const proposal = await Proposal.findByPk(proposalId);
     if (!proposal) {
-      return null;
+      throw new EndUserError(`Proposal with ID ${proposalId} not found.`);
     }
 
     if (proposal.status === ProposalStatus.DRAFT || proposal.status === ProposalStatus.CANCELLED) {
-      throw new Error('Cannot cancel a draft or already cancelled proposal.');
+      throw new EndUserError('Cannot cancel a draft or already cancelled proposal.');
     }
 
-    return await proposal.update({ status: ProposalStatus.CANCELLED });
+    if (!proposal.fundingRoundId) {
+      throw new EndUserError(`Cannot cancel proposal without a funding round.`);
+    }
+
+
+    // Not passing the screen to prevent update to the forum thread, as we want to delete the thread
+    const updatedProposal: Proposal = await this.updateProposalStatus(proposalId, ProposalStatus.CANCELLED);
+
+    if (screen) {
+      try {
+        const { ProposalsForumManager } = await import('../channels/proposals/ProposalsForumManager');
+        await ProposalsForumManager.deleteThread(proposal);
+      } catch (error) {
+        throw new EndUserError('Error deleting forum thread', error);
+      }
+    }
+
+    return updatedProposal;
+  }
+
+  static async updateProposalStatus(proposalId: number, status: ProposalStatus, screen?: Screen) {
+    const proposal = await Proposal.findByPk(proposalId);
+    if (!proposal) {
+      throw new EndUserError('Proposal not found');
+    }
+
+    await proposal.update({ status });
+
+    if (screen && proposal.fundingRoundId && proposal.forumThreadId) {
+      try {
+        const { ProposalsForumManager } = await import('../channels/proposals/ProposalsForumManager');
+        await ProposalsForumManager.refreshThread(proposal, screen);
+      } catch (error) {
+        logger.error('Error refreshing forum thread:', error);
+      }
+    }
+
+    return proposal;
   }
 
   private static async userHasPermissionToSubmit(userId: string, topicId: number): Promise<boolean> {
@@ -108,5 +181,5 @@ export class ProposalLogic {
 
     return userSMEGroupIds.some(id => allowedSMEGroupIds.includes(id));
   }
-  
+
 }
