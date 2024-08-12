@@ -2,7 +2,7 @@ import { CacheType, Client, GatewayIntentBits, Interaction, TextChannel } from '
 import { config } from 'dotenv';
 import { DashboardManager } from './core/DashboardManager';
 import { AdminDashboard } from './channels/admin/dashboard';
-import { Proposal, syncDatabase } from './models';
+import { syncDatabase } from './models';
 import { AdminHomeScreen } from './channels/admin/screens/AdminHomeScreen';
 import { AnyInteraction, HomeScreen } from './types/common';
 import { FundingRoundInitDashboard } from './channels/funding-round-init/FundingRoundInitDashboard';
