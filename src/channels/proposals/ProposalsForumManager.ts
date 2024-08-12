@@ -14,7 +14,7 @@ export class ProposalsForumManager {
     try {
       const forumChannel = await this.getForumChannel(fundingRound);
       if (!forumChannel) {
-        throw new EndUserError('Forum channel not found');
+        throw new EndUserError(`Proposal forum channel not found for funding round ${fundingRound.id}`);
       }
 
       const thread = await forumChannel.threads.create({
@@ -66,7 +66,10 @@ export class ProposalsForumManager {
       if (!fundingRound) throw new EndUserError('Funding round not found');
 
       const forumChannel = await this.getForumChannel(fundingRound);
-      if (!forumChannel) return;
+
+      if (!forumChannel) {
+        throw new EndUserError(`Proposal forum channel not found for funding round ${fundingRound.id}.`);
+      }
 
       const thread = await forumChannel.threads.fetch(proposal.forumThreadId);
       if (thread) {
@@ -95,7 +98,9 @@ export class ProposalsForumManager {
       if (!fundingRound) throw new EndUserError('Funding round not found');
 
       const forumChannel = await this.getForumChannel(fundingRound);
-      if (!forumChannel) return;
+      if (!forumChannel) {
+        throw new EndUserError(`Proposal forum channel not found for funding round ${fundingRound.id}`);
+      }
 
       const thread = await forumChannel.threads.fetch(proposal.forumThreadId);
       if (thread) {
@@ -140,10 +145,13 @@ export class ProposalsForumManager {
     }
 
     const allChannels = await guild.channels.fetch();
-    logger.info("Hello")
-    logger.info(`All channels: ${allChannels.map(channel => channel?.name).join(', ')}`);
-    // TODO: read channel from FundingRound
-    const channel = await guild.channels.fetch("1255865955909636106");
+    logger.debug(`All channels: ${allChannels.map(channel => channel?.name).join(', ')}`);
+   
+    const proposalChannelId: string | null = fundingRound.forumChannelId;
+    if (!proposalChannelId) {
+      return null;
+    }
+    const channel = await guild.channels.fetch(proposalChannelId);
 
     return channel && channel.type === ChannelType.GuildForum ? channel as ForumChannel : null;
   }

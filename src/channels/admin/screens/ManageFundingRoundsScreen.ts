@@ -1686,6 +1686,8 @@ export class EditFundingRoundTypeSelectionAction extends Action {
 
         const topic: Topic = await TopicLogic.getByIdOrError(fundingRound.topicId);
 
+        const forumChannelID = fundingRound.forumChannelId ? fundingRound.forumChannelId.toString() : '❌ Not Set';
+
         const embed = new EmbedBuilder()
             .setColor('#0099ff')
             .setTitle(`Edit Funding Round: ${fundingRound.name}`)
@@ -1696,8 +1698,9 @@ export class EditFundingRoundTypeSelectionAction extends Action {
                 { name: 'Budget', value: fundingRound.budget.toString(), inline: true },
                 { name: 'Status', value: fundingRound.status, inline: true },
                 { name: 'Staking Ledger Epoch', value: fundingRound.stakingLedgerEpoch.toString(), inline: true },
-                { name: 'Topic ID', value: fundingRound.topicId.toString(), inline: true },
                 { name: 'Topic Name', value: topic.name, inline: true },
+                { name: 'Topic ID', value: topic.id.toString(), inline: true },
+                { name: 'Proposal Forum Channel ID', value: forumChannelID, inline: true },
             );
 
         const editInfoButton = new ButtonBuilder()
@@ -1776,6 +1779,7 @@ export class EditFundingRoundInformationAction extends Action {
         DESCRIPTION: 'description',
         BUDGET: 'budget',
         STAKING_LEDGER_EPOCH: 'stakingLedgerEpoch',
+        FORUM_CHANNEL_ID: 'fChId',
     };
 
     public async handleOperation(interaction: TrackedInteraction, operationId: string, args?: any): Promise<void> {
@@ -1830,12 +1834,20 @@ export class EditFundingRoundInformationAction extends Action {
             .setStyle(TextInputStyle.Short)
             .setValue(fundingRound.stakingLedgerEpoch.toString())
             .setRequired(true);
+        
+        const forumChannelId = new TextInputBuilder()
+            .setCustomId(EditFundingRoundInformationAction.INPUT_IDS.FORUM_CHANNEL_ID)
+            .setLabel('Forum Channel ID')
+            .setStyle(TextInputStyle.Short)
+            .setValue(fundingRound.forumChannelId ? fundingRound.forumChannelId.toString(): '')
+            .setRequired(true);
 
         modal.addComponents(
             new ActionRowBuilder<TextInputBuilder>().addComponents(nameInput),
             new ActionRowBuilder<TextInputBuilder>().addComponents(descriptionInput),
             new ActionRowBuilder<TextInputBuilder>().addComponents(budgetInput),
-            new ActionRowBuilder<TextInputBuilder>().addComponents(stakingLedgerEpochInput)
+            new ActionRowBuilder<TextInputBuilder>().addComponents(stakingLedgerEpochInput),
+            new ActionRowBuilder<TextInputBuilder>().addComponents(forumChannelId),
         );
 
         await interaction.showModal(modal);
@@ -1850,9 +1862,10 @@ export class EditFundingRoundInformationAction extends Action {
         const description = modalInteraction.fields.getTextInputValue(EditFundingRoundInformationAction.INPUT_IDS.DESCRIPTION);
         const budget = parseFloat(modalInteraction.fields.getTextInputValue(EditFundingRoundInformationAction.INPUT_IDS.BUDGET));
         const stakingLedgerEpoch = parseInt(modalInteraction.fields.getTextInputValue(EditFundingRoundInformationAction.INPUT_IDS.STAKING_LEDGER_EPOCH));
+        const forumChannelId = parseInt(modalInteraction.fields.getTextInputValue(EditFundingRoundInformationAction.INPUT_IDS.FORUM_CHANNEL_ID));
 
-        if (isNaN(budget) || isNaN(stakingLedgerEpoch)) {
-            throw new EndUserError('Invalid budget or staking ledger epoch value.');
+        if (isNaN(budget) || isNaN(stakingLedgerEpoch) || isNaN(forumChannelId)) {
+            throw new EndUserError('Invalid budget, staking ledger epoch or forum channel ID.');
         }
 
         try {
@@ -1861,6 +1874,7 @@ export class EditFundingRoundInformationAction extends Action {
                 description,
                 budget,
                 stakingLedgerEpoch,
+                forumChannelId: forumChannelId.toString(),
             });
 
             if (!updatedFundingRound) {
@@ -1875,7 +1889,8 @@ export class EditFundingRoundInformationAction extends Action {
                     { name: 'Name', value: updatedFundingRound.name, inline: true },
                     { name: 'Description', value: updatedFundingRound.description, inline: true },
                     { name: 'Budget', value: updatedFundingRound.budget.toString(), inline: true },
-                    { name: 'Staking Ledger Epoch', value: updatedFundingRound.stakingLedgerEpoch.toString(), inline: true }
+                    { name: 'Staking Ledger Epoch', value: updatedFundingRound.stakingLedgerEpoch.toString(), inline: true },
+                    { name: 'Forum Channel ID', value: updatedFundingRound.forumChannelId.toString(), inline: true }
                 );
 
             // There is no back button here, because it's a reply to modal, so cannot unsend
