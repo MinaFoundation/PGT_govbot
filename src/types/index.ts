@@ -108,6 +108,7 @@ export interface FundingRoundCreationAttributes extends Optional<FundingRoundAtt
 
 export interface FundingRoundPhaseAttributes extends CoreAttributes {
   fundingRoundId: number;
+  stakingLedgerEpoch: number;
   startAt: Date;
   endAt: Date;
 }
