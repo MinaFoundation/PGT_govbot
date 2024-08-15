@@ -8,6 +8,8 @@ import { FundingRound, Topic } from '../../../models';
 import { InteractionProperties } from '../../../core/Interaction';
 import { IHomeScreen } from '../../../types/common';
 import { EndUserError } from '../../../Errors';
+import { CreateOrEditFundingRoundAction, ManageFundingRoundsScreen, ModifyFundingRoundAction, SelectTopicAction } from '../../admin/screens/ManageFundingRoundsScreen';
+import { FundingRoundPaginator } from '../../../components/FundingRoundPaginator';
 
 
 const FUNDING_ROUND_ID_ARG: string = "fid";
@@ -18,13 +20,13 @@ export class FundingRoundInitScreen extends Screen implements IHomeScreen {
 
     protected permissions: Permission[] = [new ZkIgniteFacilitatorPermission()];
 
-    public readonly createDraftFundingRoundAction: CreateDraftFundingRoundAction;
-    public readonly voteFundingRoundAction: VoteFundingRoundAction;
+    public readonly manageFundingRoundScreen: ManageFundingRoundsScreen;
+
+    public readonly selectTopicAction: SelectTopicAction = new SelectTopicAction(this, SelectTopicAction.ID);
 
     constructor(dashboard: Dashboard, screenId: string) {
         super(dashboard, screenId);
-        this.createDraftFundingRoundAction = new CreateDraftFundingRoundAction(this, CreateDraftFundingRoundAction.ID);
-        this.voteFundingRoundAction = new VoteFundingRoundAction(this, VoteFundingRoundAction.ID);
+        this.manageFundingRoundScreen = new ManageFundingRoundsScreen(this.dashboard, ManageFundingRoundsScreen.ID);
     }
     public async renderToTextChannel(channel: TextChannel): Promise<void> {
         const content: MessageCreateOptions = await this.getResponse();
@@ -33,13 +35,13 @@ export class FundingRoundInitScreen extends Screen implements IHomeScreen {
     }
 
     protected allSubScreens(): Screen[] {
-        return [];
+        return [
+            this.manageFundingRoundScreen,
+        ];
     }
 
     protected allActions(): Action[] {
         return [
-            this.createDraftFundingRoundAction,
-            this.voteFundingRoundAction,
         ];
     }
 
@@ -49,11 +51,20 @@ export class FundingRoundInitScreen extends Screen implements IHomeScreen {
             .setTitle('💰 Funding Round Initiation')
             .setDescription('Here, you can ✨create new funding rounds and 🗳️vote on existing ones.');
 
-        const createButton = this.createDraftFundingRoundAction.getComponent();
-        const voteButton = this.voteFundingRoundAction.getComponent();
+        
+        const createButton = new ButtonBuilder()
+            .setCustomId(CustomIDOracle.addArgumentsToAction(this.manageFundingRoundScreen.createFundingRoundAction, CreateOrEditFundingRoundAction.OPERATIONS.START, CreateOrEditFundingRoundAction.BOOLEANS.ARGUMENTS.FORCE_REPLY, CreateOrEditFundingRoundAction.BOOLEANS.TRUE_VALUE))
+            .setLabel('✨ Create New Funding Round')
+            .setStyle(ButtonStyle.Primary);
+
+        const editFundingRoundButton = new ButtonBuilder()
+        .setCustomId(CustomIDOracle.addArgumentsToAction(this.manageFundingRoundScreen.modifyFundingRoundAction, ModifyFundingRoundAction.OPERATIONS.SHOW_FUNDING_ROUNDS, FundingRoundPaginator.BOOLEAN.ARGUMENTS.FORCE_REPLY, FundingRoundPaginator.BOOLEAN.TRUE))
+        .setLabel('Edit Funding Round')
+        .setStyle(ButtonStyle.Primary);
+
 
         const row = new ActionRowBuilder<MessageActionRowComponentBuilder>()
-            .addComponents(createButton, voteButton);
+            .addComponents(createButton, editFundingRoundButton);
 
         const components = [row];
 
@@ -88,7 +99,7 @@ export class FundingRoundInitScreen extends Screen implements IHomeScreen {
 export class CreateDraftFundingRoundAction extends Action {
     public static readonly ID = 'createDraftFundingRound';
 
-    private static readonly OPERATIONS = {
+    public static readonly OPERATIONS = {
         SUBMIT_CREATE_FORM: 'submitCreateForm',
         SHOW_SET_PHASE_DATES: 'sSpD',
         SUBMIT_PHASE_DATES: 'submitPhaseDates',
