@@ -9,7 +9,7 @@ import { InteractionProperties } from '../../../core/Interaction';
 import { IHomeScreen } from '../../../types/common';
 import { EndUserError } from '../../../Errors';
 import { CreateOrEditFundingRoundAction, ManageFundingRoundsScreen, ModifyFundingRoundAction, SelectTopicAction } from '../../admin/screens/ManageFundingRoundsScreen';
-import { FundingRoundPaginator } from '../../../components/FundingRoundPaginator';
+import { FundingRoundPaginator, InVotingFundingRoundPaginator } from '../../../components/FundingRoundPaginator';
 
 
 const FUNDING_ROUND_ID_ARG: string = "fid";
@@ -18,15 +18,17 @@ const PHASE_ARG: string = "ph";
 export class FundingRoundInitScreen extends Screen implements IHomeScreen {
     public static readonly ID = 'fundingRoundInit';
 
+    public readonly voteFundingRoundAction: VoteFundingRoundAction;
+
     protected permissions: Permission[] = [new ZkIgniteFacilitatorPermission()];
 
     public readonly manageFundingRoundScreen: ManageFundingRoundsScreen;
-
     public readonly selectTopicAction: SelectTopicAction = new SelectTopicAction(this, SelectTopicAction.ID);
 
     constructor(dashboard: Dashboard, screenId: string) {
         super(dashboard, screenId);
         this.manageFundingRoundScreen = new ManageFundingRoundsScreen(this.dashboard, ManageFundingRoundsScreen.ID);
+        this.voteFundingRoundAction = new VoteFundingRoundAction(this, VoteFundingRoundAction.ID);
     }
     public async renderToTextChannel(channel: TextChannel): Promise<void> {
         const content: MessageCreateOptions = await this.getResponse();
@@ -42,6 +44,7 @@ export class FundingRoundInitScreen extends Screen implements IHomeScreen {
 
     protected allActions(): Action[] {
         return [
+            this.voteFundingRoundAction,
         ];
     }
 
@@ -62,9 +65,13 @@ export class FundingRoundInitScreen extends Screen implements IHomeScreen {
         .setLabel('Edit Funding Round')
         .setStyle(ButtonStyle.Primary);
 
+        const voteFundingRoundButton = new ButtonBuilder()
+            .setCustomId(CustomIDOracle.addArgumentsToAction(this.voteFundingRoundAction, VoteFundingRoundAction.OPERATIONS.SHOW_ELIGIBLE_ROUNDS, InVotingFundingRoundPaginator.BOOLEAN.ARGUMENTS.FORCE_REPLY, InVotingFundingRoundPaginator.BOOLEAN.TRUE))
+            .setLabel('🗳️ Vote On Funding Round')
+            .setStyle(ButtonStyle.Primary);
 
         const row = new ActionRowBuilder<MessageActionRowComponentBuilder>()
-            .addComponents(createButton, editFundingRoundButton);
+            .addComponents(createButton, editFundingRoundButton, voteFundingRoundButton);
 
         const components = [row];
 
@@ -293,9 +300,9 @@ export class CreateDraftFundingRoundAction extends Action {
                 { name: 'Description', value: fundingRound.description },
                 { name: 'Budget', value: fundingRound.budget.toString() },
                 { name: 'Staking Ledger Epoch Number (For Voting)', value: fundingRound.stakingLedgerEpoch.toString() },
-                { name: 'Voting Open Until', value: fundingRound.votingOpenUntil.toISOString() },
-                { name: 'Start Date', value: fundingRound.startAt ? fundingRound.startAt.toISOString() : '❌ Not Set' },
-                { name: 'End Date', value: fundingRound.startAt ? fundingRound.endAt.toISOString() : '❌ Not Set' },
+                { name: 'Voting Open Until', value: fundingRound.votingOpenUntil.toUTCString() },
+                { name: 'Start Date', value: fundingRound.startAt ? fundingRound.startAt.toUTCString() : '❌ Not Set' },
+                { name: 'End Date', value: fundingRound.startAt ? fundingRound.endAt.toUTCString() : '❌ Not Set' },
             );
 
         const phases = await FundingRoundLogic.getFundingRoundPhases(fundingRoundId);
@@ -309,7 +316,7 @@ export class CreateDraftFundingRoundAction extends Action {
 
             buttons.push(setRoundDurationButton);
         } else {
-            embed.addFields({ name: 'Round Duration', value: `Start: ${fundingRound.startAt.toISOString()}\nEnd: ${fundingRound.endAt.toISOString()}` });
+            embed.addFields({ name: 'Round Duration', value: `Start: ${fundingRound.startAt.toUTCString()}\nEnd: ${fundingRound.endAt.toUTCString()}` });
         }
 
         for (let phaseName of Object.values(CreateDraftFundingRoundAction.NON_ROUND_PHASE_NAMES)) {
@@ -322,7 +329,7 @@ export class CreateDraftFundingRoundAction extends Action {
                     .setStyle(ButtonStyle.Primary);
                 buttons.push(button);
             } else {
-                embed.addFields({ name: `${phaseName.charAt(0).toUpperCase() + phaseName.slice(1)} Phase`, value: `Start: ${phase.startDate.toISOString()}\nEnd: ${phase.endDate.toISOString()}` });
+                embed.addFields({ name: `${phaseName.charAt(0).toUpperCase() + phaseName.slice(1)} Phase`, value: `Start: ${phase.startDate.toUTCString()}\nEnd: ${phase.endDate.toUTCString()}` });
             }
         }
 
@@ -436,6 +443,8 @@ export class CreateDraftFundingRoundAction extends Action {
 
 export class VoteFundingRoundAction extends PaginationComponent {
     public static readonly ID = 'voteFundingRound';
+    
+    public readonly editFundingRoundPaginator: InVotingFundingRoundPaginator = new InVotingFundingRoundPaginator(this.screen, this, VoteFundingRoundAction.OPERATIONS.SELECT_ROUND, [InVotingFundingRoundPaginator.BOOLEAN.ARGUMENTS.FORCE_REPLY, InVotingFundingRoundPaginator.BOOLEAN.TRUE], "Select A Funding Rount To Voet On")
 
     public static readonly OPERATIONS = {
         SHOW_ELIGIBLE_ROUNDS: 'showEligibleRounds',
@@ -486,32 +495,7 @@ export class VoteFundingRoundAction extends PaginationComponent {
     }
 
     private async handleShowEligibleRounds(interaction: TrackedInteraction): Promise<void> {
-        const currentPage = this.getCurrentPage(interaction);
-        const totalPages = await this.getTotalPages(interaction);
-        const eligibleRounds = await this.getItemsForPage(interaction, currentPage);
-
-        if (eligibleRounds.length === 0) {
-            throw new EndUserError('There are no eligible funding rounds for voting at this time.');
-        }
-
-        const selectMenu = new StringSelectMenuBuilder()
-            .setCustomId(CustomIDOracle.addArgumentsToAction(this, VoteFundingRoundAction.OPERATIONS.SELECT_ROUND))
-            .setPlaceholder('🗳️ Select a Funding Round to Vote On')
-            .addOptions(eligibleRounds.map(round => ({
-                label: round.name,
-                value: round.id.toString(),
-                description: `Budget: ${round.budget}, Voting Until: ${round.votingOpenUntil.toLocaleDateString()}`
-            })));
-
-        const row = new ActionRowBuilder<StringSelectMenuBuilder>().addComponents(selectMenu);
-        const components: ActionRowBuilder<MessageActionRowComponentBuilder>[] = [row];
-
-        if (totalPages > 1) {
-            const paginationRow = this.getPaginationRow(interaction, currentPage, totalPages);
-            components.push(paginationRow);
-        }
-
-        await interaction.respond({ components, ephemeral: true });
+        await this.editFundingRoundPaginator.handlePagination(interaction);
     }
 
     private async handleSelectRound(interaction: TrackedInteraction, successMessage: string | undefined = undefined, errorMesasge: string | undefined = undefined): Promise<void> {
@@ -556,15 +540,15 @@ export class VoteFundingRoundAction extends PaginationComponent {
             .addFields(
                 { name: 'Budget', value: fundingRound.budget.toString(), inline: true },
                 { name: 'Staking Ledger Epoch Number (For Voting)', value: fundingRound.stakingLedgerEpoch.toString(), inline: true },
-                { name: 'Voting Open Until', value: fundingRound.votingOpenUntil.toISOString(), inline: true },
+                { name: 'Voting Open Until', value: fundingRound.votingOpenUntil.toUTCString(), inline: true },
                 { name: 'Status', value: fundingRound.status, inline: true },
-                { name: 'Start Date', value: fundingRound.startAt ? fundingRound.startAt.toISOString() : '❌ Not Set', inline: true },
-                { name: 'End Date', value: fundingRound.endAt ? fundingRound.endAt.toISOString() : '❌ Not Set', inline: true },
+                { name: 'Start Date', value: fundingRound.startAt ? fundingRound.startAt.toUTCString() : '❌ Not Set', inline: true },
+                { name: 'End Date', value: fundingRound.endAt ? fundingRound.endAt.toUTCString() : '❌ Not Set', inline: true },
             );
 
         const phases = await FundingRoundLogic.getFundingRoundPhases(fundingRoundId);
         phases.forEach(phase => {
-            embed.addFields({ name: `${phase.phase.charAt(0).toUpperCase() + phase.phase.slice(1)} Phase`, value: `Start: ${phase.startDate.toISOString()}\nEnd: ${phase.endDate.toISOString()}`, inline: true });
+            embed.addFields({ name: `${phase.phase.charAt(0).toUpperCase() + phase.phase.slice(1)} Phase`, value: `Start: ${phase.startDate.toUTCString()}\nEnd: ${phase.endDate.toUTCString()}`, inline: true });
         });
 
         const latestVote = await FundingRoundLogic.getLatestVote(interaction.interaction.user.id, fundingRoundId);
@@ -695,10 +679,7 @@ export class VoteFundingRoundAction extends PaginationComponent {
     }
 
     getComponent(): ButtonBuilder {
-        return new ButtonBuilder()
-            .setCustomId(CustomIDOracle.addArgumentsToAction(this, VoteFundingRoundAction.OPERATIONS.SHOW_ELIGIBLE_ROUNDS))
-            .setLabel('🗳️ Vote on Existing Funding Round')
-            .setStyle(ButtonStyle.Primary);
+       throw new EndUserError('VoteFundingRoundAction has no components'); 
     }
 
     public async handlePagination(interaction: TrackedInteraction): Promise<void> {
