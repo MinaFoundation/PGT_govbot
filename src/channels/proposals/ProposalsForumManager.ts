@@ -4,7 +4,7 @@ import { CustomIDOracle } from '../../CustomIDOracle';
 import logger from '../../logging';
 import { ProjectVotingScreen, SelectProjectAction } from '../vote/screens/ProjectVotingScreen';
 import { VoteDashboard } from '../vote/VoteDashboard';
-import { EndUserError } from '../../Errors';
+import { EndUserError, NotFoundEndUserError } from '../../Errors';
 import { Screen } from '../../core/BaseClasses';
 
 export class ProposalsForumManager {
@@ -12,7 +12,7 @@ export class ProposalsForumManager {
 
   public static async createThread(proposal: Proposal, fundingRound: FundingRound, screen: Screen): Promise<void> {
     try {
-      const forumChannel = await this.getForumChannel(fundingRound);
+      const forumChannel = await this.getForumChannelOrError(fundingRound);
       if (!forumChannel) {
         throw new EndUserError(`Proposal forum channel not found for funding round ${fundingRound.id}`);
       }
@@ -65,7 +65,7 @@ export class ProposalsForumManager {
       const fundingRound = await FundingRound.findByPk(proposal.fundingRoundId);
       if (!fundingRound) throw new EndUserError('Funding round not found');
 
-      const forumChannel = await this.getForumChannel(fundingRound);
+      const forumChannel = await this.getForumChannelOrError(fundingRound);
 
       if (!forumChannel) {
         throw new EndUserError(`Proposal forum channel not found for funding round ${fundingRound.id}.`);
@@ -83,7 +83,7 @@ export class ProposalsForumManager {
   }
 
   public static async refreshThread(proposal: Proposal, screen: Screen): Promise<void> {
-    if (!proposal.forumThreadId){
+    if (!proposal.forumThreadId) {
       logger.warn(`Proposal ${proposal.id} does not have a forum thread`);
       return;
     }
@@ -97,7 +97,7 @@ export class ProposalsForumManager {
       const fundingRound = await FundingRound.findByPk(proposal.fundingRoundId);
       if (!fundingRound) throw new EndUserError('Funding round not found');
 
-      const forumChannel = await this.getForumChannel(fundingRound);
+      const forumChannel = await this.getForumChannelOrError(fundingRound);
       if (!forumChannel) {
         throw new EndUserError(`Proposal forum channel not found for funding round ${fundingRound.id}`);
       }
@@ -133,9 +133,7 @@ export class ProposalsForumManager {
     return new ActionRowBuilder<ButtonBuilder>().addComponents(button);
   }
 
-  private static async getForumChannel(fundingRound: FundingRound): Promise<ForumChannel | null> {
-    //if (!fundingRound.forumChannelName) return null;
-
+  private static async getForumChannelOrError(fundingRound: FundingRound): Promise<ForumChannel> {
     const { client } = await import("../../bot");
 
     const guild = client.guilds.cache.first();
@@ -146,15 +144,26 @@ export class ProposalsForumManager {
 
     const allChannels = await guild.channels.fetch();
     logger.debug(`All channels: ${allChannels.map(channel => channel?.id).join(', ')}`);
-   
+
     const proposalChannelId: string | null = fundingRound.forumChannelId.toString();
+
     if (!proposalChannelId) {
-      return null;
+      throw new NotFoundEndUserError(`Funding round ${fundingRound.id} does not have a forum channel`);
     }
+
     //FIXME: ensure proposal is being fetched correcly
     logger.debug(`Fetching proposal channel ${proposalChannelId}...`);
     const channel = await guild.channels.fetch(proposalChannelId);
 
-    return channel && channel.type === ChannelType.GuildForum ? channel as ForumChannel : null;
+    if (!channel) {
+      throw new NotFoundEndUserError(`Proposal channel ${proposalChannelId} not found in server.`);
+    }
+
+    if (!(channel.type === ChannelType.GuildForum)) {
+      throw new NotFoundEndUserError(`Proposal channel ${proposalChannelId} exists, but is not a forum channel.`);
+    }
+
+    return channel as ForumChannel;
+
   }
 }
