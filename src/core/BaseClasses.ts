@@ -18,6 +18,7 @@ export class TrackedInteraction {
     public readonly interaction: AnyInteraction;
     public interactionReplies: Message<boolean>[] = [];
     public Context: Map<string, string> = new Map();
+    protected _isUpdated: boolean = false;
 
     constructor(interaction: AnyInteraction) {
         this.interaction = interaction;
@@ -63,15 +64,15 @@ export class TrackedInteraction {
         }
 
         try {
-
-            if (this.interactionReplies.length === 0) {
-            
-                const response: Message<boolean> = await this.interaction.reply(args);
-                this.interactionReplies.push(response);
-                return response;
-            } else {
+            const followUp: boolean = this.interactionReplies.length > 0 || this._isUpdated;
+            if (followUp) {  
                 const lastResponse = this.interactionReplies[this.interactionReplies.length - 1];
                 const response: Message<boolean> = await this.interaction.followUp(args);
+                this.interactionReplies.push(response);
+                return response;
+
+            } else {
+                const response: Message<boolean> = await this.interaction.reply(args);
                 this.interactionReplies.push(response);
                 return response;
             }
@@ -85,6 +86,7 @@ export class TrackedInteraction {
     public async update(args: any) {
         const parsedInteraction = InteractionProperties.toUpdateableOrUndefined(this.interaction);
         if (parsedInteraction) {
+            this._isUpdated = true;
             return await parsedInteraction.update(args);
         } else {
             throw new EndUserError('Interaction is not updatable, so unable to update');
@@ -414,7 +416,7 @@ export abstract class Dashboard {
         }
     }
 
-    protected getScreen(screenId: string): Screen | undefined {
+    public getScreen(screenId: string): Screen | undefined {
         return this.screens.get(screenId);
     }
 

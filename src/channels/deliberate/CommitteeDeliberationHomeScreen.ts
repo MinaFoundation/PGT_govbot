@@ -605,8 +605,15 @@ class CommitteeDeliberationVoteAction extends Action {
         }
         const fundingRoundId: number = parseInt(fundingRoundIdRaw);
 
+        let reason: string='';
+
+        try {
+            reason = modalInteraction.fields.getField(INPUT_IDS.REASON)?.value;
+        } catch (error) {
+           reason = '';
+        }
+
         const voteRaw = CustomIDOracle.getNamedArgument(interaction.customId, 'vote');
-        const reason = modalInteraction.fields.getTextInputValue(INPUT_IDS.REASON);
         const uri: string | undefined = modalInteraction.fields.getTextInputValue(INPUT_IDS.URI);
 
         if (!uri) {

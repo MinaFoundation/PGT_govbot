@@ -145,12 +145,14 @@ export class ProposalsForumManager {
     }
 
     const allChannels = await guild.channels.fetch();
-    logger.debug(`All channels: ${allChannels.map(channel => channel?.name).join(', ')}`);
+    logger.debug(`All channels: ${allChannels.map(channel => channel?.id).join(', ')}`);
    
-    const proposalChannelId: string | null = fundingRound.forumChannelId;
+    const proposalChannelId: string | null = fundingRound.forumChannelId.toString();
     if (!proposalChannelId) {
       return null;
     }
+    //FIXME: ensure proposal is being fetched correcly
+    logger.debug(`Fetching proposal channel ${proposalChannelId}...`);
     const channel = await guild.channels.fetch(proposalChannelId);
 
     return channel && channel.type === ChannelType.GuildForum ? channel as ForumChannel : null;
