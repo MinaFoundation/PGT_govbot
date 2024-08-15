@@ -24,6 +24,17 @@ export class FundingRoundLogic {
         });
     }
 
+    static async newFundingRoundFromCoreInfo(name: string, description: string, topicId: number, budget: number, stakingLedgerEpoch: number): Promise<FundingRound> {
+        return await FundingRound.create({
+            name,
+            description,
+            topicId,
+            budget,
+            stakingLedgerEpoch,
+            status: FundingRoundStatus.VOTING,
+        });
+    }
+
     static async getFundingRoundById(id: number): Promise<FundingRound | null> {
         return await FundingRound.findByPk(id);
     }
@@ -37,18 +48,19 @@ export class FundingRoundLogic {
         return fundingRound;
     }
 
-    static async getFundingRoundPhase(fundingRoundId: number, phase: string) {
-        switch (phase.toLowerCase()) {
-            case 'consideration':
+    static async getFundingRoundPhase(fundingRoundId: number, phase: FundingRoundMIPhaseValue) {
+        switch (phase) {
+            case FundingRoundMI.PHASES.CONSIDERATION:
                 return await ConsiderationPhase.findOne({ where: { fundingRoundId } });
-            case 'deliberation':
+            case FundingRoundMI.PHASES.DELIBERATION:
                 return await DeliberationPhase.findOne({ where: { fundingRoundId } });
-            case 'voting':
+            case FundingRoundMI.PHASES.VOTING:
                 return await FundingVotingPhase.findOne({ where: { fundingRoundId } });
             default:
                 throw new EndUserError(`Invalid phase: ${phase}. Funding Round Id ${fundingRoundId}`);
         }
     }
+
 
     static async getFundingRoundPhases(fundingRoundId: number): Promise<FundingRoundPhase[]> {
         const considerationPhase = await ConsiderationPhase.findOne({ where: { fundingRoundId } });
@@ -100,6 +112,8 @@ export class FundingRoundLogic {
     static async setFundingRoundPhase(fundingRoundId: number, phase: FundingRoundMIPhaseValue, stakingLedgerEpoch: number, startDate: Date, endDate: Date): Promise<void> {
         const fundingRound = await this.getFundingRoundByIdOrError(fundingRoundId);
 
+        await this.validateFundingRoundPhaseDatesOrError(fundingRoundId, phase, startDate, endDate);
+
         switch (phase.toString().toLocaleLowerCase()) {
             case FundingRoundMI.PHASES.CONSIDERATION.toString().toLocaleLowerCase():
                 await ConsiderationPhase.upsert({
@@ -149,11 +163,8 @@ export class FundingRoundLogic {
         });
     }
 
-    static async updateFundingRound(id: number, updates: Partial<FundingRoundAttributes>): Promise<FundingRound | null> {
-        const fundingRound = await this.getFundingRoundById(id);
-        if (!fundingRound) {
-            return null;
-        }
+    static async updateFundingRound(id: number, updates: Partial<FundingRoundAttributes>): Promise<FundingRound> {
+        const fundingRound = await this.getFundingRoundByIdOrError(id);
 
         if (updates.topicId) {
             const topic = await Topic.findByPk(updates.topicId);
@@ -676,18 +687,174 @@ export class FundingRoundLogic {
     static async getActiveFundingRounds(): Promise<FundingRound[]> {
         const now = new Date();
         return await FundingRound.findAll({
-          where: {
-            [Op.or]: [
-              { status: FundingRoundStatus.VOTING },
-              {
-                status: FundingRoundStatus.APPROVED,
-                startAt: { [Op.lte]: now },
-                endAt: { [Op.gte]: now }
-              }
-            ]
-          },
-          order: [['createdAt', 'DESC']]
+            where: {
+                [Op.or]: [
+                    { status: FundingRoundStatus.VOTING },
+                    {
+                        status: FundingRoundStatus.APPROVED,
+                        startAt: { [Op.lte]: now },
+                        endAt: { [Op.gte]: now }
+                    }
+                ]
+            },
+            order: [['createdAt', 'DESC']]
         });
-      }
+    }
+
+    static async validateFundingRoundDatesOrError(fundingRoundId: number, newStartDate: Date, newEndDate: Date, newVotingOpenUntil?: Date): Promise<void> {
+        const phases = await this.getFundingRoundPhases(fundingRoundId);
+
+        if (newStartDate >= newEndDate) {
+            throw new EndUserError('Start date must be before end date.');
+        }
+
+        if (newVotingOpenUntil && newVotingOpenUntil >= newStartDate) {
+            throw new EndUserError(`Voting open until date must be before start date, and ${newVotingOpenUntil.toUTCString()} >= ${newStartDate.toUTCString()}`);
+        }
+
+        for (let i = 0; i < phases.length; i++) {
+            if (phases[i].startDate < newStartDate || phases[i].endDate > newEndDate) {
+                throw new EndUserError(`${phases[i].phase} phase must be within funding round dates, and ${phases[i].startDate.toUTCString()} < ${newStartDate.toUTCString()} or ${phases[i].endDate.toUTCString()} > ${newEndDate.toUTCString()}`);
+            }
+
+            if (i > 0 && phases[i].startDate <= phases[i - 1].endDate) {
+                throw new EndUserError(`${phases[i].phase} phase must start after ${phases[i - 1].phase} phase ends, and ${phases[i].startDate.toUTCString()} <= ${phases[i - 1].endDate.toUTCString()}`);
+            }
+        }
+    }
+
+    static async validateFundingRoundPhaseDatesOrError(fundingRoundId: number, phase: FundingRoundMIPhaseValue, newStartDate: Date, newEndDate: Date): Promise<void> {
+        const fundingRound: FundingRound = await this.getFundingRoundByIdOrError(fundingRoundId);
+        if (newStartDate >= newEndDate) {
+            throw new EndUserError(`Start date must be before end date, and ${newStartDate} >= ${newEndDate}`);
+        }
+
+        if (fundingRound.startAt && newStartDate <= fundingRound.startAt) {
+            throw new EndUserError(`Start date must be after funding round start date, and ${newStartDate.toUTCString()} <= ${fundingRound.startAt.toUTCString()}`);
+        }
+
+        if (fundingRound.endAt && newEndDate >= fundingRound.endAt) {
+            throw new EndUserError(`End date must be before funding round end date, and ${newEndDate.toUTCString()} >= ${fundingRound.endAt.toUTCString()}`);
+        }
+
+
+        if (phase === FundingRoundMI.PHASES.CONSIDERATION) {
+            logger.debug(`Validating consideration phase dates for funding round ${fundingRoundId}...`);
+
+            // Ensure that the consideration phase ends before the Debliberation phase starts
+            const deliberationPhase = await this.getFundingRoundPhase(fundingRoundId, FundingRoundMI.PHASES.DELIBERATION);
+
+            if (deliberationPhase) {
+                logger.debug(`\tChecking deliberation phase...`);
+                if (newEndDate >= deliberationPhase.startAt) {
+                    throw new EndUserError('Consideration phase must end before deliberation phase starts.');
+                }
+            }
+
+            // Ensure that the consideration ends (and starts) before the Voting phase starts
+            const votingPhase = await this.getFundingRoundPhase(fundingRoundId, FundingRoundMI.PHASES.VOTING);
+
+            if (votingPhase) {
+                logger.debug(`\tChecking voting phase...`);
+                if (newEndDate >= votingPhase.startAt) {
+                    throw new EndUserError(`Consideration phase must end before voting phase starts, and ${newEndDate.toUTCString()} >= ${votingPhase.startAt.toUTCString()}`);
+                }
+
+
+            }
+        } else if (phase === FundingRoundMI.PHASES.DELIBERATION) {
+            logger.debug(`Validating deliberation phase dates for funding round ${fundingRoundId}...`);
+            // Esnure that the deliberation phase starts and ends after the Consideration phase ends
+            const considerationPhase = await this.getFundingRoundPhase(fundingRoundId, FundingRoundMI.PHASES.CONSIDERATION);
+
+            if (considerationPhase) {
+                logger.debug(`\tChecking consideration phase...`);
+                if (newStartDate <= considerationPhase.endAt) {
+                    throw new EndUserError('Deliberation phase must start after consideration phase ends.');
+                }
+            }
+
+            // Ensure that the deliberation phase starts and ends before the Voting phase starts
+            const votingPhase = await this.getFundingRoundPhase(fundingRoundId, FundingRoundMI.PHASES.VOTING);
+
+            if (votingPhase) {
+                logger.debug(`\tChecking voting phase...`);
+                if (newEndDate >= votingPhase.startAt) {
+                    throw new EndUserError('Deliberation phase must end before voting phase starts.');
+                }
+
+            }
+        } else if (phase === FundingRoundMI.PHASES.VOTING) {
+            logger.debug(`Validating voting phase dates for funding round ${fundingRoundId}...`);
+            // 1. Ensure that the voting phase starts and ends after the Consideration phase ends
+            const considerationPhase = await this.getFundingRoundPhase(fundingRoundId, FundingRoundMI.PHASES.CONSIDERATION);
+
+            if (considerationPhase) {
+                logger.debug(`\tChecking consideration phase...`);
+                if (newStartDate <= considerationPhase.endAt) {
+                    throw new EndUserError('Voting phase must start after consideration phase ends.');
+                }
+            }
+
+            // 2. Ensure that the voting phase starts and ends after the Deliberation phase ends
+            const deliberationPhase = await this.getFundingRoundPhase(fundingRoundId, FundingRoundMI.PHASES.DELIBERATION);
+
+            if (deliberationPhase) {
+                logger.debug(`\tChecking deliberation phase...`);
+                if (newStartDate <= deliberationPhase.endAt) {
+                    throw new EndUserError('Voting phase must start after deliberation phase ends.');
+                }
+
+            }
+
+        }
+    }
+
+
+    static async updateFundingRoundDates(
+        fundingRoundId: number,
+        startAt: Date,
+        endAt: Date,
+        votingOpenUntil?: Date
+    ): Promise<FundingRound> {
+        const fundingRound = await this.getFundingRoundByIdOrError(fundingRoundId);
+
+        await this.validateFundingRoundDatesOrError(fundingRoundId, startAt, endAt, votingOpenUntil);
+
+        await fundingRound.update({ startAt, endAt, votingOpenUntil });
+        return fundingRound;
+    }
+
+    static async updateFundingRoundVoteData(fundingRoundId: number, startAt: Date, endAt: Date, votingOpenUntil: Date, stakingLedgerEpoch: number): Promise<FundingRound> {
+        const fundingRound: FundingRound = await this.updateFundingRoundDates(fundingRoundId, startAt, endAt, votingOpenUntil);
+        await fundingRound.update({ stakingLedgerEpoch });
+        return fundingRound;
+    }
+
+    static async updateFundingRoundPhase(
+        fundingRoundId: number,
+        phase: 'consideration' | 'deliberation' | 'voting' | 'round',
+        stakingLedgerEpoch: number,
+        startDate: Date,
+        endDate: Date
+    ): Promise<FundingRound> {
+        const fundingRound = await this.getFundingRoundByIdOrError(fundingRoundId);
+
+        if (phase === FundingRoundMI.PHASES.ROUND) {
+            return await this.updateFundingRoundDates(fundingRoundId, startDate, endDate, fundingRound.votingOpenUntil);
+        }
+
+        await this.setFundingRoundPhase(fundingRoundId, phase, stakingLedgerEpoch, startDate, endDate);
+        return fundingRound;
+    }
+
+    static async setTopic(fundingRoundId: number, topicId: number): Promise<FundingRound> {
+        const { TopicLogic } = await import('../../admin/screens/ManageTopicLogicScreen');
+
+        const fundingRound = await this.getFundingRoundByIdOrError(fundingRoundId);
+        const topic = await TopicLogic.getByIdOrError(topicId);
+
+        return await fundingRound.update({ topicId: topic.id });
+    } 
 
 }
