@@ -28,6 +28,13 @@ export class FundingRoundPaginator extends PaginationComponent {
         }
     }
 
+    /**
+     * Override this method to customize the list of Funding Rounds which should be presented/paginated.
+     */
+    protected async getFundingRounds(interaction: TrackedInteraction): Promise<FundingRound[]> {
+        return await FundingRoundLogic.getPresentAndFutureFundingRounds();
+    }
+
     constructor(screen: Screen, dstAction: Action, dstOperation: string, args: string[], title: string) {
         super(screen, FundingRoundPaginator.ID);
         this.action = dstAction;
@@ -38,12 +45,12 @@ export class FundingRoundPaginator extends PaginationComponent {
     }
 
     protected async getTotalPages(interaction: TrackedInteraction): Promise<number> {
-        const fundingRounds = await FundingRoundLogic.getPresentAndFutureFundingRounds();
+        const fundingRounds = await this.getFundingRounds(interaction);
         return Math.ceil(fundingRounds.length / 25);
     }
 
     protected async getItemsForPage(interaction: TrackedInteraction, page: number): Promise<FundingRound[]> {
-        const fundingRounds = await FundingRoundLogic.getPresentAndFutureFundingRounds();
+        const fundingRounds = await this.getFundingRounds(interaction);
         return fundingRounds.slice(page * 25, (page + 1) * 25);
     }
 
@@ -122,5 +129,11 @@ export class FundingRoundPaginator extends PaginationComponent {
         return new StringSelectMenuBuilder()
             .setCustomId(CustomIDOracle.addArgumentsToAction(this, 'paginate'))
             .setPlaceholder('Select a Funding Round');
+    }
+}
+
+export class InVotingFundingRoundPaginator extends FundingRoundPaginator {
+    protected async getFundingRounds(interaction: TrackedInteraction): Promise<FundingRound[]> {
+        return await FundingRoundLogic.getEligibleVotingRounds();
     }
 }
