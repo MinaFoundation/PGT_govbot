@@ -444,7 +444,7 @@ export class CreateDraftFundingRoundAction extends Action {
 export class VoteFundingRoundAction extends PaginationComponent {
     public static readonly ID = 'voteFundingRound';
     
-    public readonly editFundingRoundPaginator: InVotingFundingRoundPaginator = new InVotingFundingRoundPaginator(this.screen, this, VoteFundingRoundAction.OPERATIONS.SELECT_ROUND, [InVotingFundingRoundPaginator.BOOLEAN.ARGUMENTS.FORCE_REPLY, InVotingFundingRoundPaginator.BOOLEAN.TRUE], "Select A Funding Rount To Voet On")
+    public readonly editFundingRoundPaginator: InVotingFundingRoundPaginator = new InVotingFundingRoundPaginator(this.screen, this, VoteFundingRoundAction.OPERATIONS.SELECT_ROUND, InVotingFundingRoundPaginator.ID);
 
     public static readonly OPERATIONS = {
         SHOW_ELIGIBLE_ROUNDS: 'showEligibleRounds',

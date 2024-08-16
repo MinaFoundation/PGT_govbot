@@ -353,20 +353,17 @@ export class FundingRoundLogic {
 
     static async getEligibleVotingRounds(): Promise<FundingRound[]> {
         const now = new Date();
-        return await FundingRound.findAll({
+        const allFindingRoundsInVoting = await FundingRound.findAll({
             where: {
                 status: FundingRoundStatus.VOTING,
                 votingOpenUntil: {
                     [Op.gte]: now,
                 },
             },
-            include: [
-                { model: ConsiderationPhase, required: true, as: 'considerationPhase' },
-                { model: DeliberationPhase, required: true, as: 'deliberationPhase' },
-                { model: FundingVotingPhase, required: true, as: 'fundingVotingPhase' },
-            ],
-        });
-    }
+    });
+    const onlyReadyFundingRounds = allFindingRoundsInVoting.filter( value => value.isReady())
+    return onlyReadyFundingRounds;
+}
 
     static async hasUserVotedOnFundingRound(userId: string, fundingRoundId: number): Promise<boolean> {
         const vote = await FundingRoundApprovalVote.findOne({

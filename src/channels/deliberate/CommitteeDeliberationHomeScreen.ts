@@ -605,12 +605,12 @@ class CommitteeDeliberationVoteAction extends Action {
         }
         const fundingRoundId: number = parseInt(fundingRoundIdRaw);
 
-        let reason: string='';
+        let reason: string = '';
 
         try {
-            reason = modalInteraction.fields.getField(INPUT_IDS.REASON)?.value;
+            reason = modalInteraction.fields.getField(INPUT_IDS.REASON).value;
         } catch (error) {
-           reason = '';
+            reason = '';
         }
 
         const voteRaw = CustomIDOracle.getNamedArgument(interaction.customId, 'vote');
@@ -632,28 +632,29 @@ class CommitteeDeliberationVoteAction extends Action {
             description = 'Your vote to approve the project with modifications has been recorded. You can change it until the end of the deliberation phase.';
             vote = CommitteeDeliberationVoteChoice.APPROVED_MODIFIED;
         } else {
-            await interaction.respond({ content: `Invalid vote option: ${voteRaw}`, ephemeral: true });
-            return;
+            throw new EndUserError(`Invalid vote option: ${voteRaw}`);
         }
 
-        try {
-            await CommitteeDeliberationLogic.submitVote(interaction.interaction.user.id, projectId, fundingRoundId, vote, reason, uri);
+        await CommitteeDeliberationLogic.submitVote(interaction.interaction.user.id, projectId, fundingRoundId, vote, reason, uri);
 
-            const embed = new EmbedBuilder()
-                .setColor('#28a745')
-                .setTitle('Vote Submitted Successfully')
-                .setDescription(description)
-                .addFields(
-                    { name: 'Project ID', value: projectId.toString() },
-                    { name: 'Funding Round ID', value: fundingRoundId.toString() },
-                    { name: 'Decision', value: vote },
-                    { name: 'Reason', value: reason },
-                    { name: 'URI', value: uri },
-                );
-            await interaction.update({ embeds: [embed], ephemeral: true });
-        } catch (error) {
-            throw new EndUserError(`Error submitting vote`, error);
+        const embed = new EmbedBuilder()
+            .setColor('#28a745')
+            .setTitle('Vote Submitted Successfully')
+            .setDescription(description)
+            .addFields(
+                { name: 'Project ID', value: projectId.toString() },
+                { name: 'Funding Round ID', value: fundingRoundId.toString() },
+                { name: 'Decision', value: vote },
+                { name: 'URI', value: uri },
+            );
+
+        if (reason) {
+            embed.addFields(
+                {name: 'Reason', value: reason}
+            )
         }
+        await interaction.update({ embeds: [embed], ephemeral: true });
+
     }
 
     public allSubActions(): Action[] {

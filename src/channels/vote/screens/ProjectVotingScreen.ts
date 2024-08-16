@@ -13,6 +13,9 @@ import { OCVLinkGenerator } from '../../../utils/OCVLinkGenerator';
 import logger from '../../../logging';
 import { DiscordStatus } from '../../DiscordStatus';
 import { EndUserError, EndUserInfo } from '../../../Errors';
+import { proposalStatusToPhase } from '../../proposals/ProposalsForumManager';
+import { ProposalStatus } from '../../../types';
+
 
 export class ProjectVotingScreen extends Screen {
     public static readonly ID = 'projectVoting';
@@ -164,7 +167,7 @@ export class SelectProjectAction extends PaginationComponent {
         let fundingRoundId: number = parseInt(fundingRoundIdRaw);
 
 
-        let phase: string = ArgumentOracle.getNamedArgument(interaction, ArgumentOracle.COMMON_ARGS.PHASE); 
+        let phase: string = ArgumentOracle.getNamedArgument(interaction, ArgumentOracle.COMMON_ARGS.PHASE);
         phase = phase.toLowerCase();
 
         const projects = await FundingRoundLogic.getActiveProposalsForPhase(fundingRoundId, phase);
@@ -176,9 +179,9 @@ export class SelectProjectAction extends PaginationComponent {
 
         let fundingRoundId: number = parseInt(fundingRoundIdRaw);
 
- 
 
-        const phase: string = ArgumentOracle.getNamedArgument(interaction, ArgumentOracle.COMMON_ARGS.PHASE); 
+
+        const phase: string = ArgumentOracle.getNamedArgument(interaction, ArgumentOracle.COMMON_ARGS.PHASE);
 
         const projects = await FundingRoundLogic.getActiveProposalsForPhase(fundingRoundId, phase);
         return projects.slice(page * 25, (page + 1) * 25);
@@ -209,7 +212,7 @@ export class SelectProjectAction extends PaginationComponent {
             .setColor('#0099ff')
             .setTitle('Select a Project to Vote On')
             .setDescription(`Here, you can select a project that you can vote on. A vote can either an approval or rejection. Page ${currentPage + 1} of ${totalPages}`);
-        
+
         const embeds = [embed]
 
         const options = projects.map(p => ({
@@ -223,15 +226,15 @@ export class SelectProjectAction extends PaginationComponent {
             .setPlaceholder('Select a Project to Vote On')
             .addOptions(options);
 
-            const row = new ActionRowBuilder<StringSelectMenuBuilder>().addComponents(selectMenu);
-            const components: ActionRowBuilder<StringSelectMenuBuilder | ButtonBuilder>[] = [row];
-    
-            if (totalPages > 1) {
-                const paginationRow = this.getPaginationRow(interaction, currentPage, totalPages);
-                components.push(paginationRow);
-            }
+        const row = new ActionRowBuilder<StringSelectMenuBuilder>().addComponents(selectMenu);
+        const components: ActionRowBuilder<StringSelectMenuBuilder | ButtonBuilder>[] = [row];
 
-            return { embeds, components, ephemeral: true }
+        if (totalPages > 1) {
+            const paginationRow = this.getPaginationRow(interaction, currentPage, totalPages);
+            components.push(paginationRow);
+        }
+
+        return { embeds, components, ephemeral: true }
     }
 
     private async handleShowProjects(interaction: TrackedInteraction): Promise<void> {
@@ -270,24 +273,14 @@ export class SelectProjectAction extends PaginationComponent {
     }
 
     private async handleSelectProject(interaction: TrackedInteraction): Promise<void> {
-        const projectId = interaction.getFromValuesCustomIdOrContext(0, "projectId");
-        if (!projectId) {
-            await DiscordStatus.Error.error(interaction, 'projectId argument not provided');
-            return;
-        }
+        const projectId = ArgumentOracle.getNamedArgument(interaction, 'projectId')
 
-        const fundingRoundIdFromCI: string | undefined = CustomIDOracle.getNamedArgument(interaction.customId, 'fundingRoundId');
+        const fundingRoundIdFromCI: string = ArgumentOracle.getNamedArgument(interaction, ArgumentOracle.COMMON_ARGS.FUNDING_ROUND_ID);
 
-        if (!fundingRoundIdFromCI) {
-            throw new EndUserError('fundingRoundId not passed in customId');
-        }
 
         const fundingRoundId: number = parseInt(fundingRoundIdFromCI);
-        const phase = CustomIDOracle.getNamedArgument(interaction.customId, 'phase');
-
-        if (!phase) {
-            throw new EndUserError('Phase not passed in cutomId');
-        }
+        const phase = ArgumentOracle.getNamedArgument(interaction, 'phase');
+ 
 
         interaction.Context.set('projectId', projectId.toString());
         interaction.Context.set('fundingRoundId', fundingRoundId.toString());
@@ -342,14 +335,21 @@ class VoteProjectAction extends Action {
     }
 
     private async handleShowVoteOptions(interaction: TrackedInteraction, args: { projectId: number, fundingRoundId: number, phase: string }): Promise<void> {
-        const { projectId, fundingRoundId, phase } = args;
-        const project = await ProposalLogic.getProposalById(projectId);
+        const { projectId, fundingRoundId} = args;
+        const project = await ProposalLogic.getProposalByIdOrError(projectId);
         logger.info(`Funding Round ID: ${fundingRoundId}`);
-        const fundingRound = await FundingRoundLogic.getFundingRoundById(fundingRoundId);
 
-        if (!project || !fundingRound) {
-            throw new EndUserError('Project or Funding Round not found.');
+        const fundingRoundPhases = await FundingRoundLogic.getActiveFundingRoundPhases(fundingRoundId);
+        const proposalPhase: string = proposalStatusToPhase(project.status);
+
+        if (!fundingRoundPhases) {
+            throw new EndUserError("All voting is currently closed in the Funding Round");
         }
+
+        if (!fundingRoundPhases.includes(proposalPhase)) {
+            throw new EndUserError(`Voting for this project is unavailable. Funding Round has voting open in ${fundingRoundPhases.join(', ')}, but proposal is in ${proposalPhase}.`)
+        }
+
 
         const hasUserSubmittedReasoning: boolean = await VoteLogic.hasUserSubmittedDeliberationReasoning(interaction.interaction.user.id, projectId);
         const gptResponseButtonLabel: string = hasUserSubmittedReasoning ? '✏️ Update Reasoning' : '✍️ Submit Reasoning';
@@ -359,7 +359,7 @@ class VoteProjectAction extends Action {
         // assuming consideration phase
         let description: string = `
         Voting Stage: 1️⃣/3️⃣
-        Current Phase: ${phase} Next Phase: deliberation
+        Current Phase: ${proposalPhase} Next Phase: deliberation
 
         Here, you vote on the project's approval or rejection for the deliberation phase. Votes can be changed until the end of the voting period.
         
@@ -371,11 +371,11 @@ class VoteProjectAction extends Action {
 
         The voting is done on-chain. Click the button below to vote.
         `
-        
-        if (phase === 'deliberation') {
+
+        if (proposalPhase === 'deliberation') {
             description = `
             Voting Stage: 2️⃣/3️⃣
-            Current Phase: ${phase} Previous Phase: consideration Next Phase: funding
+            Current Phase: ${proposalPhase} Previous Phase: consideration Next Phase: funding
 
             The current phase is the deliberation phase. In this phase, you can submit your reasoning for why you believe the project should be funded or not.
 
@@ -383,10 +383,10 @@ class VoteProjectAction extends Action {
          `
         }
 
-        if (phase === 'funding') {
+        if (proposalPhase === 'funding') {
             description = `
             Voting Stage: 3️⃣/3️⃣ 
-            Curernt Phase: ${phase} Previous Phase: deliberation
+            Curernt Phase: ${proposalPhase} Previous Phase: deliberation
 
             ⚠️ This is the final voting stage. The votes in this stage decide which projects will be funded.
 
@@ -414,11 +414,11 @@ class VoteProjectAction extends Action {
                 { name: 'Proposer Discord ID', value: project.proposerDuid, inline: true }
             );
 
-        let components: ActionRowBuilder<MessageActionRowComponentBuilder>[] = []; 
-        switch (phase.toLowerCase()) {
+        let components: ActionRowBuilder<MessageActionRowComponentBuilder>[] = [];
+        switch (proposalPhase.toLowerCase()) {
             case 'consideration':
             case 'funding':
-                const voteLink = OCVLinkGenerator.generateProjectVoteLink(projectId, phase);
+                const voteLink = OCVLinkGenerator.generateProjectVoteLink(projectId, proposalPhase);
                 const voteButton = new ButtonBuilder()
                     .setLabel('🗳️ Vote On-Chain')
                     .setStyle(ButtonStyle.Link)

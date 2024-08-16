@@ -13,7 +13,7 @@ import { DiscordStatus } from '../../DiscordStatus';
 import { FundingRoundMI, FundingRoundMIPhaseValue } from '../../../models/Interface';
 import { InputDate } from '../../../dates/Input';
 import { ExclusionConstraintError } from 'sequelize';
-import { FundingRoundPaginator } from '../../../components/FundingRoundPaginator';
+import { ApproveRejectFundingRoundPaginator, EditFundingRoundPaginator, FundingRoundPaginator, RemoveCommiteeFundingRoundPaginator, SetCommitteeFundingRoundPaginator } from '../../../components/FundingRoundPaginator';
 
 
 
@@ -37,10 +37,10 @@ export class ManageFundingRoundsScreen extends Screen {
     public readonly setPhaseAction: SetPhaseAction;
     public readonly selectForumChannelAction: SelectForumChannelAction;
 
-    public readonly crudFRPaginatorAction: FundingRoundPaginator;
-    public readonly committeeFRPaginator: FundingRoundPaginator;
-    public readonly committeeDeleteFRPaginator: FundingRoundPaginator;
-    public readonly approveRejectFRPaginator: FundingRoundPaginator;
+    public readonly crudFRPaginatorAction: EditFundingRoundPaginator;
+    public readonly committeeFRPaginator: SetCommitteeFundingRoundPaginator;
+    public readonly committeeDeleteFRPaginator: RemoveCommiteeFundingRoundPaginator;
+    public readonly approveRejectFRPaginator: ApproveRejectFundingRoundPaginator;
 
     constructor(dashboard: Dashboard, screenId: string) {
         super(dashboard, screenId);
@@ -60,10 +60,10 @@ export class ManageFundingRoundsScreen extends Screen {
         this.setPhaseAction = new SetPhaseAction(this, SetPhaseAction.ID);
         this.selectForumChannelAction = new SelectForumChannelAction(this, SelectForumChannelAction.ID);
 
-        this.crudFRPaginatorAction = new FundingRoundPaginator(this, this.createFundingRoundAction, CreateOrEditFundingRoundAction.OPERATIONS.SHOW_PROGRESS, [], 'Select a Funding Round To Edit');
-        this.committeeFRPaginator = new FundingRoundPaginator(this, this.setFundingRoundCommitteeAction , SetFundingRoundCommitteeAction.OPERATIONS.SELECT_FUNDING_ROUND, [], "Select a Funding Round To Manage Committee")
-        this.committeeDeleteFRPaginator = new FundingRoundPaginator(this, this.removeFundingRoundCommitteeAction, RemoveFundingRoundCommitteeAction.OPERATIONS.SELECT_FUNDING_ROUND, [], "Select a Funding Round To Remove Committee")
-        this.approveRejectFRPaginator = new FundingRoundPaginator(this, this.approveFundingRoundAction, ApproveFundingRoundAction.OPERATIONS.SELECT_FUNDING_ROUND, [], "Select a Funding Round To Approve/Reject")
+        this.crudFRPaginatorAction = new EditFundingRoundPaginator(this, this.createFundingRoundAction, CreateOrEditFundingRoundAction.OPERATIONS.SHOW_PROGRESS, EditFundingRoundPaginator.ID);
+        this.committeeFRPaginator = new SetCommitteeFundingRoundPaginator(this, this.setFundingRoundCommitteeAction , SetFundingRoundCommitteeAction.OPERATIONS.SELECT_FUNDING_ROUND, SetCommitteeFundingRoundPaginator.ID);
+        this.committeeDeleteFRPaginator = new RemoveCommiteeFundingRoundPaginator(this, this.removeFundingRoundCommitteeAction, RemoveFundingRoundCommitteeAction.OPERATIONS.SELECT_FUNDING_ROUND, RemoveCommiteeFundingRoundPaginator.ID);
+        this.approveRejectFRPaginator = new ApproveRejectFundingRoundPaginator(this, this.approveFundingRoundAction, ApproveFundingRoundAction.OPERATIONS.SELECT_FUNDING_ROUND, ApproveRejectFundingRoundPaginator.ID);
     }
 
     protected allSubScreens(): Screen[] {
@@ -855,7 +855,7 @@ export class ModifyFundingRoundAction extends Action {
 
     getComponent(): ButtonBuilder {
         return new ButtonBuilder()
-            .setCustomId(CustomIDOracle.addArgumentsToAction(this, ModifyFundingRoundAction.OPERATIONS.SHOW_FUNDING_ROUNDS))
+            .setCustomId(CustomIDOracle.addArgumentsToAction(this, ModifyFundingRoundAction.OPERATIONS.SHOW_FUNDING_ROUNDS, FundingRoundPaginator.BOOLEAN.ARGUMENTS.FORCE_REPLY, FundingRoundPaginator.BOOLEAN.TRUE))
             .setLabel('Edit Funding Round')
             .setStyle(ButtonStyle.Primary);
     }

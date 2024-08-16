@@ -1,11 +1,26 @@
 import { ForumChannel, ThreadChannel, EmbedBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle, ChannelType } from 'discord.js';
 import { FundingRound, Proposal } from '../../models';
-import { CustomIDOracle } from '../../CustomIDOracle';
+import { ArgumentOracle, CustomIDOracle } from '../../CustomIDOracle';
 import logger from '../../logging';
 import { ProjectVotingScreen, SelectProjectAction } from '../vote/screens/ProjectVotingScreen';
 import { VoteDashboard } from '../vote/VoteDashboard';
 import { EndUserError, NotFoundEndUserError } from '../../Errors';
 import { Screen } from '../../core/BaseClasses';
+import { ProposalLogic } from '../../logic/ProposalLogic';
+import { ProposalStatus } from '../../types';
+
+export function proposalStatusToPhase(status: ProposalStatus): string {
+    switch (status) {
+        case (ProposalStatus.CONSIDERATION_PHASE):
+            return "consideration";
+        case (ProposalStatus.DELIBERATION_PHASE):
+            return "deliberation";
+        case (ProposalStatus.FUNDING_VOTING_PHASE):
+            return "funding";
+        default:
+            throw new EndUserError(`Invalid proposal voting phase: ${status.toString()}`)
+    }
+}
 
 export class ProposalsForumManager {
   private static readonly VOTE_BUTTON_ID = 'vote_button';
@@ -32,7 +47,7 @@ export class ProposalsForumManager {
   public static async updateThreadContent(thread: ThreadChannel, proposal: Proposal, fundingRound: FundingRound, screen: Screen): Promise<void> {
     try {
       const embed = this.createProposalEmbed(proposal);
-      const voteButton = this.createVoteButton(proposal.id, fundingRound.id, screen);
+      const voteButton = await this.createVoteButton(proposal.id, fundingRound.id, screen);
 
       const messages = await thread.messages.fetch({ limit: 1 });
       const firstMessage = messages.first();
@@ -123,8 +138,10 @@ export class ProposalsForumManager {
       .setColor('#0099ff');
   }
 
-  private static createVoteButton(proposalId: number, fundingRoundId: number, screen: any): ActionRowBuilder<ButtonBuilder> {
-    const customId: string = CustomIDOracle.customIdFromRawParts(VoteDashboard.ID, ProjectVotingScreen.ID, SelectProjectAction.ID, SelectProjectAction.OPERATIONS.selectProject, "projectId", proposalId.toString(), "fundingRoundId", fundingRoundId.toString(), "phase", "deliberation");
+  public static async createVoteButton(proposalId: number, fundingRoundId: number, screen: any): Promise<ActionRowBuilder<ButtonBuilder>> {
+    const proposal: Proposal = await ProposalLogic.getProposalByIdOrError(proposalId);
+    const proposalPhase: string = proposalStatusToPhase(proposal.status);
+    const customId: string = CustomIDOracle.customIdFromRawParts(VoteDashboard.ID, ProjectVotingScreen.ID, SelectProjectAction.ID, SelectProjectAction.OPERATIONS.selectProject, "projectId", proposalId.toString(), ArgumentOracle.COMMON_ARGS.FUNDING_ROUND_ID, fundingRoundId.toString(), "phase", proposalPhase);
     const button = new ButtonBuilder()
       .setCustomId(customId)
       .setLabel('Vote On This Proposal')

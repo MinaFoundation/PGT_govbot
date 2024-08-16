@@ -1,6 +1,6 @@
 import { Screen, Action, Dashboard, Permission, TrackedInteraction, RenderArgs } from '../../../core/BaseClasses';
 import { ActionRowBuilder, ButtonBuilder, ButtonStyle, EmbedBuilder, MessageActionRowComponentBuilder, MessageCreateOptions, ModalBuilder, StringSelectMenuBuilder, TextChannel, TextInputBuilder, TextInputStyle } from 'discord.js';
-import { CustomIDOracle } from '../../../CustomIDOracle';
+import { ArgumentOracle, CustomIDOracle } from '../../../CustomIDOracle';
 import { AnyInteractionWithShowModal, AnyInteractionWithValues, IHomeScreen } from '../../../types/common';
 import { ProposalLogic } from '../../../logic/ProposalLogic';
 import { InteractionProperties } from '../../../core/Interaction';
@@ -10,6 +10,8 @@ import { FundingRound, Proposal } from '../../../models';
 import { ProposalStatus } from '../../../types';
 import { EndUserError, EndUserInfo } from '../../../Errors';
 import { DiscordStatus } from '../../DiscordStatus';
+import logger from '../../../logging';
+import { EditMySubmittedProposalsPaginator } from '../../../components/ProposalsPaginator';
 
 export class ProposalHomeScreen extends Screen implements IHomeScreen {
 
@@ -96,7 +98,9 @@ export class ProposalHomeScreen extends Screen implements IHomeScreen {
 export class ManageSubmittedProposalsAction extends PaginationComponent {
     public static readonly ID: string = 'manageSubmittedProposals';
 
-    private static readonly OPERATIONS = {
+
+    public editSubmittedProposalsPaginator = new EditMySubmittedProposalsPaginator(this.screen, this, ManageSubmittedProposalsAction.OPERATIONS.SHOW_PROPOSAL_DETAILS, EditMySubmittedProposalsPaginator.ID)
+    public static readonly OPERATIONS = {
         SHOW_FUNDING_ROUNDS: 'showFundingRounds',
         SELECT_FUNDING_ROUND: 'selectFundingRound',
         SHOW_PROPOSALS: 'showProposals',
@@ -104,6 +108,8 @@ export class ManageSubmittedProposalsAction extends PaginationComponent {
         CONFIRM_CANCEL_PROPOSAL: 'confirmCancelProposal',
         EXECUTE_CANCEL_PROPOSAL: 'executeCancelProposal',
     };
+
+
 
     protected async getTotalPages(interaction: TrackedInteraction): Promise<number> {
         const fundingRounds: FundingRound[] = await FundingRoundLogic.getFundingRoundsWithUserProposals(interaction.interaction.user.id);
@@ -177,45 +183,12 @@ export class ManageSubmittedProposalsAction extends PaginationComponent {
         }
 
         const fundingRoundId: number = parseInt(interactionWithValues.values[0]);
-        await this.handleShowProposals(interaction, fundingRoundId);
+        interaction.Context.set(ArgumentOracle.COMMON_ARGS.FUNDING_ROUND_ID, fundingRoundId.toString());
+        await this.handleShowProposals(interaction);
     }
 
-    private async handleShowProposals(interaction: TrackedInteraction, fundingRoundId?: number): Promise<void> {
-        if (!fundingRoundId) {
-            fundingRoundId = parseInt(CustomIDOracle.getNamedArgument(interaction.customId, 'fundingRoundId') || '');
-        }
-
-        if (!fundingRoundId) {
-            throw new EndUserError('Invalid funding round ID.');
-        }
-
-        const fundingRound: FundingRound | null = await FundingRoundLogic.getFundingRoundById(fundingRoundId);
-        if (!fundingRound) {
-            throw new EndUserError('Funding round not found.');
-        }
-
-        const proposals: Proposal[] = await ProposalLogic.getUserProposalsForFundingRound(interaction.interaction.user.id, fundingRoundId);
-        const eligibleProposals: Proposal[] = proposals.filter((p: Proposal) =>
-            FundingRoundLogic.isProposalActiveForFundingRound(p, fundingRound)
-        );
-
-        const embed: EmbedBuilder = new EmbedBuilder()
-            .setColor('#0099ff')
-            .setTitle(`Select ${fundingRound.name} Proposals`)
-            .setDescription('To proceed please select a proposal from the list below.');
-
-        const selectMenu: StringSelectMenuBuilder = new StringSelectMenuBuilder()
-            .setCustomId(CustomIDOracle.addArgumentsToAction(this, ManageSubmittedProposalsAction.OPERATIONS.SHOW_PROPOSAL_DETAILS, 'fundingRoundId', fundingRoundId.toString()))
-            .setPlaceholder('Select a Proposal')
-            .addOptions(eligibleProposals.map((p: Proposal) => ({
-                label: p.name,
-                value: p.id.toString(),
-                description: `ID: ${p.id} Budget: ${p.budget}, Status: ${p.status}`
-            })));
-
-        const row: ActionRowBuilder<StringSelectMenuBuilder> = new ActionRowBuilder<StringSelectMenuBuilder>().addComponents(selectMenu);
-
-        await interaction.respond({ embeds: [embed], components: [row] });
+    private async handleShowProposals(interaction: TrackedInteraction): Promise<void> {
+        await this.editSubmittedProposalsPaginator.handlePagination(interaction)
     }
 
     private async handleShowProposalDetails(interaction: TrackedInteraction): Promise<void> {
@@ -986,6 +959,7 @@ export class SubmitProposalToFundingRoundAction extends Action {
 
             await interaction.update({ embeds: [embed], components: [row] });
         } catch (error) {
+            logger.error(error);
             throw new EndUserError('Failed to submit proposal', error);
         }
     }
