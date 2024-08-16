@@ -124,19 +124,32 @@ client.once('ready', async () => {
 });
 
 client.on('interactionCreate', async (interaction: Interaction<CacheType>) => {
+  logger.info("Start handling interaction");
   try {
 
-  if (!interaction.isButton() && !interaction.isStringSelectMenu() && !interaction.isModalSubmit() && !interaction.isMessageComponent()){
-    logger.info(`Interaction type not supported: ${interaction.type}`);
-    return;
+    if (!interaction.isButton() && !interaction.isStringSelectMenu() && !interaction.isModalSubmit() && !interaction.isMessageComponent()) {
+      logger.info(`Interaction type not supported: ${interaction.type}`);
+      return;
+    }
+
+    logger.debug(`Before handling interaction...`);
+    await dashboardManager.handleInteraction(interaction);
+    logger.debug(`After handling interaction...`);
+  } catch (error) {
+    logger.debug(`Start handling error in interaction...`);
+
+    try {
+      logger.error(error);
+      const trackedInteratction = new TrackedInteraction(interaction as AnyInteraction);
+      await DiscordStatus.handleException(trackedInteratction, error);
+
+    } catch (error) {
+      logger.error(`Unrecoverable error: ${error}`);
+    }
   }
 
-  await dashboardManager.handleInteraction(interaction);
-} catch (error) {
-    logger.error(error);
-    const trackedInteratction = new TrackedInteraction(interaction as AnyInteraction);
-    await DiscordStatus.handleException(trackedInteratction, error);
-  }
+    logger.info("Finished handling interaction");
+
 });
 
 client.login(process.env.DISCORD_TOKEN);
