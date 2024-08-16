@@ -19,6 +19,16 @@ export class ProposalLogic {
     return await Proposal.findByPk(id);
   }
 
+  static async getProposalByIdOrError(id: number): Promise<Proposal> {
+    const proposal: Proposal | null = await this.getProposalById(id);
+
+    if (!proposal) {
+      throw new EndUserError(`Proposal with id ${id} not found`);
+    }
+
+    return proposal;
+  }
+
   static async createProposal(data: ProposalCreationAttributes): Promise<Proposal> {
     return await Proposal.create({
       ...data,

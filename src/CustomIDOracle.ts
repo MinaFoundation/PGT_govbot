@@ -1,6 +1,7 @@
+import { ExclusionConstraintError } from 'sequelize';
 import type { Dashboard, Screen, Action, TrackedInteraction } from './core/BaseClasses';
 import { InteractionProperties } from './core/Interaction';
-import { EndUserError } from './Errors';
+import { EndUserError, NotFoundEndUserError } from './Errors';
 import logger from './logging';
 import { AnyInteractionWithValues } from './types/common';
 
@@ -8,6 +9,11 @@ import { AnyInteractionWithValues } from './types/common';
 export class CustomIDOracle {
   static readonly SEPARATOR = ':';
   static readonly MAX_LENGTH = 100;
+  protected customId: string;
+
+  constructor(customId: string) {
+    this.customId = customId;
+  }
 
   static generateCustomId(dashboard: Dashboard, screen?: Screen, action?: Action, operation?: string, ...args: string[]): string {
     const parts = [dashboard.ID];
@@ -15,23 +21,23 @@ export class CustomIDOracle {
     if (screen) {
       parts.push(screen.ID);
     }
-    
+
     if (action) {
       parts.push(action.ID);
     }
-    
+
     if (operation) {
       parts.push(operation);
     }
-    
+
     parts.push(...args);
-    
+
     const customId = parts.join(this.SEPARATOR);
-    
+
     if (customId.length > this.MAX_LENGTH) {
       throw new EndUserError(`CustomId length of ${customId.length} exceeds the maximum allowed value of ${this.MAX_LENGTH} characters.`);
     }
-    
+
     return customId;
   }
 
@@ -41,23 +47,23 @@ export class CustomIDOracle {
     if (screenId) {
       parts.push(screenId);
     }
-    
+
     if (actionId) {
       parts.push(actionId);
     }
-    
+
     if (operationId) {
       parts.push(operationId);
     }
-    
+
     parts.push(...args);
-    
+
     const customId = parts.join(this.SEPARATOR);
-    
+
     if (customId.length > this.MAX_LENGTH) {
       throw new EndUserError(`CustomId length of ${customId.length} exceeds the maximum allowed value of ${this.MAX_LENGTH} characters.`);
     }
-    
+
     return customId;
   }
 
@@ -84,6 +90,22 @@ export class CustomIDOracle {
       }
     }
     return undefined;
+  }
+
+  /**
+   * Sets or updates an argument in the interaction's custom ID. If the argument doesn't exist, it will be added. If it does exist, it will be updated.
+   */
+  public setArgument(argName: string, value: string): string {
+    const args: string[] = CustomIDOracle.getArguments(this.customId);
+    const argIndex: number = args.indexOf(argName);
+    if (argIndex === -1) {
+      args.push(argName, value);
+    } else {
+      args[argIndex + 1] = value;
+    }
+    const updatedCustomId: string = CustomIDOracle.customIdFromRawParts(CustomIDOracle.getDashboardId(this.customId), CustomIDOracle.getScreenId(this.customId), CustomIDOracle.getActionId(this.customId), CustomIDOracle.getOperationId(this.customId), ...args);
+
+    return updatedCustomId;
   }
 
   static parseCustomId(customId: string): string[] {
@@ -124,9 +146,22 @@ export class ArgumentOracle {
     PHASE: 'phase',
   }
 
-  static getNamedArgument(intreaction: TrackedInteraction, argName: string, valuesIndex?:number): string {
+  static isArgumentEquals(intreaction: TrackedInteraction, argName: string, value: string): boolean {
+    try {
+      const argValue = this.getNamedArgument(intreaction, argName);
+      const result: boolean = argValue.toLowerCase() === value.toLowerCase();
+      logger.debug(`Comparing argument ${argName}'s ${argValue} with ${value}. Result: ${result}`);
+      return result;
+    } catch (error) {
+      const argValueFromContext: string | undefined = intreaction.Context.get(argName);
+      const result: boolean = argValueFromContext?.toLowerCase() === value.toLowerCase();
+      return result;
+    }
+  }
+
+  static getNamedArgument(intreaction: TrackedInteraction, argName: string, valuesIndex?: number, inputIndex?: string): string {
     const argFromCustomId: string | undefined = CustomIDOracle.getNamedArgument(intreaction.customId, argName);
-    
+
     if (argFromCustomId) {
       logger.debug(`Found argument ${argName} in custom ID: ${argFromCustomId}`);
       return argFromCustomId.toLowerCase();
@@ -145,10 +180,11 @@ export class ArgumentOracle {
         logger.debug(`Found argument ${argName} in values: ${argFromValues}`);
         return argFromValues.toLowerCase();
       } else {
-        throw new EndUserError(`Argument ${argName} not found in custom ID, context or values.`);
+        throw new NotFoundEndUserError(`Argument ${argName} not found in custom ID, context or values.`);
       }
     }
 
-    throw new EndUserError(`Argument ${argName} not found in custom ID or context.`);
+    throw new NotFoundEndUserError(`Argument ${argName} not found in custom ID or context.`);
   }
+
 } 

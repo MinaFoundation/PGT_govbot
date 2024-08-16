@@ -18,5 +18,9 @@ export class EndUserError extends GovBotError {
 
 }
 
+export class NotFoundEndUserError extends EndUserError {
+}
+
+
 export class EndUserInfo extends GovBotError {
 }

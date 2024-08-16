@@ -1,18 +1,33 @@
 import { ForumChannel, ThreadChannel, EmbedBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle, ChannelType } from 'discord.js';
 import { FundingRound, Proposal } from '../../models';
-import { CustomIDOracle } from '../../CustomIDOracle';
+import { ArgumentOracle, CustomIDOracle } from '../../CustomIDOracle';
 import logger from '../../logging';
 import { ProjectVotingScreen, SelectProjectAction } from '../vote/screens/ProjectVotingScreen';
 import { VoteDashboard } from '../vote/VoteDashboard';
-import { EndUserError } from '../../Errors';
+import { EndUserError, NotFoundEndUserError } from '../../Errors';
 import { Screen } from '../../core/BaseClasses';
+import { ProposalLogic } from '../../logic/ProposalLogic';
+import { ProposalStatus } from '../../types';
+
+export function proposalStatusToPhase(status: ProposalStatus): string {
+    switch (status) {
+        case (ProposalStatus.CONSIDERATION_PHASE):
+            return "consideration";
+        case (ProposalStatus.DELIBERATION_PHASE):
+            return "deliberation";
+        case (ProposalStatus.FUNDING_VOTING_PHASE):
+            return "funding";
+        default:
+            throw new EndUserError(`Invalid proposal voting phase: ${status.toString()}`)
+    }
+}
 
 export class ProposalsForumManager {
   private static readonly VOTE_BUTTON_ID = 'vote_button';
 
   public static async createThread(proposal: Proposal, fundingRound: FundingRound, screen: Screen): Promise<void> {
     try {
-      const forumChannel = await this.getForumChannel(fundingRound);
+      const forumChannel = await this.getForumChannelOrError(fundingRound);
       if (!forumChannel) {
         throw new EndUserError(`Proposal forum channel not found for funding round ${fundingRound.id}`);
       }
@@ -32,7 +47,7 @@ export class ProposalsForumManager {
   public static async updateThreadContent(thread: ThreadChannel, proposal: Proposal, fundingRound: FundingRound, screen: Screen): Promise<void> {
     try {
       const embed = this.createProposalEmbed(proposal);
-      const voteButton = this.createVoteButton(proposal.id, fundingRound.id, screen);
+      const voteButton = await this.createVoteButton(proposal.id, fundingRound.id, screen);
 
       const messages = await thread.messages.fetch({ limit: 1 });
       const firstMessage = messages.first();
@@ -65,7 +80,7 @@ export class ProposalsForumManager {
       const fundingRound = await FundingRound.findByPk(proposal.fundingRoundId);
       if (!fundingRound) throw new EndUserError('Funding round not found');
 
-      const forumChannel = await this.getForumChannel(fundingRound);
+      const forumChannel = await this.getForumChannelOrError(fundingRound);
 
       if (!forumChannel) {
         throw new EndUserError(`Proposal forum channel not found for funding round ${fundingRound.id}.`);
@@ -83,7 +98,7 @@ export class ProposalsForumManager {
   }
 
   public static async refreshThread(proposal: Proposal, screen: Screen): Promise<void> {
-    if (!proposal.forumThreadId){
+    if (!proposal.forumThreadId) {
       logger.warn(`Proposal ${proposal.id} does not have a forum thread`);
       return;
     }
@@ -97,7 +112,7 @@ export class ProposalsForumManager {
       const fundingRound = await FundingRound.findByPk(proposal.fundingRoundId);
       if (!fundingRound) throw new EndUserError('Funding round not found');
 
-      const forumChannel = await this.getForumChannel(fundingRound);
+      const forumChannel = await this.getForumChannelOrError(fundingRound);
       if (!forumChannel) {
         throw new EndUserError(`Proposal forum channel not found for funding round ${fundingRound.id}`);
       }
@@ -123,8 +138,10 @@ export class ProposalsForumManager {
       .setColor('#0099ff');
   }
 
-  private static createVoteButton(proposalId: number, fundingRoundId: number, screen: any): ActionRowBuilder<ButtonBuilder> {
-    const customId: string = CustomIDOracle.customIdFromRawParts(VoteDashboard.ID, ProjectVotingScreen.ID, SelectProjectAction.ID, SelectProjectAction.OPERATIONS.selectProject, "projectId", proposalId.toString(), "fundingRoundId", fundingRoundId.toString(), "phase", "deliberation");
+  public static async createVoteButton(proposalId: number, fundingRoundId: number, screen: any): Promise<ActionRowBuilder<ButtonBuilder>> {
+    const proposal: Proposal = await ProposalLogic.getProposalByIdOrError(proposalId);
+    const proposalPhase: string = proposalStatusToPhase(proposal.status);
+    const customId: string = CustomIDOracle.customIdFromRawParts(VoteDashboard.ID, ProjectVotingScreen.ID, SelectProjectAction.ID, SelectProjectAction.OPERATIONS.selectProject, "projectId", proposalId.toString(), ArgumentOracle.COMMON_ARGS.FUNDING_ROUND_ID, fundingRoundId.toString(), "phase", proposalPhase);
     const button = new ButtonBuilder()
       .setCustomId(customId)
       .setLabel('Vote On This Proposal')
@@ -133,9 +150,7 @@ export class ProposalsForumManager {
     return new ActionRowBuilder<ButtonBuilder>().addComponents(button);
   }
 
-  private static async getForumChannel(fundingRound: FundingRound): Promise<ForumChannel | null> {
-    //if (!fundingRound.forumChannelName) return null;
-
+  private static async getForumChannelOrError(fundingRound: FundingRound): Promise<ForumChannel> {
     const { client } = await import("../../bot");
 
     const guild = client.guilds.cache.first();
@@ -145,14 +160,27 @@ export class ProposalsForumManager {
     }
 
     const allChannels = await guild.channels.fetch();
-    logger.debug(`All channels: ${allChannels.map(channel => channel?.name).join(', ')}`);
-   
-    const proposalChannelId: string | null = fundingRound.forumChannelId;
+    logger.debug(`All channels: ${allChannels.map(channel => channel?.id).join(', ')}`);
+
+    const proposalChannelId: string | null = fundingRound.forumChannelId.toString();
+
     if (!proposalChannelId) {
-      return null;
+      throw new NotFoundEndUserError(`Funding round ${fundingRound.id} does not have a forum channel`);
     }
+
+    //FIXME: ensure proposal is being fetched correcly
+    logger.debug(`Fetching proposal channel ${proposalChannelId}...`);
     const channel = await guild.channels.fetch(proposalChannelId);
 
-    return channel && channel.type === ChannelType.GuildForum ? channel as ForumChannel : null;
+    if (!channel) {
+      throw new NotFoundEndUserError(`Proposal channel ${proposalChannelId} not found in server.`);
+    }
+
+    if (!(channel.type === ChannelType.GuildForum)) {
+      throw new NotFoundEndUserError(`Proposal channel ${proposalChannelId} exists, but is not a forum channel.`);
+    }
+
+    return channel as ForumChannel;
+
   }
 }

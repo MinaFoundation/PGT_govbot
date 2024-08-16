@@ -1,16 +1,20 @@
 import { Screen, Action, Dashboard, Permission, TrackedInteraction, RenderArgs } from '../../../core/BaseClasses';
-import { ActionRowBuilder, ButtonBuilder, ButtonStyle, EmbedBuilder, StringSelectMenuBuilder, MessageActionRowComponentBuilder, TextInputStyle, TextInputBuilder, ModalBuilder, UserSelectMenuBuilder, User } from 'discord.js';
+import { ActionRowBuilder, ButtonBuilder, ButtonStyle, EmbedBuilder, StringSelectMenuBuilder, MessageActionRowComponentBuilder, TextInputStyle, TextInputBuilder, ModalBuilder, UserSelectMenuBuilder, User, ForumChannel, ChannelType } from 'discord.js';
 import { FundingRoundLogic } from './FundingRoundLogic';
 import { ArgumentOracle, CustomIDOracle } from '../../../CustomIDOracle';
-import { FundingRound, FundingRoundDeliberationCommitteeSelection, SMEGroup, Topic, TopicCommittee } from '../../../models';
+import { ConsiderationPhase, DeliberationPhase, FundingRound, FundingVotingPhase, SMEGroup, Topic, TopicCommittee } from '../../../models';
 import { InteractionProperties } from '../../../core/Interaction';
 import { PaginationComponent } from '../../../components/PaginationComponent';
-import { FundingRoundPhase } from '../../../types';
+import { FundingRoundPhase, FundingRoundStatus } from '../../../types';
 import { TopicLogic } from './ManageTopicLogicScreen';
 import logger from '../../../logging';
-import { EndUserError } from '../../../Errors';
+import { EndUserError, NotFoundEndUserError } from '../../../Errors';
 import { DiscordStatus } from '../../DiscordStatus';
 import { FundingRoundMI, FundingRoundMIPhaseValue } from '../../../models/Interface';
+import { InputDate } from '../../../dates/Input';
+import { ExclusionConstraintError } from 'sequelize';
+import { ApproveRejectFundingRoundPaginator, EditFundingRoundPaginator, FundingRoundPaginator, RemoveCommiteeFundingRoundPaginator, SetCommitteeFundingRoundPaginator } from '../../../components/FundingRoundPaginator';
+
 
 
 export class ManageFundingRoundsScreen extends Screen {
@@ -18,7 +22,7 @@ export class ManageFundingRoundsScreen extends Screen {
 
     protected permissions: Permission[] = []; // TODO: Implement proper admin permissions
 
-    public readonly createFundingRoundAction: CreateFundingRoundAction;
+    public readonly createFundingRoundAction: CreateOrEditFundingRoundAction;
     public readonly modifyFundingRoundAction: ModifyFundingRoundAction;
     public readonly setFundingRoundCommitteeAction: SetFundingRoundCommitteeAction;
     public readonly removeFundingRoundCommitteeAction: RemoveFundingRoundCommitteeAction;
@@ -28,10 +32,19 @@ export class ManageFundingRoundsScreen extends Screen {
     public readonly editFundingRoundInformationAction: EditFundingRoundInformationAction;
     public readonly editFundingRoundPhasesAction: EditFundingRoundPhasesAction;
     public readonly editFundingRoundTopicAction: EditFundingRoundTopicAction;
+    public readonly selectTopicAction: SelectTopicAction;
+    public readonly coreInformationAction: CoreInformationAction;
+    public readonly setPhaseAction: SetPhaseAction;
+    public readonly selectForumChannelAction: SelectForumChannelAction;
+
+    public readonly crudFRPaginatorAction: EditFundingRoundPaginator;
+    public readonly committeeFRPaginator: SetCommitteeFundingRoundPaginator;
+    public readonly committeeDeleteFRPaginator: RemoveCommiteeFundingRoundPaginator;
+    public readonly approveRejectFRPaginator: ApproveRejectFundingRoundPaginator;
 
     constructor(dashboard: Dashboard, screenId: string) {
         super(dashboard, screenId);
-        this.createFundingRoundAction = new CreateFundingRoundAction(this, CreateFundingRoundAction.ID);
+        this.createFundingRoundAction = new CreateOrEditFundingRoundAction(this, CreateOrEditFundingRoundAction.ID);
         this.modifyFundingRoundAction = new ModifyFundingRoundAction(this, ModifyFundingRoundAction.ID);
         this.setFundingRoundCommitteeAction = new SetFundingRoundCommitteeAction(this, SetFundingRoundCommitteeAction.ID);
         this.removeFundingRoundCommitteeAction = new RemoveFundingRoundCommitteeAction(this, RemoveFundingRoundCommitteeAction.ID);
@@ -41,6 +54,16 @@ export class ManageFundingRoundsScreen extends Screen {
         this.editFundingRoundInformationAction = new EditFundingRoundInformationAction(this, EditFundingRoundInformationAction.ID);
         this.editFundingRoundPhasesAction = new EditFundingRoundPhasesAction(this, EditFundingRoundPhasesAction.ID);
         this.editFundingRoundTopicAction = new EditFundingRoundTopicAction(this, EditFundingRoundTopicAction.ID);
+
+        this.selectTopicAction = new SelectTopicAction(this, SelectTopicAction.ID);
+        this.coreInformationAction = new CoreInformationAction(this, CoreInformationAction.ID);
+        this.setPhaseAction = new SetPhaseAction(this, SetPhaseAction.ID);
+        this.selectForumChannelAction = new SelectForumChannelAction(this, SelectForumChannelAction.ID);
+
+        this.crudFRPaginatorAction = new EditFundingRoundPaginator(this, this.createFundingRoundAction, CreateOrEditFundingRoundAction.OPERATIONS.SHOW_PROGRESS, EditFundingRoundPaginator.ID);
+        this.committeeFRPaginator = new SetCommitteeFundingRoundPaginator(this, this.setFundingRoundCommitteeAction , SetFundingRoundCommitteeAction.OPERATIONS.SELECT_FUNDING_ROUND, SetCommitteeFundingRoundPaginator.ID);
+        this.committeeDeleteFRPaginator = new RemoveCommiteeFundingRoundPaginator(this, this.removeFundingRoundCommitteeAction, RemoveFundingRoundCommitteeAction.OPERATIONS.SELECT_FUNDING_ROUND, RemoveCommiteeFundingRoundPaginator.ID);
+        this.approveRejectFRPaginator = new ApproveRejectFundingRoundPaginator(this, this.approveFundingRoundAction, ApproveFundingRoundAction.OPERATIONS.SELECT_FUNDING_ROUND, ApproveRejectFundingRoundPaginator.ID);
     }
 
     protected allSubScreens(): Screen[] {
@@ -59,6 +82,12 @@ export class ManageFundingRoundsScreen extends Screen {
             this.editFundingRoundInformationAction,
             this.editFundingRoundPhasesAction,
             this.editFundingRoundTopicAction,
+            this.selectTopicAction,
+            this.coreInformationAction,
+            this.setPhaseAction,
+            this.selectForumChannelAction,
+
+            this.crudFRPaginatorAction
         ];
     }
 
@@ -113,294 +142,128 @@ export class ManageFundingRoundsScreen extends Screen {
     }
 }
 
-export class CreateFundingRoundAction extends Action {
+export class CreateOrEditFundingRoundAction extends Action {
     public static readonly ID = 'createFundingRound';
 
-    private static readonly OPERATIONS = {
-        SHOW_BASIC_INFO_FORM: 'showBasicInfoForm',
-        SUBMIT_BASIC_INFO: 'submitBasicInfo',
-        SHOW_PHASE_FORM: 'showPhaseForm',
-        SUBMIT_PHASE: 'submitPhase',
+    public static readonly OPERATIONS = {
+        START: 'start',
+        SHOW_PROGRESS: 'showProgress',
     };
 
-    private static readonly INPUT_IDS = {
-        NAME: 'name',
-        DESCRIPTION: 'description',
-        TOPIC_NAME: 'topicName',
-        BUDGET: 'budget',
-        STAKING_LEDGER_EPOCH_NUM: 'stLdEpNum',
-        START_DATE: 'startDate',
-        END_DATE: 'endDate',
-        ROUND_START_DATE: 'rSD',
-        ROUND_END_DATE: 'rED',
-    };
+    public static BOOLEANS = {
+        TRUE_VALUE: 'T',
+        ARGUMENTS: {
+            ONLY_SHOW_PHASES: 'bOSP',
+            FORCE_REPLY: 'bFR',
+        }
+    }
 
-    private static readonly PHASE_NAMES = {
-        CONSIDERATION: 'Consideration',
-        DELIBERATION: 'Deliberation',
-        VOTING: 'Voting',
-        ROUND: 'Round',
-    };
 
-    protected async handleOperation(interaction: TrackedInteraction, operationId: string): Promise<void> {
+
+    public async handleOperation(interaction: TrackedInteraction, operationId: string): Promise<void> {
         switch (operationId) {
-            case CreateFundingRoundAction.OPERATIONS.SHOW_BASIC_INFO_FORM:
-                await this.handleShowBasicInfoForm(interaction);
+            case CreateOrEditFundingRoundAction.OPERATIONS.START:
+                await this.handleStart(interaction);
                 break;
-            case CreateFundingRoundAction.OPERATIONS.SUBMIT_BASIC_INFO:
-                await this.handleSubmitBasicInfo(interaction);
-                break;
-            case CreateFundingRoundAction.OPERATIONS.SHOW_PHASE_FORM:
-                await this.handleShowPhaseForm(interaction);
-                break;
-            case CreateFundingRoundAction.OPERATIONS.SUBMIT_PHASE:
-                await this.handleSubmitPhase(interaction);
+            case CreateOrEditFundingRoundAction.OPERATIONS.SHOW_PROGRESS:
+                await this.handleShowProgress(interaction);
                 break;
             default:
                 await this.handleInvalidOperation(interaction, operationId);
         }
     }
 
-    private async handleShowBasicInfoForm(interaction: TrackedInteraction): Promise<void> {
-        const modalInteraction = InteractionProperties.toShowModalOrUndefined(interaction.interaction);
-        if (!modalInteraction) {
-            throw new EndUserError('This interaction does not support modals.');
-        }
-
-        const modal = new ModalBuilder()
-            .setCustomId(CustomIDOracle.addArgumentsToAction(this, CreateFundingRoundAction.OPERATIONS.SUBMIT_BASIC_INFO))
-            .setTitle('Create New Funding Round');
-
-        const nameInput = new TextInputBuilder()
-            .setCustomId(CreateFundingRoundAction.INPUT_IDS.NAME)
-            .setLabel('Funding Round Name')
-            .setStyle(TextInputStyle.Short)
-            .setRequired(true);
-
-        const descriptionInput = new TextInputBuilder()
-            .setCustomId(CreateFundingRoundAction.INPUT_IDS.DESCRIPTION)
-            .setLabel('Description')
-            .setStyle(TextInputStyle.Paragraph)
-            .setRequired(true);
-
-        const topicNameInput = new TextInputBuilder()
-            .setCustomId(CreateFundingRoundAction.INPUT_IDS.TOPIC_NAME)
-            .setLabel('Topic Name')
-            .setStyle(TextInputStyle.Short)
-            .setRequired(true);
-
-        const budgetInput = new TextInputBuilder()
-            .setCustomId(CreateFundingRoundAction.INPUT_IDS.BUDGET)
-            .setLabel('Budget')
-            .setStyle(TextInputStyle.Short)
-            .setRequired(true);
-
-        const stakingLedgerNumInput = new TextInputBuilder()
-            .setCustomId(CreateFundingRoundAction.INPUT_IDS.STAKING_LEDGER_EPOCH_NUM)
-            .setLabel('Staking Ledger Epoch Number (For Voting)')
-            .setStyle(TextInputStyle.Short)
-            .setRequired(true);
-
-        modal.addComponents(
-            new ActionRowBuilder<TextInputBuilder>().addComponents(nameInput),
-            new ActionRowBuilder<TextInputBuilder>().addComponents(descriptionInput),
-            new ActionRowBuilder<TextInputBuilder>().addComponents(topicNameInput),
-            new ActionRowBuilder<TextInputBuilder>().addComponents(budgetInput),
-            new ActionRowBuilder<TextInputBuilder>().addComponents(stakingLedgerNumInput)
-        );
-
-        await modalInteraction.showModal(modal);
+    private async handleStart(interaction: TrackedInteraction): Promise<void> {
+        const isForceReply: boolean = ArgumentOracle.isArgumentEquals(interaction, CreateOrEditFundingRoundAction.BOOLEANS.ARGUMENTS.FORCE_REPLY, CreateOrEditFundingRoundAction.BOOLEANS.TRUE_VALUE);
+        await (this.screen as ManageFundingRoundsScreen).selectTopicAction.handlePagination(interaction, isForceReply);
     }
 
-    private async handleSubmitBasicInfo(interaction: TrackedInteraction): Promise<void> {
-        const modalInteraction = InteractionProperties.toModalSubmitInteractionOrUndefined(interaction.interaction);
-        if (!modalInteraction) {
-            throw new EndUserError('Invalid interaction type: submit interaction required');
-        }
+    private formatStringForPhase(phase: ConsiderationPhase | DeliberationPhase | FundingVotingPhase): string {
 
-        const name = modalInteraction.fields.getTextInputValue(CreateFundingRoundAction.INPUT_IDS.NAME);
-        const description = modalInteraction.fields.getTextInputValue(CreateFundingRoundAction.INPUT_IDS.DESCRIPTION);
-        const topicName = modalInteraction.fields.getTextInputValue(CreateFundingRoundAction.INPUT_IDS.TOPIC_NAME);
-        const budget = parseFloat(modalInteraction.fields.getTextInputValue(CreateFundingRoundAction.INPUT_IDS.BUDGET));
-        const stakingLedgerEpochNum = modalInteraction.fields.getTextInputValue(CreateFundingRoundAction.INPUT_IDS.STAKING_LEDGER_EPOCH_NUM);
-
-        if (isNaN(budget)) {
-            throw new EndUserError('Invalid budget value. Please enter a valid number.');
-        }
-
-        if (isNaN(parseInt(stakingLedgerEpochNum))) {
-            throw new EndUserError('Invalid staking ledger epoch number. Please enter a valid number.');
-        }
-
-        const ledgerNum: number = parseInt(stakingLedgerEpochNum);
-
-
-
-        try {
-            const fundingRound = await FundingRoundLogic.createFundingRound(name, description, topicName, budget, ledgerNum);
-            const embed = new EmbedBuilder()
-                .setColor('#0099ff')
-                .setTitle('Funding Round Created')
-                .setDescription('Please set the dates for each phase:')
-                .addFields(
-                    { name: 'Name', value: fundingRound.name },
-                    { name: 'Description', value: fundingRound.description },
-                    { name: 'Topic', value: topicName },
-                    { name: 'Budget', value: fundingRound.budget.toString() },
-                    { name: 'Staking Ledger Epoch (For Voting)', value: fundingRound.stakingLedgerEpoch.toString() }
-                );
-
-            const considerationButton = new ButtonBuilder()
-                .setCustomId(CustomIDOracle.addArgumentsToAction(this, CreateFundingRoundAction.OPERATIONS.SHOW_PHASE_FORM, ArgumentOracle.COMMON_ARGS.FUNDING_ROUND_ID, fundingRound.id.toString(), ArgumentOracle.COMMON_ARGS.PHASE, CreateFundingRoundAction.PHASE_NAMES.CONSIDERATION))
-                .setLabel('Set Consideration Phase')
-                .setStyle(ButtonStyle.Primary);
-
-            const deliberationButton = new ButtonBuilder()
-                .setCustomId(CustomIDOracle.addArgumentsToAction(this, CreateFundingRoundAction.OPERATIONS.SHOW_PHASE_FORM, ArgumentOracle.COMMON_ARGS.FUNDING_ROUND_ID, fundingRound.id.toString(), ArgumentOracle.COMMON_ARGS.PHASE, CreateFundingRoundAction.PHASE_NAMES.DELIBERATION))
-                .setLabel('Set Deliberation Phase')
-                .setStyle(ButtonStyle.Primary);
-
-            const votingButton = new ButtonBuilder()
-                .setCustomId(CustomIDOracle.addArgumentsToAction(this, CreateFundingRoundAction.OPERATIONS.SHOW_PHASE_FORM, ArgumentOracle.COMMON_ARGS.FUNDING_ROUND_ID, fundingRound.id.toString(), ArgumentOracle.COMMON_ARGS.PHASE, CreateFundingRoundAction.PHASE_NAMES.VOTING))
-                .setLabel('Set Voting Phase')
-                .setStyle(ButtonStyle.Primary);
-
-            const row = new ActionRowBuilder<ButtonBuilder>()
-                .addComponents(considerationButton, deliberationButton, votingButton);
-
-            await interaction.update({ embeds: [embed], components: [row] });
-        } catch (error) {
-            throw new EndUserError(`Error creating funding round: ${(error as Error).message}`);
-        }
+        return `✅\nStart: ${phase.startAt.toUTCString()}\nEnd: ${phase.endAt.toUTCString()}\nEpoch: ${phase.stakingLedgerEpoch}`;
     }
 
-    private async handleShowPhaseForm(interaction: TrackedInteraction): Promise<void> {
-        const fundingRoundId = ArgumentOracle.getNamedArgument(interaction, ArgumentOracle.COMMON_ARGS.FUNDING_ROUND_ID);
-        const phase = ArgumentOracle.getNamedArgument(interaction, ArgumentOracle.COMMON_ARGS.PHASE); 
-
-        const modalInteraction = InteractionProperties.toShowModalOrError(interaction.interaction);
-
-        const existingPhase = await FundingRoundLogic.getFundingRoundPhase(parseInt(fundingRoundId), phase);
-
-        const modal = new ModalBuilder()
-            .setCustomId(CustomIDOracle.addArgumentsToAction(this, ModifyFundingRoundAction.OPERATIONS.SUBMIT_PHASE, ArgumentOracle.COMMON_ARGS.FUNDING_ROUND_ID, fundingRoundId, ArgumentOracle.COMMON_ARGS.PHASE, phase))
-            .setTitle(`Modify ${phase} Phase Dates`);
-
-        const startDateInput = new TextInputBuilder()
-            .setCustomId(ModifyFundingRoundAction.INPUT_IDS.START_DATE)
-            .setLabel('Start Date (YYYY-MM-DD HH:MM)')
-            .setStyle(TextInputStyle.Short)
-            .setValue(existingPhase ? existingPhase.startAt.toISOString().slice(0, 16).replace('T', ' ') : '')
-            .setRequired(true);
-
-        const endDateInput = new TextInputBuilder()
-            .setCustomId(ModifyFundingRoundAction.INPUT_IDS.END_DATE)
-            .setLabel('End Date (YYYY-MM-DD HH:MM)')
-            .setStyle(TextInputStyle.Short)
-            .setValue(existingPhase ? existingPhase.endAt.toISOString().slice(0, 16).replace('T', ' ') : '')
-            .setRequired(true);
-
-        modal.addComponents(
-            new ActionRowBuilder<TextInputBuilder>().addComponents(startDateInput),
-            new ActionRowBuilder<TextInputBuilder>().addComponents(endDateInput)
-        );
-
-        await modalInteraction.showModal(modal);
+    private formatStringForRound(fundingRound: FundingRound): string {
+        return `✅\nStart: ${fundingRound.startAt.toUTCString()}\nEnd: ${fundingRound.endAt.toUTCString()}\nVoting Open Until: ${fundingRound.votingOpenUntil.toUTCString()}\nEpoch: ${fundingRound.stakingLedgerEpoch}`;
     }
 
-    private async handleSubmitPhase(interaction: TrackedInteraction): Promise<void> {
-        const modalInteraction = InteractionProperties.toModalSubmitInteractionOrUndefined(interaction.interaction);
-        if (!modalInteraction) {
-            throw new EndUserError('Invalid interaction type.');
-        }
+    private async handleShowProgress(interaction: TrackedInteraction): Promise<void> {
+        const fundingRoundId = ArgumentOracle.getNamedArgument(interaction, 'fundingRoundId', 0);
+        const fundingRound = await FundingRoundLogic.getFundingRoundByIdOrError(parseInt(fundingRoundId));
+        const topic: Topic = await fundingRound.getTopic();
+        const onlyShowPhases: boolean = ArgumentOracle.isArgumentEquals(interaction, CreateOrEditFundingRoundAction.BOOLEANS.ARGUMENTS.ONLY_SHOW_PHASES, CreateOrEditFundingRoundAction.BOOLEANS.TRUE_VALUE);
 
-        const fundingRoundId: string = ArgumentOracle.getNamedArgument(interaction, ArgumentOracle.COMMON_ARGS.FUNDING_ROUND_ID);
-        const phase: string = ArgumentOracle.getNamedArgument(interaction, ArgumentOracle.COMMON_ARGS.PHASE);
+        const considerationPhase = await fundingRound.getConsiderationPhase();
+        const deliberationPhase = await fundingRound.getDeliberationPhase();
+        const votingPhase = await fundingRound.getFundingVotingPhase();
 
-        const startDate = new Date(modalInteraction.fields.getTextInputValue(ModifyFundingRoundAction.INPUT_IDS.START_DATE));
-        const endDate = new Date(modalInteraction.fields.getTextInputValue(ModifyFundingRoundAction.INPUT_IDS.END_DATE));
-        const stakingLedgerEpoch = parseInt(modalInteraction.fields.getTextInputValue(ModifyFundingRoundAction.INPUT_IDS.STAKING_LEDGER_EPOCH));
+        const progress: string = await fundingRound.isReady() ? '✅ READY\n\nThe Funding Round information is complete & valid.' : '⚠️ NOT READY\nSome Funding Round information is missing (marked with ❌). Please complete filling all of the information below';
+        const embed = new EmbedBuilder()
+            .setColor('#0099ff')
+            .setTitle('Create or Edit Funding Round')
+            .setDescription(`Status: ${progress}`)
+            .addFields(
+                { name: 'Topic', value: fundingRound.topicId ? `✅\n${topic.name}` : '❌', inline: true },
+                { name: 'Core Information', value: fundingRound.name && fundingRound.description && fundingRound.budget ? `✅\nName: ${fundingRound.name}\nDescription: ${fundingRound.description}\nBudget: ${fundingRound.budget}` : '❌', inline: true },
+                { name: 'Funding Round Dates', value: fundingRound.startAt && fundingRound.endAt && fundingRound.votingOpenUntil ? this.formatStringForRound(fundingRound) : '❌', inline: true },
+                { name: 'Consideration Phase', value: considerationPhase ? this.formatStringForPhase(considerationPhase) : '❌', inline: true },
+                { name: 'Deliberation Phase', value: deliberationPhase ? this.formatStringForPhase(deliberationPhase) : '❌', inline: true },
+                { name: 'Voting Phase', value: votingPhase ? this.formatStringForPhase(votingPhase) : '❌', inline: true },
+                { name: 'Forum Channel', value: fundingRound.forumChannelId ? `✅ ${fundingRound.forumChannelId}` : '❌', inline: true },
+            );
 
-        if (isNaN(startDate.getTime()) || isNaN(endDate.getTime())) {
-            throw new EndUserError('Invalid date format. Please use YYYY-MM-DD HH:MM.');
-        }
+        const manageDatesCustomId: string = CustomIDOracle.addArgumentsToAction(this, CreateOrEditFundingRoundAction.OPERATIONS.SHOW_PROGRESS, ArgumentOracle.COMMON_ARGS.FUNDING_ROUND_ID, fundingRoundId, CreateOrEditFundingRoundAction.BOOLEANS.ARGUMENTS.ONLY_SHOW_PHASES, CreateOrEditFundingRoundAction.BOOLEANS.TRUE_VALUE);
+        logger.info(manageDatesCustomId)
+        const initScreenButtons = [
+            new ButtonBuilder()
+                .setCustomId(CustomIDOracle.addArgumentsToAction((this.screen as ManageFundingRoundsScreen).selectTopicAction, SelectTopicAction.OPERATIONS.SHOW_TOPICS, ArgumentOracle.COMMON_ARGS.FUNDING_ROUND_ID, fundingRoundId))
+                .setLabel(fundingRound.topicId ? 'Edit Topic' : 'Select Topic')
+                .setStyle(ButtonStyle.Primary),
+            new ButtonBuilder()
+                .setCustomId(CustomIDOracle.addArgumentsToAction((this.screen as ManageFundingRoundsScreen).selectForumChannelAction, SelectForumChannelAction.OPERATIONS.SHOW_CHANNELS, ArgumentOracle.COMMON_ARGS.FUNDING_ROUND_ID, fundingRoundId))
+                .setLabel(fundingRound.forumChannelId ? 'Edit Forum Channel' : 'Set Forum Channel')
+                .setStyle(ButtonStyle.Primary),
 
-        if (startDate >= endDate) {
-            throw new EndUserError('Start date must be before end date.');
-        }
+            new ButtonBuilder()
+                .setCustomId(manageDatesCustomId)
+                .setLabel('Manage Phases & Dates')
+                .setStyle(ButtonStyle.Primary),
 
-        try {
-            const fundingRound = await FundingRoundLogic.getFundingRoundById(parseInt(fundingRoundId));
-            if (!fundingRound) {
-                throw new EndUserError('Funding round not found.');
-            }
+            new ButtonBuilder()
+                .setCustomId(CustomIDOracle.addArgumentsToAction((this.screen as ManageFundingRoundsScreen).coreInformationAction, CoreInformationAction.OPERATIONS.SHOW_FORM, ArgumentOracle.COMMON_ARGS.FUNDING_ROUND_ID, fundingRoundId))
+                .setLabel('Edit Core Information')
+                .setStyle(ButtonStyle.Primary),
 
-            const existingPhases = await FundingRoundLogic.getFundingRoundPhases(parseInt(fundingRoundId));
+        ];
 
-            // Check phase order
-            if (phase === ModifyFundingRoundAction.PHASE_NAMES.DELIBERATION) {
-                const considerationPhase = existingPhases.find(p => p.phase === ModifyFundingRoundAction.PHASE_NAMES.CONSIDERATION);
-                if (considerationPhase && startDate < considerationPhase.endDate) {
-                    throw new EndUserError('Deliberation phase must start after Consideration phase ends.');
-                }
-            } else if (phase === ModifyFundingRoundAction.PHASE_NAMES.VOTING) {
-                const deliberationPhase = existingPhases.find(p => p.phase === ModifyFundingRoundAction.PHASE_NAMES.DELIBERATION);
-                if (deliberationPhase && startDate < deliberationPhase.endDate) {
-                    throw new EndUserError('Voting phase must start after Deliberation phase ends.');
-                }
-            }
+        const phaseDatesOnlyButtons = [
+            new ButtonBuilder()
+                .setCustomId(CustomIDOracle.addArgumentsToAction((this.screen as ManageFundingRoundsScreen).setPhaseAction, SetPhaseAction.OPERATIONS.SHOW_FORM, ArgumentOracle.COMMON_ARGS.FUNDING_ROUND_ID, fundingRoundId, SetPhaseAction.ARGUMENTS.PHASE, FundingRoundMI.PHASES.ROUND))
+                .setLabel(fundingRound.startAt ? 'Edit Funding Round Dates' : 'Set Funding Round Dates')
+                .setStyle(ButtonStyle.Primary),
+            new ButtonBuilder()
+                .setCustomId(CustomIDOracle.addArgumentsToAction((this.screen as ManageFundingRoundsScreen).setPhaseAction, SetPhaseAction.OPERATIONS.SHOW_FORM, ArgumentOracle.COMMON_ARGS.FUNDING_ROUND_ID, fundingRoundId, SetPhaseAction.ARGUMENTS.PHASE, FundingRoundMI.PHASES.CONSIDERATION))
+                .setLabel(considerationPhase ? 'Edit Consideration Phase' : 'Set Consideration Phase')
+                .setStyle(ButtonStyle.Primary),
+            new ButtonBuilder()
+                .setCustomId(CustomIDOracle.addArgumentsToAction((this.screen as ManageFundingRoundsScreen).setPhaseAction, SetPhaseAction.OPERATIONS.SHOW_FORM, ArgumentOracle.COMMON_ARGS.FUNDING_ROUND_ID, fundingRoundId, SetPhaseAction.ARGUMENTS.PHASE, FundingRoundMI.PHASES.DELIBERATION))
+                .setLabel(deliberationPhase ? 'Edit Deliberation Phase' : 'Set Deliberation Phase')
+                .setStyle(ButtonStyle.Primary),
+            new ButtonBuilder()
+                .setCustomId(CustomIDOracle.addArgumentsToAction((this.screen as ManageFundingRoundsScreen).setPhaseAction, SetPhaseAction.OPERATIONS.SHOW_FORM, ArgumentOracle.COMMON_ARGS.FUNDING_ROUND_ID, fundingRoundId, SetPhaseAction.ARGUMENTS.PHASE, FundingRoundMI.PHASES.VOTING))
+                .setLabel(votingPhase ? 'Edit Voting Phase' : 'Set Voting Phase')
+                .setStyle(ButtonStyle.Primary),
+            new ButtonBuilder()
+                .setCustomId(CustomIDOracle.addArgumentsToAction(this, CreateOrEditFundingRoundAction.OPERATIONS.SHOW_PROGRESS, ArgumentOracle.COMMON_ARGS.FUNDING_ROUND_ID, fundingRoundId))
+                .setLabel('Go Back')
+                .setStyle(ButtonStyle.Secondary)
+        ]
 
-            const lowerPase: string = phase.toLowerCase();
-            if ((lowerPase !== 'consideration') && (lowerPase !== 'deliberation') && (lowerPase !== 'voting')) {
-                throw new EndUserError('Invalid phase.');
-            }
-            await FundingRoundLogic.setFundingRoundPhase(parseInt(fundingRoundId), lowerPase, stakingLedgerEpoch, startDate, endDate);
+        const buttons = onlyShowPhases ? phaseDatesOnlyButtons : initScreenButtons;
 
-            const updatedPhases = await FundingRoundLogic.getFundingRoundPhases(parseInt(fundingRoundId));
-            const allPhasesSet = [
-                ModifyFundingRoundAction.PHASE_NAMES.CONSIDERATION,
-                ModifyFundingRoundAction.PHASE_NAMES.DELIBERATION,
-                ModifyFundingRoundAction.PHASE_NAMES.VOTING
-            ].every(phaseName => updatedPhases.some(p => p.phase === phaseName));
+        const rows = buttons.map(button => new ActionRowBuilder<ButtonBuilder>().addComponents(button));
 
-            const embed = new EmbedBuilder()
-                .setColor('#00FF00')
-                .setTitle('Funding Round Phase Updated')
-                .setDescription(`The ${lowerPase} phase has been updated successfully.`)
-                .addFields(
-                    { name: 'Name', value: fundingRound.name },
-                    { name: 'Description', value: fundingRound.description },
-                    { name: 'Budget', value: fundingRound.budget.toString() },
-                    { name: 'Staking Ledger Epoch Number (For Voting)', value: fundingRound.stakingLedgerEpoch.toString() },
-                    { name: 'Start Date', value: fundingRound.startAt ? fundingRound.startAt.toISOString() : '❌ Not set' },
-                    { name: 'End Date', value: fundingRound.endAt ? fundingRound.endAt.toISOString() : '❌ Not set' },
-                    ...updatedPhases.map(p => ({ name: `${p.phase} Phase`, value: `Start: ${p.startDate.toISOString()}\nEnd: ${p.endDate.toISOString()}`, inline: true }))
-                );
-
-            if (allPhasesSet) {
-                embed.addFields({ name: 'Status', value: 'All phases have been set for the funding round.' });
-            } else {
-                const remainingPhases = [
-                    ModifyFundingRoundAction.PHASE_NAMES.CONSIDERATION,
-                    ModifyFundingRoundAction.PHASE_NAMES.DELIBERATION,
-                    ModifyFundingRoundAction.PHASE_NAMES.VOTING
-                ].filter(phaseName => !updatedPhases.some(p => p.phase === phaseName));
-
-                embed.addFields({ name: 'Remaining Phases', value: remainingPhases.join(', ') });
-            }
-
-            const backButton = new ButtonBuilder()
-                .setCustomId(CustomIDOracle.addArgumentsToAction((this.screen as ManageFundingRoundsScreen).modifyFundingRoundAction, ModifyFundingRoundAction.OPERATIONS.SELECT_FUNDING_ROUND, ArgumentOracle.COMMON_ARGS.FUNDING_ROUND_ID, fundingRoundId))
-                .setLabel('Back to Funding Round')
-                .setStyle(ButtonStyle.Secondary);
-
-            const row = new ActionRowBuilder<ButtonBuilder>().addComponents(backButton);
-
-            await interaction.update({ embeds: [embed], components: [row] });
-        } catch (error) {
-            const errorMessage = error instanceof Error ? error.message : 'An unknown error occurred';
-            await interaction.respond({ content: `Error updating phase: ${errorMessage}`, ephemeral: true });
-        }
+        await interaction.update({ embeds: [embed], components: rows, ephemeral: true });
     }
 
     public allSubActions(): Action[] {
@@ -409,40 +272,495 @@ export class CreateFundingRoundAction extends Action {
 
     getComponent(): ButtonBuilder {
         return new ButtonBuilder()
-            .setCustomId(CustomIDOracle.addArgumentsToAction(this, CreateFundingRoundAction.OPERATIONS.SHOW_BASIC_INFO_FORM))
+            .setCustomId(CustomIDOracle.addArgumentsToAction(this, CreateOrEditFundingRoundAction.OPERATIONS.START))
             .setLabel('Create Funding Round')
             .setStyle(ButtonStyle.Success);
     }
 }
 
-class FundingRoundPaginationAction extends PaginationComponent {
-    public static readonly ID = 'fundingRoundPagination';
+export class SelectTopicAction extends PaginationComponent {
+    public static readonly ID = 'selectTopic';
+
+    public static readonly OPERATIONS = {
+        SHOW_TOPICS: 'showTopics',
+        SELECT_TOPIC: 'selectTopic',
+        UPDATE_TOPIC: 'upTp',
+    };
+
+    public static readonly INPUT_IDS = {
+        TOPIC: 'topic',
+    };
 
     protected async getTotalPages(interaction: TrackedInteraction): Promise<number> {
-        const fundingRounds = await FundingRoundLogic.getPresentAndFutureFundingRounds();
-        return Math.ceil(fundingRounds.length / 25);
+        const topics = await TopicLogic.getAllTopics();
+        return Math.ceil(topics.length / 25);
     }
 
-    protected async getItemsForPage(interaction: TrackedInteraction, page: number): Promise<FundingRound[]> {
-        const fundingRounds = await FundingRoundLogic.getPresentAndFutureFundingRounds();
-        return fundingRounds.slice(page * 25, (page + 1) * 25);
+    protected async getItemsForPage(interaction: TrackedInteraction, page: number): Promise<Topic[]> {
+        const topics = await TopicLogic.getAllTopics();
+        return topics.slice(page * 25, (page + 1) * 25);
+    }
+
+    public async handlePagination(interaction: TrackedInteraction, isForceReply:boolean=false): Promise<void> {
+        const currentPage = this.getCurrentPage(interaction);
+        const totalPages = await this.getTotalPages(interaction);
+        const topics = await this.getItemsForPage(interaction, currentPage);
+
+
+        let fundingRoundId: string | undefined;
+        try {
+         fundingRoundId = ArgumentOracle.getNamedArgument(interaction, ArgumentOracle.COMMON_ARGS.FUNDING_ROUND_ID);
+        } catch(error) {
+            if (error instanceof NotFoundEndUserError) {
+                logger.debug('No funding round ID found in arguments, it means a new funding round is being created');
+            }
+        }
+
+        const description: string = fundingRoundId ? 'Select a topic to update the Funding Round topic.' : 'Select a topic under which the new Funding Round will be created.';
+        const customId: string = fundingRoundId ? CustomIDOracle.addArgumentsToAction(this, SelectTopicAction.OPERATIONS.UPDATE_TOPIC, ArgumentOracle.COMMON_ARGS.FUNDING_ROUND_ID, fundingRoundId) : CustomIDOracle.addArgumentsToAction(this, SelectTopicAction.OPERATIONS.SELECT_TOPIC);
+
+        const infoEmbed: EmbedBuilder = new EmbedBuilder()
+            .setTitle('Select a Topic')
+            .setDescription(description);
+
+        const selectMenu = new StringSelectMenuBuilder()
+            .setCustomId(customId)
+            .setPlaceholder('Select a Topic')
+            .addOptions(topics.map(topic => ({
+                label: topic.name,
+                value: topic.id.toString(),
+                description: topic.description.substring(0, 100)
+            })));
+
+        const components: ActionRowBuilder<StringSelectMenuBuilder | ButtonBuilder>[] = [
+            new ActionRowBuilder<StringSelectMenuBuilder>().addComponents(selectMenu)
+        ];
+
+        const args: string[] = fundingRoundId ? [ArgumentOracle.COMMON_ARGS.FUNDING_ROUND_ID, fundingRoundId] : [];
+
+        if (totalPages > 1) {
+            const paginationRow = this.getPaginationRow(interaction, currentPage, totalPages, ...args);
+            components.push(paginationRow);
+        }
+
+        const data = { components, embeds: [infoEmbed], ephemeral: true };
+
+        if (isForceReply) {
+            await interaction.respond(data);
+        } else {
+            await interaction.update(data);
+        }
+    }
+
+    public async handleOperation(interaction: TrackedInteraction, operationId: string): Promise<void> {
+        switch (operationId) {
+            case SelectTopicAction.OPERATIONS.SHOW_TOPICS:
+            case PaginationComponent.PAGINATION_ARG:
+                await this.handlePagination(interaction);
+                break;
+            case SelectTopicAction.OPERATIONS.SELECT_TOPIC:
+                await this.handleSelectTopic(interaction);
+                break;
+            case SelectTopicAction.OPERATIONS.UPDATE_TOPIC:
+                await this.handleUpdateTopic(interaction);
+                break;
+            default:
+                await this.handleInvalidOperation(interaction, operationId);
+        }
+    }
+
+    private async handleUpdateTopic(interaction: TrackedInteraction): Promise<void> {
+        const fundingRoundId = ArgumentOracle.getNamedArgument(interaction, ArgumentOracle.COMMON_ARGS.FUNDING_ROUND_ID);
+        const topicId = ArgumentOracle.getNamedArgument(interaction, SelectTopicAction.INPUT_IDS.TOPIC, 0);
+
+        await FundingRoundLogic.setTopic(parseInt(fundingRoundId), parseInt(topicId));
+
+        interaction.Context.set(ArgumentOracle.COMMON_ARGS.FUNDING_ROUND_ID, fundingRoundId);
+        await (this.screen as ManageFundingRoundsScreen).createFundingRoundAction.handleOperation(interaction, CreateOrEditFundingRoundAction.OPERATIONS.SHOW_PROGRESS);
+        await DiscordStatus.Success.success(interaction, 'Topic updated successfully');
+    }
+
+    private async handleSelectTopic(interaction: TrackedInteraction): Promise<void> {
+        const interactionWithValues = InteractionProperties.toInteractionWithValuesOrError(interaction.interaction);
+        const topicId = interactionWithValues.values[0];
+
+        interaction.Context.set(CoreInformationAction.INPUT_IDS.TOPIC, topicId);
+
+        await (this.screen as ManageFundingRoundsScreen).coreInformationAction.handleOperation(interaction, CoreInformationAction.OPERATIONS.SHOW_FORM);
+    }
+
+    public allSubActions(): Action[] {
+        return [];
+    }
+
+    getComponent(): ButtonBuilder {
+        return new ButtonBuilder()
+            .setCustomId(CustomIDOracle.addArgumentsToAction(this, SelectTopicAction.OPERATIONS.SHOW_TOPICS))
+            .setLabel('Select Topic')
+            .setStyle(ButtonStyle.Primary);
+    }
+}
+
+export class CoreInformationAction extends Action {
+    public static readonly ID = 'coreInformation';
+
+    public static readonly OPERATIONS = {
+        SHOW_FORM: 'showForm',
+        SUBMIT_FORM: 'submitForm',
+    };
+
+    public static readonly INPUT_IDS = {
+        NAME: 'name',
+        DESCRIPTION: 'description',
+        BUDGET: 'budget',
+        STAKING_LEDGER_EPOCH: 'stakingLedgerEpoch',
+        TOPIC: 'topic',
+    };
+
+    public async handleOperation(interaction: TrackedInteraction, operationId: string): Promise<void> {
+        switch (operationId) {
+            case CoreInformationAction.OPERATIONS.SHOW_FORM:
+                await this.handleShowForm(interaction);
+                break;
+            case CoreInformationAction.OPERATIONS.SUBMIT_FORM:
+                await this.handleSubmitForm(interaction);
+                break;
+            default:
+                await this.handleInvalidOperation(interaction, operationId);
+        }
+    }
+
+    private async handleShowForm(interaction: TrackedInteraction): Promise<void> {
+        let topicId: string | undefined;
+        let fundingRoundId: string | undefined;
+
+        try {
+            topicId = ArgumentOracle.getNamedArgument(interaction, CoreInformationAction.INPUT_IDS.TOPIC);
+        } catch (error) {
+            if (error instanceof NotFoundEndUserError) {
+                try {
+                    fundingRoundId = ArgumentOracle.getNamedArgument(interaction, ArgumentOracle.COMMON_ARGS.FUNDING_ROUND_ID);
+                } catch (error) {
+                    if (error instanceof NotFoundEndUserError) {
+                        throw new EndUserError('Neither topic, nor funding round ID found in arguments.');
+                    }
+                }
+            }
+        }
+
+        let nameValue = '';
+        let descriptionValue = '';
+        let budgetValue = '';
+        let stakingLedgerEpochValue = '';
+
+        let parsedTopicId: string;
+        if (fundingRoundId) {
+            const fundingRound: FundingRound = await FundingRoundLogic.getFundingRoundByIdOrError(parseInt(fundingRoundId));
+            nameValue = fundingRound.name;
+            descriptionValue = fundingRound.description;
+            budgetValue = fundingRound.budget.toString();
+            stakingLedgerEpochValue = fundingRound.stakingLedgerEpoch.toString();
+            parsedTopicId = fundingRound.topicId.toString();
+        } else {
+            parsedTopicId = topicId as string;
+        }
+
+
+        const modal = new ModalBuilder()
+            .setCustomId(CustomIDOracle.addArgumentsToAction(this, CoreInformationAction.OPERATIONS.SUBMIT_FORM, CoreInformationAction.INPUT_IDS.TOPIC, parsedTopicId))
+            .setTitle('Funding Round Core Information');
+
+        const nameInput = new TextInputBuilder()
+            .setCustomId(CoreInformationAction.INPUT_IDS.NAME)
+            .setLabel('Funding Round Name')
+            .setStyle(TextInputStyle.Short)
+            .setValue(nameValue)
+            .setRequired(true);
+
+        const descriptionInput = new TextInputBuilder()
+            .setCustomId(CoreInformationAction.INPUT_IDS.DESCRIPTION)
+            .setLabel('Description')
+            .setStyle(TextInputStyle.Paragraph)
+            .setValue(descriptionValue)
+            .setRequired(true);
+
+        const budgetInput = new TextInputBuilder()
+            .setCustomId(CoreInformationAction.INPUT_IDS.BUDGET)
+            .setLabel('Budget')
+            .setStyle(TextInputStyle.Short)
+            .setValue(budgetValue)
+            .setRequired(true);
+
+        const stakingLedgerEpochInput = new TextInputBuilder()
+            .setCustomId(CoreInformationAction.INPUT_IDS.STAKING_LEDGER_EPOCH)
+            .setLabel('Staking Ledger Epoch Number')
+            .setStyle(TextInputStyle.Short)
+            .setValue(stakingLedgerEpochValue)
+            .setRequired(true);
+
+        modal.addComponents(
+            new ActionRowBuilder<TextInputBuilder>().addComponents(nameInput),
+            new ActionRowBuilder<TextInputBuilder>().addComponents(descriptionInput),
+            new ActionRowBuilder<TextInputBuilder>().addComponents(budgetInput),
+            new ActionRowBuilder<TextInputBuilder>().addComponents(stakingLedgerEpochInput)
+        );
+
+        await interaction.showModal(modal);
+    }
+
+    private async handleSubmitForm(interaction: TrackedInteraction): Promise<void> {
+        const modalInteraction = InteractionProperties.toModalSubmitInteractionOrError(interaction.interaction);
+
+        const topicId = ArgumentOracle.getNamedArgument(interaction, CoreInformationAction.INPUT_IDS.TOPIC);
+
+        const name = modalInteraction.fields.getTextInputValue(CoreInformationAction.INPUT_IDS.NAME);
+        const description = modalInteraction.fields.getTextInputValue(CoreInformationAction.INPUT_IDS.DESCRIPTION);
+        const budget = parseFloat(modalInteraction.fields.getTextInputValue(CoreInformationAction.INPUT_IDS.BUDGET));
+        const stakingLedgerEpoch = parseInt(modalInteraction.fields.getTextInputValue(CoreInformationAction.INPUT_IDS.STAKING_LEDGER_EPOCH));
+
+        const fundingRoung: FundingRound = await FundingRoundLogic.newFundingRoundFromCoreInfo(name, description, parseInt(topicId), budget, stakingLedgerEpoch);
+        interaction.Context.set(ArgumentOracle.COMMON_ARGS.FUNDING_ROUND_ID, fundingRoung.id.toString());
+
+        await (this.screen as ManageFundingRoundsScreen).createFundingRoundAction.handleOperation(
+            interaction,
+            CreateOrEditFundingRoundAction.OPERATIONS.SHOW_PROGRESS
+        );
+    }
+
+    public allSubActions(): Action[] {
+        return [];
+    }
+
+    getComponent(): ButtonBuilder {
+        return new ButtonBuilder()
+            .setCustomId(CustomIDOracle.addArgumentsToAction(this, CoreInformationAction.OPERATIONS.SHOW_FORM))
+            .setLabel('Edit Core Information')
+            .setStyle(ButtonStyle.Primary);
+    }
+}
+
+
+export class SetPhaseAction extends Action {
+    public static readonly ID = 'setPhase';
+
+    public static readonly OPERATIONS = {
+        SHOW_FORM: 'showForm',
+        SUBMIT_FORM: 'submitForm',
+    };
+
+    private static readonly INPUT_IDS = {
+        START_DATE: 'stDt',
+        END_DATE: 'edDt',
+        VOTING_OPEN_UNTIL: 'vou',
+        STAKING_LEDGER_EPOCH: 'stLdEp',
+    };
+
+    public static readonly ARGUMENTS = {
+        PHASE: 'phase',
+    }
+
+    public static PHASE_OPTIONS = {
+        CONSIDERATION: FundingRoundMI.PHASES.CONSIDERATION,
+        DELIBERATION: FundingRoundMI.PHASES.DELIBERATION,
+        VOTING: FundingRoundMI.PHASES.VOTING,
+        ROUND: FundingRoundMI.PHASES.ROUND,
+    }
+
+    public async handleOperation(interaction: TrackedInteraction, operationId: string): Promise<void> {
+        switch (operationId) {
+            case SetPhaseAction.OPERATIONS.SHOW_FORM:
+                await this.handleShowForm(interaction);
+                break;
+            case SetPhaseAction.OPERATIONS.SUBMIT_FORM:
+                await this.handleSubmitForm(interaction);
+                break;
+            default:
+                await this.handleInvalidOperation(interaction, operationId);
+        }
+    }
+
+    private async handleShowForm(interaction: TrackedInteraction): Promise<void> {
+        const fundingRoundId = ArgumentOracle.getNamedArgument(interaction, ArgumentOracle.COMMON_ARGS.FUNDING_ROUND_ID);
+        const phase = ArgumentOracle.getNamedArgument(interaction, ArgumentOracle.COMMON_ARGS.PHASE);
+        const parsedPhase = FundingRoundMI.toFundingRoundPhaseFromString(phase);
+
+        let startValue = '';
+        let endValue = '';
+        let stakingLedgerEpochValue = '';
+        let votingOpenUntilValue = '';
+        if (phase === FundingRoundMI.PHASES.ROUND) {
+            const fundingRound: FundingRound = await FundingRoundLogic.getFundingRoundByIdOrError(parseInt(fundingRoundId));
+            startValue = this.formatDate(fundingRound.startAt);
+            endValue = this.formatDate(fundingRound.endAt);
+            votingOpenUntilValue = this.formatDate(fundingRound.votingOpenUntil);
+            stakingLedgerEpochValue = fundingRound.stakingLedgerEpoch.toString();
+        } else {
+            const phaseData = await FundingRoundLogic.getFundingRoundPhase(parseInt(fundingRoundId), parsedPhase);
+            if (phaseData) {
+                startValue = this.formatDate(phaseData.startAt);
+                endValue = this.formatDate(phaseData.endAt);
+                stakingLedgerEpochValue = phaseData.stakingLedgerEpoch.toString();
+            }
+        }
+
+
+
+        const modal = new ModalBuilder()
+            .setCustomId(CustomIDOracle.addArgumentsToAction(this, SetPhaseAction.OPERATIONS.SUBMIT_FORM, ArgumentOracle.COMMON_ARGS.FUNDING_ROUND_ID, fundingRoundId, ArgumentOracle.COMMON_ARGS.PHASE, phase))
+            .setTitle(`Set ${phase.charAt(0).toUpperCase() + phase.slice(1)} Phase`);
+
+        const startDateInput = new TextInputBuilder()
+            .setCustomId(SetPhaseAction.INPUT_IDS.START_DATE)
+            .setLabel('Start Date (YYYY-MM-DD HH:MM)')
+            .setStyle(TextInputStyle.Short)
+            .setValue(startValue)
+            .setRequired(true);
+
+        const endDateInput = new TextInputBuilder()
+            .setCustomId(SetPhaseAction.INPUT_IDS.END_DATE)
+            .setLabel('End Date (YYYY-MM-DD HH:MM)')
+            .setStyle(TextInputStyle.Short)
+            .setValue(endValue)
+            .setRequired(true);
+
+
+        const stakingLedgerEpochInput = new TextInputBuilder()
+            .setCustomId(SetPhaseAction.INPUT_IDS.STAKING_LEDGER_EPOCH)
+            .setLabel('Staking Ledger Epoch For Voting')
+            .setStyle(TextInputStyle.Short)
+            .setValue(stakingLedgerEpochValue)
+            .setRequired(true);
+
+
+        modal.addComponents(
+            new ActionRowBuilder<TextInputBuilder>().addComponents(startDateInput),
+            new ActionRowBuilder<TextInputBuilder>().addComponents(endDateInput),
+            new ActionRowBuilder<TextInputBuilder>().addComponents(stakingLedgerEpochInput),
+        );
+
+        if (phase === FundingRoundMI.PHASES.ROUND) {
+            const votingOpenUntilInput = new TextInputBuilder()
+                .setCustomId(SetPhaseAction.INPUT_IDS.VOTING_OPEN_UNTIL)
+                .setLabel('Voting Open Until (YYYY-MM-DD HH:MM)')
+                .setStyle(TextInputStyle.Short)
+                .setValue(votingOpenUntilValue)
+                .setRequired(true);
+
+            modal.addComponents(
+                new ActionRowBuilder<TextInputBuilder>().addComponents(votingOpenUntilInput)
+            );
+        }
+
+        await interaction.showModal(modal);
+    }
+
+    private async handleSubmitForm(interaction: TrackedInteraction): Promise<void> {
+        const modalInteraction = InteractionProperties.toModalSubmitInteractionOrError(interaction.interaction);
+
+        const fundingRoundId = ArgumentOracle.getNamedArgument(interaction, ArgumentOracle.COMMON_ARGS.FUNDING_ROUND_ID);
+        const phase = ArgumentOracle.getNamedArgument(interaction, ArgumentOracle.COMMON_ARGS.PHASE);
+
+        const startDate = InputDate.toDate(modalInteraction.fields.getTextInputValue(SetPhaseAction.INPUT_IDS.START_DATE));
+        const endDate = InputDate.toDate(modalInteraction.fields.getTextInputValue(SetPhaseAction.INPUT_IDS.END_DATE));
+        const stakingLedgerEpoch = parseInt(modalInteraction.fields.getTextInputValue(SetPhaseAction.INPUT_IDS.STAKING_LEDGER_EPOCH));
+
+
+        if (isNaN(stakingLedgerEpoch)) {
+            await DiscordStatus.Error.error(interaction, 'Staking Ledger Epoch must be a number');
+            return;
+        }
+
+        if (isNaN(startDate.getTime()) || isNaN(endDate.getTime())) {
+            await DiscordStatus.Error.error(interaction, 'Invalid date format. Please use YYYY-MM-DD HH:MM');
+            return;
+        }
+
+        const parsedPhase = FundingRoundMI.toFundingRoundPhaseFromString(phase);
+
+        if (parsedPhase == FundingRoundMI.PHASES.ROUND) {
+            // 1. Handle Funding Round core dates
+            const votingOpenUntil = InputDate.toDate(modalInteraction.fields.getTextInputValue(SetPhaseAction.INPUT_IDS.VOTING_OPEN_UNTIL));
+            await FundingRoundLogic.updateFundingRoundVoteData(parseInt(fundingRoundId), startDate, endDate, votingOpenUntil, stakingLedgerEpoch);
+        } else {
+            // 2. Handle phase dates
+            const fundingRound: FundingRound = await FundingRoundLogic.updateFundingRoundPhase(parseInt(fundingRoundId), parsedPhase, stakingLedgerEpoch, startDate, endDate);
+            interaction.Context.set(ArgumentOracle.COMMON_ARGS.FUNDING_ROUND_ID, fundingRound.id.toString());
+        }
+        try {
+            interaction.Context.set(CreateOrEditFundingRoundAction.BOOLEANS.ARGUMENTS.ONLY_SHOW_PHASES, CreateOrEditFundingRoundAction.BOOLEANS.TRUE_VALUE);
+            await (this.screen as ManageFundingRoundsScreen).createFundingRoundAction.handleOperation(
+                interaction,
+                CreateOrEditFundingRoundAction.OPERATIONS.SHOW_PROGRESS
+            );
+
+            await DiscordStatus.Success.success(interaction, `Phase data updated successfully`);
+
+        } catch (error) {
+            throw error;
+        }
+    }
+
+    private formatDate(date: Date): string {
+        if (!date) {
+            return '';
+        }
+        return date.toISOString().slice(0, 16).replace('T', ' ');
+    }
+
+    public allSubActions(): Action[] {
+        return [];
+    }
+
+    getComponent(phase: string): ButtonBuilder {
+        return new ButtonBuilder()
+            .setCustomId(CustomIDOracle.addArgumentsToAction(this, SetPhaseAction.OPERATIONS.SHOW_FORM, ArgumentOracle.COMMON_ARGS.PHASE, phase))
+            .setLabel(`Set ${phase.charAt(0).toUpperCase() + phase.slice(1)} Phase`)
+            .setStyle(ButtonStyle.Primary);
+    }
+}
+
+export class SelectForumChannelAction extends PaginationComponent {
+    public static readonly ID = 'selectForumChannel';
+
+    public static readonly OPERATIONS = {
+        SHOW_CHANNELS: 'showChannels',
+        SELECT_CHANNEL: 'selectChannel',
+    };
+
+    protected async getTotalPages(interaction: TrackedInteraction): Promise<number> {
+        const forumChannels = await this.getGuildForumChannels(interaction);
+        return Math.ceil(forumChannels.length / 25);
+    }
+
+    protected async getItemsForPage(interaction: TrackedInteraction, page: number): Promise<ForumChannel[]> {
+        const forumChannels = await this.getGuildForumChannels(interaction);
+        return forumChannels.slice(page * 25, (page + 1) * 25);
+    }
+
+    private async getGuildForumChannels(interaction: TrackedInteraction): Promise<ForumChannel[]> {
+        const guild = interaction.interaction.guild;
+        if (!guild) {
+            throw new EndUserError('This command can only be used in a server');
+        }
+        return Array.from(guild.channels.cache.filter(channel => channel.type === ChannelType.GuildForum).values()) as ForumChannel[];
     }
 
     public async handlePagination(interaction: TrackedInteraction): Promise<void> {
         const currentPage = this.getCurrentPage(interaction);
         const totalPages = await this.getTotalPages(interaction);
-        const fundingRounds = await this.getItemsForPage(interaction, currentPage);
+        const forumChannels = await this.getItemsForPage(interaction, currentPage);
+        const fundingRoundId = ArgumentOracle.getNamedArgument(interaction, ArgumentOracle.COMMON_ARGS.FUNDING_ROUND_ID);
 
         const selectMenu = new StringSelectMenuBuilder()
-            .setCustomId(CustomIDOracle.addArgumentsToAction((this.screen as ManageFundingRoundsScreen).modifyFundingRoundAction, ModifyFundingRoundAction.OPERATIONS.SELECT_FUNDING_ROUND))
-            .setPlaceholder('Select a Funding Round')
-            .addOptions(fundingRounds.map((fr: FundingRound) => ({
-                label: fr.name,
-                value: fr.id.toString(),
-                description: `Budget: ${fr.budget}, Status: ${fr.status}`
+            .setCustomId(CustomIDOracle.addArgumentsToAction(this, SelectForumChannelAction.OPERATIONS.SELECT_CHANNEL, ArgumentOracle.COMMON_ARGS.FUNDING_ROUND_ID, fundingRoundId))
+            .setPlaceholder('Select a Forum Channel')
+            .addOptions(forumChannels.map(channel => ({
+                label: channel.name,
+                value: channel.id,
+                description: `ID: ${channel.id}`
             })));
 
-        const components: ActionRowBuilder<MessageActionRowComponentBuilder>[] = [
+        const components: ActionRowBuilder<StringSelectMenuBuilder | ButtonBuilder>[] = [
             new ActionRowBuilder<StringSelectMenuBuilder>().addComponents(selectMenu)
         ];
 
@@ -454,53 +772,66 @@ class FundingRoundPaginationAction extends PaginationComponent {
         await interaction.update({ components });
     }
 
+    public async handleOperation(interaction: TrackedInteraction, operationId: string): Promise<void> {
+        switch (operationId) {
+            case SelectForumChannelAction.OPERATIONS.SHOW_CHANNELS:
+            case PaginationComponent.PAGINATION_ARG:
+                await this.handlePagination(interaction);
+                break;
+            case SelectForumChannelAction.OPERATIONS.SELECT_CHANNEL:
+                await this.handleSelectChannel(interaction);
+                break;
+            default:
+                await this.handleInvalidOperation(interaction, operationId);
+        }
+    }
+
+    private async handleSelectChannel(interaction: TrackedInteraction): Promise<void> {
+        const interactionWithValues = InteractionProperties.toInteractionWithValuesOrError(interaction.interaction);
+        const forumChannelId = interactionWithValues.values[0];
+
+        const fundingRoundId: string = ArgumentOracle.getNamedArgument(interaction, ArgumentOracle.COMMON_ARGS.FUNDING_ROUND_ID);
+
+        try {
+            const fundingRound: FundingRound = await FundingRoundLogic.updateFundingRound(parseInt(fundingRoundId), { forumChannelId });
+            interaction.Context.set(ArgumentOracle.COMMON_ARGS.FUNDING_ROUND_ID, fundingRound.id.toString());
+
+            await (this.screen as ManageFundingRoundsScreen).createFundingRoundAction.handleOperation(
+                interaction,
+                CreateOrEditFundingRoundAction.OPERATIONS.SHOW_PROGRESS
+            );
+            await DiscordStatus.Success.success(interaction, 'Forum channel selected successfully');
+        } catch (error) {
+            await DiscordStatus.Error.handleError(interaction, error);
+        }
+    }
+
     public allSubActions(): Action[] {
         return [];
     }
 
-    getComponent(...args: any[]): StringSelectMenuBuilder {
-        return new StringSelectMenuBuilder()
-            .setCustomId(CustomIDOracle.addArgumentsToAction(this, 'paginate'))
-            .setPlaceholder('Select a Funding Round');
+    getComponent(): ButtonBuilder {
+        return new ButtonBuilder()
+            .setCustomId(CustomIDOracle.addArgumentsToAction(this, SelectForumChannelAction.OPERATIONS.SHOW_CHANNELS))
+            .setLabel('Select Forum Channel')
+            .setStyle(ButtonStyle.Primary);
     }
 }
+
+
 
 export class ModifyFundingRoundAction extends Action {
     public static readonly ID = 'modifyFundingRound';
 
     public static readonly OPERATIONS = {
         SHOW_FUNDING_ROUNDS: 'showFundingRounds',
-        SELECT_FUNDING_ROUND: 'selectFundingRound',
-        SHOW_BASIC_INFO_FORM: 'showBasicInfoForm',
-        SUBMIT_BASIC_INFO: 'submitBasicInfo',
-        SHOW_PHASE_FORM: 'showPhaseForm',
-        SUBMIT_PHASE: 'submitPhase',
-        EDIT_FUNDING_ROUND: 'editFundingRound',
     };
 
-    public static readonly INPUT_IDS = {
-        NAME: 'name',
-        DESCRIPTION: 'description',
-        TOPIC_NAME: 'topicName',
-        BUDGET: 'budget',
-        STAKING_LEDGER_EPOCH: 'stLdEpNum',
-        START_DATE: 'startDate',
-        END_DATE: 'endDate',
-        ROUND_START_DATE: 'rSD',
-        ROUND_END_DATE: 'rED',
-    };
 
-    public static readonly PHASE_NAMES = {
-        CONSIDERATION: 'Consideration',
-        DELIBERATION: 'Deliberation',
-        VOTING: 'Voting',
-    };
 
-    private fundingRoundPaginationAction: FundingRoundPaginationAction;
 
     constructor(screen: Screen, actionId: string) {
         super(screen, actionId);
-        this.fundingRoundPaginationAction = new FundingRoundPaginationAction(screen, FundingRoundPaginationAction.ID);
     }
 
     protected async handleOperation(interaction: TrackedInteraction, operationId: string): Promise<void> {
@@ -508,429 +839,23 @@ export class ModifyFundingRoundAction extends Action {
             case ModifyFundingRoundAction.OPERATIONS.SHOW_FUNDING_ROUNDS:
                 await this.handleShowFundingRounds(interaction);
                 break;
-            case ModifyFundingRoundAction.OPERATIONS.SELECT_FUNDING_ROUND:
-                await this.handleSelectFundingRound(interaction);
-                break;
-            case ModifyFundingRoundAction.OPERATIONS.SHOW_BASIC_INFO_FORM:
-                await this.handleShowBasicInfoForm(interaction);
-                break;
-            case ModifyFundingRoundAction.OPERATIONS.SUBMIT_BASIC_INFO:
-                await this.handleSubmitBasicInfo(interaction);
-                break;
-            case ModifyFundingRoundAction.OPERATIONS.SHOW_PHASE_FORM:
-                await this.handleShowPhaseForm(interaction);
-                break;
-            case ModifyFundingRoundAction.OPERATIONS.SUBMIT_PHASE:
-                await this.handleSubmitPhase(interaction);
-                break;
-            case ModifyFundingRoundAction.OPERATIONS.EDIT_FUNDING_ROUND:
-                await this.handleEditFundingRound(interaction);
-                break;
             default:
                 await this.handleInvalidOperation(interaction, operationId);
         }
     }
 
     private async handleShowFundingRounds(interaction: TrackedInteraction): Promise<void> {
-        await this.fundingRoundPaginationAction.handlePagination(interaction);
+        await (this.screen as ManageFundingRoundsScreen).crudFRPaginatorAction.handlePagination(interaction);
     }
 
-    private async handleSelectFundingRound(interaction: TrackedInteraction): Promise<void> {
-        const interactionWithValues = InteractionProperties.toInteractionWithValuesOrUndefined(interaction.interaction);
-
-
-        let fundingRoundId: number;
-        if (!interactionWithValues) {
-            const fundingRoundIdArg: string = ArgumentOracle.getNamedArgument(interaction, ArgumentOracle.COMMON_ARGS.FUNDING_ROUND_ID, 0);
-            
-            fundingRoundId = parseInt(fundingRoundIdArg);
-
-        } else {
-            fundingRoundId = parseInt(interactionWithValues.values[0]);
-        }
-
-        const fundingRound = await FundingRoundLogic.getFundingRoundById(fundingRoundId);
-
-        if (!fundingRound) {
-            throw new EndUserError('Funding round not found.');
-        }
-
-
-        const updatedPhases = await FundingRoundLogic.getFundingRoundPhases(fundingRoundId);
-        let allPhasesSet: boolean = ['consideration', 'deliberation', 'voting']
-            .every(phaseName => updatedPhases.some((p: FundingRoundPhase) => p.phase === phaseName));
-
-        allPhasesSet = allPhasesSet && (fundingRound.startAt !== null) && (fundingRound.endAt !== null);
-
-        const topic: Topic = await fundingRound.getTopic();
-
-        const embed = new EmbedBuilder()
-            .setColor('#0099ff')
-            .setTitle(`Modify Funding Round: ${fundingRound.name} (${fundingRound.id})`)
-            .setDescription('Select an action to modify the funding round:')
-            .addFields(
-                { name: 'Description', value: fundingRound.description },
-                { name: 'Topic', value: topic.name },
-                { name: 'Budget', value: fundingRound.budget.toString() },
-                { name: 'Status', value: fundingRound.status },
-                { name: 'Staking Ledger Epoch Number (For Voting)', value: fundingRound.stakingLedgerEpoch.toString() },
-                { name: 'Start Date', value: fundingRound.startAt ? fundingRound.startAt.toISOString() : '❌ Not set' },
-                { name: 'End Date', value: fundingRound.endAt ? fundingRound.endAt.toISOString() : '❌ Not set' },
-                ...updatedPhases.map((p: FundingRoundPhase) => ({ name: `${p.phase.charAt(0).toUpperCase() + p.phase.slice(1)} Phase`, value: `Start: ${this.formatDate(p.startDate)}\nEnd: ${this.formatDate(p.endDate)}`, inline: true }))
-            );
-
-        if (allPhasesSet) {
-            embed.addFields({ name: 'Status', value: 'All phases have been set for the funding round.' });
-        } else {
-            let remainingPhases = ['consideration', 'deliberation', 'voting']
-                .filter(phaseName => !updatedPhases.some((p: FundingRoundPhase) => p.phase === phaseName));
-
-            if (fundingRound.startAt === null || fundingRound.endAt === null) {
-                remainingPhases = ['Funding Round Duration', ...remainingPhases];
-            }
-
-            embed.addFields({ name: 'Remaining Phases', value: remainingPhases.join(', ') });
-        }
-
-        const basicInfoButton = new ButtonBuilder()
-            .setCustomId(CustomIDOracle.addArgumentsToAction(this, ModifyFundingRoundAction.OPERATIONS.SHOW_BASIC_INFO_FORM, ArgumentOracle.COMMON_ARGS.FUNDING_ROUND_ID, fundingRoundId.toString()))
-            .setLabel('Modify Basic Info')
-            .setStyle(ButtonStyle.Primary);
-
-        let phaseButtons = Object.values(ModifyFundingRoundAction.PHASE_NAMES).map(phase =>
-            new ButtonBuilder()
-                .setCustomId(CustomIDOracle.addArgumentsToAction(this, ModifyFundingRoundAction.OPERATIONS.SHOW_PHASE_FORM, ArgumentOracle.COMMON_ARGS.FUNDING_ROUND_ID, fundingRoundId.toString(), ArgumentOracle.COMMON_ARGS.PHASE, phase))
-                .setLabel(`Modify ${phase} Phase`)
-                .setStyle(ButtonStyle.Secondary)
-        );
-
-        const roundDurationButton = new ButtonBuilder()
-            .setCustomId(CustomIDOracle.addArgumentsToAction(this, ModifyFundingRoundAction.OPERATIONS.SHOW_PHASE_FORM, ArgumentOracle.COMMON_ARGS.FUNDING_ROUND_ID, fundingRoundId.toString(), ArgumentOracle.COMMON_ARGS.PHASE, 'round'))
-            .setLabel('Modify Round Duration')
-            .setStyle(ButtonStyle.Secondary);
-        phaseButtons = [roundDurationButton, ...phaseButtons];
-        const rows = [
-            new ActionRowBuilder<ButtonBuilder>().addComponents(basicInfoButton),
-            new ActionRowBuilder<ButtonBuilder>().addComponents(phaseButtons)
-        ];
-
-        await interaction.update({ embeds: [embed], components: rows });
-    }
-
-    private async handleShowBasicInfoForm(interaction: TrackedInteraction): Promise<void> {
-        const fundingRoundId = CustomIDOracle.getNamedArgument(interaction.customId, ArgumentOracle.COMMON_ARGS.FUNDING_ROUND_ID);
-        if (!fundingRoundId) {
-            throw new EndUserError('Invalid funding round ID.');
-        }
-
-        const fundingRound = await FundingRoundLogic.getFundingRoundById(parseInt(fundingRoundId));
-        if (!fundingRound) {
-            throw new EndUserError('Funding round not found.');
-        }
-
-        const topic: Topic = await fundingRound.getTopic()
-
-        const modalInteraction = InteractionProperties.toShowModalOrUndefined(interaction.interaction);
-        if (!modalInteraction) {
-            throw new EndUserError('This interaction does not support modals.');
-        }
-
-        const modal = new ModalBuilder()
-            .setCustomId(CustomIDOracle.addArgumentsToAction(this, ModifyFundingRoundAction.OPERATIONS.SUBMIT_BASIC_INFO, ArgumentOracle.COMMON_ARGS.FUNDING_ROUND_ID, fundingRoundId))
-            .setTitle('Modify Funding Round');
-
-        const nameInput = new TextInputBuilder()
-            .setCustomId(ModifyFundingRoundAction.INPUT_IDS.NAME)
-            .setLabel('Funding Round Name')
-            .setStyle(TextInputStyle.Short)
-            .setValue(fundingRound.name)
-            .setRequired(true);
-
-        const descriptionInput = new TextInputBuilder()
-            .setCustomId(ModifyFundingRoundAction.INPUT_IDS.DESCRIPTION)
-            .setLabel('Description')
-            .setStyle(TextInputStyle.Paragraph)
-            .setValue(fundingRound.description)
-            .setRequired(true);
-
-        const budgetInput = new TextInputBuilder()
-            .setCustomId(ModifyFundingRoundAction.INPUT_IDS.BUDGET)
-            .setLabel('Budget')
-            .setStyle(TextInputStyle.Short)
-            .setValue(fundingRound.budget.toString())
-            .setRequired(true);
-
-        const topicIntput = new TextInputBuilder()
-            .setCustomId(ModifyFundingRoundAction.INPUT_IDS.TOPIC_NAME)
-            .setLabel('Topic Name')
-            .setStyle(TextInputStyle.Short)
-            .setValue(topic.name)
-            .setRequired(true);
-
-        const stLedgerInput = new TextInputBuilder()
-            .setCustomId(ModifyFundingRoundAction.INPUT_IDS.STAKING_LEDGER_EPOCH)
-            .setLabel('Staking Ledger Epoch Number (For Voting)')
-            .setStyle(TextInputStyle.Short)
-            .setValue(fundingRound.stakingLedgerEpoch.toString())
-            .setRequired(true);
-
-        modal.addComponents(
-            new ActionRowBuilder<TextInputBuilder>().addComponents(nameInput),
-            new ActionRowBuilder<TextInputBuilder>().addComponents(descriptionInput),
-            new ActionRowBuilder<TextInputBuilder>().addComponents(topicIntput),
-            new ActionRowBuilder<TextInputBuilder>().addComponents(budgetInput),
-            new ActionRowBuilder<TextInputBuilder>().addComponents(stLedgerInput)
-        );
-
-        await modalInteraction.showModal(modal);
-    }
-
-    private async handleSubmitBasicInfo(interaction: TrackedInteraction): Promise<void> {
-        const modalInteraction = InteractionProperties.toModalSubmitInteractionOrUndefined(interaction.interaction);
-        if (!modalInteraction) {
-            throw new EndUserError('Invalid interaction type.')
-            throw new EndUserError('Invalid interaction type ' + interaction.interaction);
-
-        }
-
-        const fundingRoundId = CustomIDOracle.getNamedArgument(interaction.customId, ArgumentOracle.COMMON_ARGS.FUNDING_ROUND_ID);
-        if (!fundingRoundId) {
-            throw new EndUserError('Invalid funding round ID.');
-        }
-
-        const name = modalInteraction.fields.getTextInputValue(ModifyFundingRoundAction.INPUT_IDS.NAME);
-        const description = modalInteraction.fields.getTextInputValue(ModifyFundingRoundAction.INPUT_IDS.DESCRIPTION);
-        const budget = parseFloat(modalInteraction.fields.getTextInputValue(ModifyFundingRoundAction.INPUT_IDS.BUDGET));
-        const stLedger = modalInteraction.fields.getTextInputValue(ModifyFundingRoundAction.INPUT_IDS.STAKING_LEDGER_EPOCH);
-        const topicName = modalInteraction.fields.getTextInputValue(ModifyFundingRoundAction.INPUT_IDS.TOPIC_NAME);
-
-        const topic = await TopicLogic.getTopicByName(topicName)
-
-        if (!topic) {
-            await interaction.respond({ content: `No Topic with name ${topicName} found`, ephemeral: true });
-            return;
-        }
-
-        if (isNaN(budget)) {
-            throw new EndUserError('Invalid budget value. Please enter a valid number.');
-        }
-
-        if (isNaN(parseInt(stLedger))) {
-            throw new EndUserError('Invalid staking ledger epoch number. Please enter a valid number.');
-        }
-
-        const ledgerNum: number = parseInt(stLedger);
-
-        try {
-            const updatedFundingRound = await FundingRoundLogic.updateFundingRound(parseInt(fundingRoundId), {
-                name,
-                description,
-                budget,
-                stakingLedgerEpoch: ledgerNum,
-                topicId: topic.id,
-            });
-
-            if (!updatedFundingRound) {
-                throw new EndUserError('Funding round not found.');
-            };
-
-            const embed = new EmbedBuilder()
-                .setColor('#00FF00')
-                .setTitle('Funding Round Updated')
-                .setDescription('The funding round has been successfully updated.')
-                .addFields(
-                    { name: 'Name', value: updatedFundingRound.name },
-                    { name: 'Description', value: updatedFundingRound.description },
-                    { name: 'Topic', value: topic.name },
-                    { name: 'Budget', value: updatedFundingRound.budget.toString() },
-                    { name: 'Staking Ledger Epoch Number (For Voting)', value: updatedFundingRound.stakingLedgerEpoch.toString() }
-                );
-
-            await interaction.update({ embeds: [embed], components: [] });
-        } catch (error) {
-            const errorMessage = error instanceof Error ? error.message : 'An unknown error occurred';
-            await interaction.respond({ content: `Error updating funding round: ${errorMessage}`, ephemeral: true });
-        }
-    }
-
-    private async handleShowPhaseForm(interaction: TrackedInteraction): Promise<void> {
-        const fundingRoundId = CustomIDOracle.getNamedArgument(interaction.customId, ArgumentOracle.COMMON_ARGS.FUNDING_ROUND_ID);
-        let phase = CustomIDOracle.getNamedArgument(interaction.customId, ArgumentOracle.COMMON_ARGS.PHASE) as 'consideration' | 'deliberation' | 'voting' | 'round';
-        phase = phase.toLowerCase() as 'consideration' | 'deliberation' | 'voting' | 'round';
-
-        if (!fundingRoundId || !phase) {
-            throw new EndUserError('Invalid funding round ID or phase.');
-        }
-
-        const fundingRound = await FundingRoundLogic.getFundingRoundById(parseInt(fundingRoundId));
-        if (!fundingRound) {
-            throw new EndUserError('Funding round not found.');
-        }
-
-        const modalInteraction = InteractionProperties.toShowModalOrUndefined(interaction.interaction);
-        if (!modalInteraction) {
-            throw new EndUserError('This interaction does not support modals.');
-        }
-
-        const existingPhases = await FundingRoundLogic.getFundingRoundPhases(parseInt(fundingRoundId));
-        const existingPhase = existingPhases.find((p: FundingRoundPhase) => p.phase === phase);
-
-        const title: string = phase === 'round' ? 'Modify Round Dates' : `Modify ${phase.charAt(0).toUpperCase() + phase.slice(1)} Phase Dates`;
-        const startDateCustomId: string = phase === 'round' ? ModifyFundingRoundAction.INPUT_IDS.ROUND_START_DATE : ModifyFundingRoundAction.INPUT_IDS.START_DATE;
-        const endDateCustomId: string = phase === 'round' ? ModifyFundingRoundAction.INPUT_IDS.ROUND_END_DATE : ModifyFundingRoundAction.INPUT_IDS.END_DATE;
-
-        const startDateValue: string = phase === 'round' && fundingRound.startAt ? this.formatDate(fundingRound.startAt) : existingPhase ? this.formatDate(existingPhase.startDate) : '';
-        const endDateValue: string = phase === 'round' && fundingRound.startAt ? this.formatDate(fundingRound.endAt) : existingPhase ? this.formatDate(existingPhase.endDate) : '';
-
-        logger.info(`startDateValue: ${startDateValue} endDateValue: ${endDateValue}`);
-
-        const modal = new ModalBuilder()
-            .setCustomId(CustomIDOracle.addArgumentsToAction(this, ModifyFundingRoundAction.OPERATIONS.SUBMIT_PHASE, ArgumentOracle.COMMON_ARGS.FUNDING_ROUND_ID, fundingRoundId, ArgumentOracle.COMMON_ARGS.PHASE, phase))
-            .setTitle(title);
-
-        const startDateInput = new TextInputBuilder()
-            .setCustomId(startDateCustomId)
-            .setLabel('Start Date (YYYY-MM-DD HH:MM)')
-            .setStyle(TextInputStyle.Short)
-            .setValue(startDateValue)
-            .setRequired(true);
-
-        const endDateInput = new TextInputBuilder()
-            .setCustomId(endDateCustomId)
-            .setLabel('End Date (YYYY-MM-DD HH:MM)')
-            .setStyle(TextInputStyle.Short)
-            .setValue(endDateValue)
-            .setRequired(true);
-
-        modal.addComponents(
-            new ActionRowBuilder<TextInputBuilder>().addComponents(startDateInput),
-            new ActionRowBuilder<TextInputBuilder>().addComponents(endDateInput)
-        );
-
-        await modalInteraction.showModal(modal);
-    }
-
-    private async handleSubmitPhase(interaction: TrackedInteraction): Promise<void> {
-        const modalInteraction = InteractionProperties.toModalSubmitInteractionOrUndefined(interaction.interaction);
-        if (!modalInteraction) {
-            throw new EndUserError('Invalid interaction type.')
-        }
-
-        const fundingRoundId = ArgumentOracle.getNamedArgument(interaction, ArgumentOracle.COMMON_ARGS.FUNDING_ROUND_ID);
-        const phase = ArgumentOracle.getNamedArgument(interaction, ArgumentOracle.COMMON_ARGS.PHASE) as 'consideration' | 'deliberation' | 'voting' | 'round';
-
-        let startDate: Date;
-        let endDate: Date;
-        if (phase === 'round') {
-            startDate = new Date(modalInteraction.fields.getTextInputValue(ModifyFundingRoundAction.INPUT_IDS.ROUND_START_DATE));
-            endDate = new Date(modalInteraction.fields.getTextInputValue(ModifyFundingRoundAction.INPUT_IDS.ROUND_END_DATE));
-        } else {
-            startDate = new Date(modalInteraction.fields.getTextInputValue(ModifyFundingRoundAction.INPUT_IDS.START_DATE));
-            endDate = new Date(modalInteraction.fields.getTextInputValue(ModifyFundingRoundAction.INPUT_IDS.END_DATE));
-        }
-
-
-        if (isNaN(startDate.getTime()) || isNaN(endDate.getTime())) {
-            throw new EndUserError('Invalid date format. Please use YYYY-MM-DD HH:MM.');
-        }
-
-        if (startDate >= endDate) {
-            throw new EndUserError('Start date must be before end date.');
-        }
-
-        const stakingLedgerEpochNum: number = parseInt(modalInteraction.fields.getTextInputValue(ModifyFundingRoundAction.INPUT_IDS.STAKING_LEDGER_EPOCH));
-
-        try {
-            const fundingRound = await FundingRoundLogic.getFundingRoundById(parseInt(fundingRoundId));
-            if (!fundingRound) {
-                throw new EndUserError('Funding round not found.');
-            }
-
-            const existingPhases = await FundingRoundLogic.getFundingRoundPhases(parseInt(fundingRoundId));
-
-            // Check phase order
-            if (phase === 'deliberation') {
-                const considerationPhase = existingPhases.find((p: FundingRoundPhase) => p.phase === 'consideration');
-                if (considerationPhase && startDate < considerationPhase.endDate) {
-                    throw new EndUserError('Deliberation phase must start after Consideration phase ends.');
-                }
-            } else if (phase === 'voting') {
-                const deliberationPhase = existingPhases.find((p: FundingRoundPhase) => p.phase === 'deliberation');
-                if (deliberationPhase && startDate < deliberationPhase.endDate) {
-                    throw new EndUserError('Voting phase must start after Deliberation phase ends.');
-                }
-            }
-
-            await FundingRoundLogic.setFundingRoundPhase(parseInt(fundingRoundId), phase, stakingLedgerEpochNum, startDate, endDate);
-
-            const updatedPhases = await FundingRoundLogic.getFundingRoundPhases(parseInt(fundingRoundId));
-            let allPhasesSet: boolean = ['consideration', 'deliberation', 'voting']
-                .every(phaseName => updatedPhases.some((p: FundingRoundPhase) => p.phase === phaseName));
-
-            allPhasesSet = allPhasesSet && (fundingRound.startAt !== null) && (fundingRound.endAt !== null);
-
-            fundingRound.reload();
-
-            const embed = new EmbedBuilder()
-                .setColor('#00FF00')
-                .setTitle('Funding Round Phase Updated')
-                .setDescription(`The ${phase} phase has been updated successfully.`)
-                .addFields(
-                    { name: 'Name', value: fundingRound.name },
-                    { name: 'Description', value: fundingRound.description },
-                    { name: 'Budget', value: fundingRound.budget.toString() },
-                    { name: 'Staking Ledger Epoch Number (For Voting)', value: fundingRound.stakingLedgerEpoch.toString() },
-                    { name: 'Start Date', value: fundingRound.startAt ? this.formatDate(fundingRound.startAt) : '❌ Not set' },
-                    { name: 'End Date', value: fundingRound.endAt ? this.formatDate(fundingRound.endAt) : '❌ Not set' },
-                    ...updatedPhases.map((p: FundingRoundPhase) => ({ name: `${p.phase.charAt(0).toUpperCase() + p.phase.slice(1)} Phase`, value: `Start: ${this.formatDate(p.startDate)}\nEnd: ${this.formatDate(p.endDate)}`, inline: true }))
-                );
-
-            if (allPhasesSet) {
-                embed.addFields({ name: 'Status', value: 'All phases have been set for the funding round.' });
-            } else {
-                const remainingPhases = ['consideration', 'deliberation', 'voting']
-                    .filter(phaseName => !updatedPhases.some((p: FundingRoundPhase) => p.phase === phaseName));
-
-                embed.addFields({ name: 'Remaining Phases', value: remainingPhases.join(', ') });
-
-                if (fundingRound.startAt === null || fundingRound.endAt === null) {
-                    embed.addFields({ name: 'Remaining Phases', value: 'Funding Round Duration' });
-                }
-            }
-
-            const backButton = new ButtonBuilder()
-                .setCustomId(CustomIDOracle.addArgumentsToAction(this, ModifyFundingRoundAction.OPERATIONS.SELECT_FUNDING_ROUND, ArgumentOracle.COMMON_ARGS.FUNDING_ROUND_ID, fundingRoundId))
-                .setLabel('Back to Funding Round')
-                .setStyle(ButtonStyle.Secondary);
-
-            const row = new ActionRowBuilder<ButtonBuilder>().addComponents(backButton);
-
-            await interaction.update({ embeds: [embed], components: [row] });
-        } catch (error) {
-            const errorMessage = error instanceof Error ? error.message : 'An unknown error occurred';
-            await interaction.respond({ content: `Error updating phase: ${errorMessage}`, ephemeral: true });
-            throw error;
-        }
-    }
-
-    private formatDate(date: Date): string {
-        return date.toISOString().slice(0, 16).replace('T', ' ');
-    }
 
     public allSubActions(): Action[] {
-        return [this.fundingRoundPaginationAction];
-    }
-
-    private async handleEditFundingRound(interaction: TrackedInteraction): Promise<void> {
-        await (this.screen as ManageFundingRoundsScreen).selectFundingRoundToEditAction.handleOperation(
-            interaction,
-            SelectFundingRoundToEditAction.OPERATIONS.SHOW_FUNDING_ROUNDS
-        );
+        return [];
     }
 
     getComponent(): ButtonBuilder {
         return new ButtonBuilder()
-            .setCustomId(CustomIDOracle.addArgumentsToAction(this, ModifyFundingRoundAction.OPERATIONS.EDIT_FUNDING_ROUND))
+            .setCustomId(CustomIDOracle.addArgumentsToAction(this, ModifyFundingRoundAction.OPERATIONS.SHOW_FUNDING_ROUNDS, FundingRoundPaginator.BOOLEAN.ARGUMENTS.FORCE_REPLY, FundingRoundPaginator.BOOLEAN.TRUE))
             .setLabel('Edit Funding Round')
             .setStyle(ButtonStyle.Primary);
     }
@@ -941,12 +866,14 @@ export class ModifyFundingRoundAction extends Action {
 export class SetFundingRoundCommitteeAction extends PaginationComponent {
     public static readonly ID = 'setFundingRoundCommittee';
 
+
     public static readonly OPERATIONS = {
         SHOW_FUNDING_ROUNDS: 'showFundingRounds',
         SELECT_FUNDING_ROUND: 'selectFundingRound',
         SELECT_COMMITTEE_MEMBERS: 'selectCommitteeMembers',
         CONFIRM_COMMITTEE: 'confirmCommittee',
     };
+
 
     protected async getTotalPages(interaction: TrackedInteraction, fundingRoundId?: number): Promise<number> {
         let parsedFundingRoundId: number;
@@ -1031,34 +958,11 @@ export class SetFundingRoundCommitteeAction extends PaginationComponent {
     }
 
     private async handleShowFundingRounds(interaction: TrackedInteraction): Promise<void> {
-        const fundingRounds = await FundingRoundLogic.getPresentAndFutureFundingRounds();
-
-        const selectMenu = new StringSelectMenuBuilder()
-            .setCustomId(CustomIDOracle.addArgumentsToAction(this, SetFundingRoundCommitteeAction.OPERATIONS.SELECT_FUNDING_ROUND))
-            .setPlaceholder('Select a Funding Round')
-            .addOptions(fundingRounds.map(fr => ({
-                label: fr.name,
-                value: fr.id.toString(),
-                description: `Status: ${fr.status}`
-            })));
-
-        const row = new ActionRowBuilder<StringSelectMenuBuilder>().addComponents(selectMenu);
-
-        await interaction.update({ components: [row] });
+        await (this.screen as ManageFundingRoundsScreen).committeeFRPaginator.handlePagination(interaction);
     }
 
     private async handleSelectFundingRound(interaction: TrackedInteraction): Promise<void> {
-        let fundingRoundId: string | undefined;
-        const interactionWithValues = InteractionProperties.toInteractionWithValuesOrUndefined(interaction.interaction);
-        if (!interactionWithValues) {
-            fundingRoundId = CustomIDOracle.getNamedArgument(interaction.customId, ArgumentOracle.COMMON_ARGS.FUNDING_ROUND_ID);
-            if (!fundingRoundId) {
-                throw new EndUserError('No values and no fundingRound in customId')
-            }
-        } else {
-            fundingRoundId = interactionWithValues.values[0];
-        }
-
+        let fundingRoundId: string  = ArgumentOracle.getNamedArgument(interaction, ArgumentOracle.COMMON_ARGS.FUNDING_ROUND_ID, 0);
         const parsedFundingRoundId = parseInt(fundingRoundId);
         await this.showCommitteeMemberSelection(interaction, parsedFundingRoundId);
     }
@@ -1201,11 +1105,12 @@ export class SetFundingRoundCommitteeAction extends PaginationComponent {
 export class ApproveFundingRoundAction extends Action {
     public static readonly ID = 'approveFundingRound';
 
-    private static readonly OPERATIONS = {
+    public static readonly OPERATIONS = {
         SHOW_FUNDING_ROUNDS: 'showFundingRounds',
         CONFIRM_APPROVAL: 'confirmApproval',
         EXECUTE_APPROVAL: 'executeApproval',
         EXECUTE_REJECTION: 'executeRejection',
+        SELECT_FUNDING_ROUND: 'selFR',
     };
 
     protected async handleOperation(interaction: TrackedInteraction, operationId: string): Promise<void> {
@@ -1213,6 +1118,9 @@ export class ApproveFundingRoundAction extends Action {
             case ApproveFundingRoundAction.OPERATIONS.SHOW_FUNDING_ROUNDS:
                 await this.handleShowFundingRounds(interaction);
                 break;
+            case ApproveFundingRoundAction.OPERATIONS.SELECT_FUNDING_ROUND:
+                await this.handleSelectFundingRound(interaction);
+                break
             case ApproveFundingRoundAction.OPERATIONS.CONFIRM_APPROVAL:
                 await this.handleConfirmApproval(interaction);
                 break;
@@ -1228,34 +1136,17 @@ export class ApproveFundingRoundAction extends Action {
     }
 
     private async handleShowFundingRounds(interaction: TrackedInteraction): Promise<void> {
-        const fundingRounds = await FundingRoundLogic.getPresentAndFutureFundingRounds();
+        await (this.screen as ManageFundingRoundsScreen).approveRejectFRPaginator.handlePagination(interaction);
+    }
 
-        const selectMenu = new StringSelectMenuBuilder()
-            .setCustomId(CustomIDOracle.addArgumentsToAction(this, ApproveFundingRoundAction.OPERATIONS.CONFIRM_APPROVAL))
-            .setPlaceholder('Select a Funding Round')
-            .addOptions(fundingRounds.map(fr => ({
-                label: fr.name,
-                value: fr.id.toString(),
-                description: `Status: ${fr.status}`
-            })));
-
-        const row = new ActionRowBuilder<StringSelectMenuBuilder>().addComponents(selectMenu);
-
-        await interaction.update({ components: [row] });
+    private async handleSelectFundingRound(interaction: TrackedInteraction): Promise<void> {
+        await this.handleConfirmApproval(interaction);
     }
 
     private async handleConfirmApproval(interaction: TrackedInteraction): Promise<void> {
-        const interactionWithValues = InteractionProperties.toInteractionWithValuesOrUndefined(interaction.interaction);
-        if (!interactionWithValues) {
-            throw new EndUserError('Invalid interaction type.')
-        }
+        const fundingRoundId = parseInt(ArgumentOracle.getNamedArgument(interaction, ArgumentOracle.COMMON_ARGS.FUNDING_ROUND_ID, 0));
 
-        const fundingRoundId = parseInt(interactionWithValues.values[0]);
-        const fundingRound = await FundingRoundLogic.getFundingRoundById(fundingRoundId);
-
-        if (!fundingRound) {
-            throw new EndUserError('Funding round not found.');
-        }
+        const fundingRound = await FundingRoundLogic.getFundingRoundByIdOrError(fundingRoundId);
 
         const embed = new EmbedBuilder()
             .setColor('#0099ff')
@@ -1417,29 +1308,11 @@ export class RemoveFundingRoundCommitteeAction extends PaginationComponent {
     }
 
     private async handleShowFundingRounds(interaction: TrackedInteraction): Promise<void> {
-        const fundingRounds = await FundingRoundLogic.getPresentAndFutureFundingRounds();
-
-        const selectMenu = new StringSelectMenuBuilder()
-            .setCustomId(CustomIDOracle.addArgumentsToAction(this, RemoveFundingRoundCommitteeAction.OPERATIONS.SELECT_FUNDING_ROUND))
-            .setPlaceholder('Select a Funding Round')
-            .addOptions(fundingRounds.map(fr => ({
-                label: fr.name,
-                value: fr.id.toString(),
-                description: `Status: ${fr.status}`
-            })));
-
-        const row = new ActionRowBuilder<StringSelectMenuBuilder>().addComponents(selectMenu);
-
-        await interaction.update({ components: [row] });
+        await (this.screen as ManageFundingRoundsScreen).committeeDeleteFRPaginator.handlePagination(interaction);
     }
-
+    
     private async handleSelectFundingRound(interaction: TrackedInteraction): Promise<void> {
-        const interactionWithValues = InteractionProperties.toInteractionWithValuesOrUndefined(interaction.interaction);
-        if (!interactionWithValues) {
-            throw new EndUserError('Invalid interaction type.');
-        }
-
-        const fundingRoundId = interactionWithValues.values[0];
+        const fundingRoundId: string = ArgumentOracle.getNamedArgument(interaction, ArgumentOracle.COMMON_ARGS.FUNDING_ROUND_ID, 0);
         await this.showMemberRemovalSelection(interaction, parseInt(fundingRoundId));
     }
 
@@ -1583,6 +1456,7 @@ export class SelectFundingRoundToEditAction extends PaginationComponent {
 
     public async handleOperation(interaction: TrackedInteraction, operationId: string): Promise<void> {
         switch (operationId) {
+            case PaginationComponent.PAGINATION_ARG:
             case SelectFundingRoundToEditAction.OPERATIONS.SHOW_FUNDING_ROUNDS:
                 await this.handleShowFundingRounds(interaction);
                 break;
@@ -1608,8 +1482,10 @@ export class SelectFundingRoundToEditAction extends PaginationComponent {
             .setTitle('Select a Funding Round to Edit')
             .setDescription(`Please select a funding round to edit. Page ${currentPage + 1} of ${totalPages}`);
 
+        const customId: string = CustomIDOracle.addArgumentsToAction((this.screen as ManageFundingRoundsScreen).createFundingRoundAction, CreateOrEditFundingRoundAction.OPERATIONS.SHOW_PROGRESS);
+
         const selectMenu = new StringSelectMenuBuilder()
-            .setCustomId(CustomIDOracle.addArgumentsToAction(this, SelectFundingRoundToEditAction.OPERATIONS.SELECT_FUNDING_ROUND))
+            .setCustomId(customId)
             .setPlaceholder('Select a Funding Round')
             .addOptions(fundingRounds.map(fr => ({
                 label: fr.name,
@@ -1625,7 +1501,7 @@ export class SelectFundingRoundToEditAction extends PaginationComponent {
             components.push(paginationRow);
         }
 
-        await interaction.respond({ embeds: [embed], components, ephemeral: true });
+        await interaction.update({ embeds: [embed], components, ephemeral: true });
     }
 
     private async handleSelectFundingRound(interaction: TrackedInteraction): Promise<void> {
@@ -1637,11 +1513,15 @@ export class SelectFundingRoundToEditAction extends PaginationComponent {
         );
     }
 
+    
+
     public allSubActions(): Action[] {
         return [];
     }
 
     getComponent(): ButtonBuilder {
+
+        console.log("Hellooooooo");
         return new ButtonBuilder()
             .setCustomId(CustomIDOracle.addArgumentsToAction(this, SelectFundingRoundToEditAction.OPERATIONS.SHOW_FUNDING_ROUNDS))
             .setLabel('Edit Funding Round')
@@ -1719,7 +1599,7 @@ export class EditFundingRoundTypeSelectionAction extends Action {
 
         const row = new ActionRowBuilder<ButtonBuilder>()
             .addComponents(editInfoButton, editPhasesButton, editTopicButton);
-        
+
 
         await interaction.update({ embeds: [embed], components: [row], ephemeral: true });
     }
@@ -1833,12 +1713,12 @@ export class EditFundingRoundInformationAction extends Action {
             .setStyle(TextInputStyle.Short)
             .setValue(fundingRound.stakingLedgerEpoch.toString())
             .setRequired(true);
-        
+
         const forumChannelId = new TextInputBuilder()
             .setCustomId(EditFundingRoundInformationAction.INPUT_IDS.FORUM_CHANNEL_ID)
             .setLabel('Forum Channel ID')
             .setStyle(TextInputStyle.Short)
-            .setValue(fundingRound.forumChannelId ? fundingRound.forumChannelId.toString(): '')
+            .setValue(fundingRound.forumChannelId ? fundingRound.forumChannelId.toString() : '')
             .setRequired(true);
 
         modal.addComponents(
@@ -1855,7 +1735,7 @@ export class EditFundingRoundInformationAction extends Action {
     private async handleSubmitEdit(interaction: TrackedInteraction): Promise<void> {
         const modalInteraction = InteractionProperties.toModalSubmitInteractionOrError(interaction.interaction);
 
-        const fundingRoundId: number = parseInt(ArgumentOracle.getNamedArgument(interaction, ArgumentOracle.COMMON_ARGS.FUNDING_ROUND_ID)); 
+        const fundingRoundId: number = parseInt(ArgumentOracle.getNamedArgument(interaction, ArgumentOracle.COMMON_ARGS.FUNDING_ROUND_ID));
 
         const name = modalInteraction.fields.getTextInputValue(EditFundingRoundInformationAction.INPUT_IDS.NAME);
         const description = modalInteraction.fields.getTextInputValue(EditFundingRoundInformationAction.INPUT_IDS.DESCRIPTION);
@@ -1992,6 +1872,8 @@ export class EditFundingRoundPhasesAction extends Action {
         const phase: string = ArgumentOracle.getNamedArgument(interaction, ArgumentOracle.COMMON_ARGS.PHASE);
         const fundingRoundId: number = parseInt(ArgumentOracle.getNamedArgument(interaction, ArgumentOracle.COMMON_ARGS.FUNDING_ROUND_ID));
 
+        const parsedPhase = FundingRoundMI.toFundingRoundPhaseFromString(phase);
+
         const fundingRound = await FundingRoundLogic.getFundingRoundById(fundingRoundId);
         if (!fundingRound) {
             throw new EndUserError('Funding round not found.');
@@ -2002,7 +1884,7 @@ export class EditFundingRoundPhasesAction extends Action {
             startDate = fundingRound.startAt;
             endDate = fundingRound.endAt;
         } else {
-            const phaseData = await FundingRoundLogic.getFundingRoundPhase(fundingRoundId, phase);
+            const phaseData = await FundingRoundLogic.getFundingRoundPhase(fundingRoundId, parsedPhase);
             startDate = phaseData?.startAt;
             endDate = phaseData?.endAt;
         }
@@ -2029,7 +1911,7 @@ export class EditFundingRoundPhasesAction extends Action {
             .setCustomId(EditFundingRoundPhasesAction.INPUT_IDS.STAKING_LEDGER_EPOCH)
             .setLabel('Staking Ledger Epoch For Vote Counting')
             .setStyle(TextInputStyle.Short)
-            .setValue(fundingRound.stakingLedgerEpoch ? fundingRound.stakingLedgerEpoch.toString(): '')
+            .setValue(fundingRound.stakingLedgerEpoch ? fundingRound.stakingLedgerEpoch.toString() : '')
             .setRequired(true);
 
         modal.addComponents(
@@ -2050,12 +1932,16 @@ export class EditFundingRoundPhasesAction extends Action {
         const fundingRoundId: number = parseInt(ArgumentOracle.getNamedArgument(interaction, ArgumentOracle.COMMON_ARGS.FUNDING_ROUND_ID));
         const phase: string = ArgumentOracle.getNamedArgument(interaction, ArgumentOracle.COMMON_ARGS.PHASE);
 
-        const startDate = new Date(modalInteraction.fields.getTextInputValue(EditFundingRoundPhasesAction.INPUT_IDS.START_DATE));
-        const endDate = new Date(modalInteraction.fields.getTextInputValue(EditFundingRoundPhasesAction.INPUT_IDS.END_DATE));
+        const startDate = InputDate.toDate(modalInteraction.fields.getTextInputValue(EditFundingRoundPhasesAction.INPUT_IDS.START_DATE));
+        const endDate = InputDate.toDate(modalInteraction.fields.getTextInputValue(EditFundingRoundPhasesAction.INPUT_IDS.END_DATE));
         const stakingLedgerEpochNum: number = parseInt(modalInteraction.fields.getTextInputValue(EditFundingRoundPhasesAction.INPUT_IDS.STAKING_LEDGER_EPOCH));
 
         if (isNaN(startDate.getTime()) || isNaN(endDate.getTime())) {
             throw new EndUserError('Invalid date format. Please use YYYY-MM-DD HH:MM.');
+        }
+
+        if (isNaN(stakingLedgerEpochNum)) {
+            throw new EndUserError('Invalid staking ledger epoch number.');
         }
 
         if (startDate >= endDate) {
@@ -2066,7 +1952,7 @@ export class EditFundingRoundPhasesAction extends Action {
 
         try {
             if (phase === EditFundingRoundPhasesAction.PHASE_NAMES.ROUND) {
-                await FundingRoundLogic.updateFundingRound(fundingRoundId,{startAt: startDate, endAt: endDate, stakingLedgerEpoch: stakingLedgerEpochNum });
+                await FundingRoundLogic.updateFundingRound(fundingRoundId, { startAt: startDate, endAt: endDate, stakingLedgerEpoch: stakingLedgerEpochNum });
             } else {
                 await FundingRoundLogic.setFundingRoundPhase(fundingRoundId, stringPhase, stakingLedgerEpochNum, startDate, endDate);
             }
@@ -2079,7 +1965,7 @@ export class EditFundingRoundPhasesAction extends Action {
                 .setTitle('Funding Round Phase Updated')
                 .setDescription(`The ${phase} phase for "${updatedFundingRound?.name}" has been successfully updated.`)
                 .addFields(
-                    { name: 'Funding Round Duration', value: `Start: ${updatedFundingRound?.startAt?.toISOString() || 'Not set'}\nEnd: ${updatedFundingRound?.endAt?.toISOString() || 'Not set'}`, inline: false }, 
+                    { name: 'Funding Round Duration', value: `Start: ${updatedFundingRound?.startAt?.toISOString() || 'Not set'}\nEnd: ${updatedFundingRound?.endAt?.toISOString() || 'Not set'}`, inline: false },
                     { name: 'Staking Ledger Epoch', value: updatedFundingRound?.stakingLedgerEpoch.toString(), inline: false }
                 );
 

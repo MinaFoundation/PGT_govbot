@@ -150,9 +150,9 @@ export class SelectProposalAction extends PaginationComponent {
         selectProposal: 'selectProposal'
     }
 
-    protected async getTotalPages(interaction: TrackedInteraction, frId?:string): Promise<number> {
+    protected async getTotalPages(interaction: TrackedInteraction, frId?: string): Promise<number> {
         let fundingRoundId = CustomIDOracle.getNamedArgument(interaction.customId, 'fundingRoundId');
-        
+
         if (frId) {
             fundingRoundId = frId.toString();
         }
@@ -165,7 +165,7 @@ export class SelectProposalAction extends PaginationComponent {
         return Math.ceil(proposals.length / 25);
     }
 
-    protected async getItemsForPage(interaction: TrackedInteraction, page: number, frId?:string): Promise<Proposal[]> {
+    protected async getItemsForPage(interaction: TrackedInteraction, page: number, frId?: string): Promise<Proposal[]> {
 
         let fundingRoundId = CustomIDOracle.getNamedArgument(interaction.customId, 'fundingRoundId');
 
@@ -281,12 +281,12 @@ export class UpdateProposalStatusAction extends Action {
         }
     }
 
-    public async renderShowStatusOptions(interaction: TrackedInteraction, pId?:string): Promise<void> {
-        
+    public async renderShowStatusOptions(interaction: TrackedInteraction, pId?: string): Promise<void> {
+
         const proposalIdFromCntx: string | undefined = interaction.Context.get('proposalId');
         const proposalIdFromCustomId = CustomIDOracle.getNamedArgument(interaction.customId, 'proposalId');
-        
-        const proposalId: string | undefined = pId || proposalIdFromCntx || proposalIdFromCustomId;        
+
+        const proposalId: string | undefined = pId || proposalIdFromCntx || proposalIdFromCustomId;
 
         if (!proposalId) {
             await DiscordStatus.Error.error(interaction, 'Proposal ID not found in customId, context or arg.');
@@ -324,7 +324,7 @@ export class UpdateProposalStatusAction extends Action {
         const row = new ActionRowBuilder<StringSelectMenuBuilder>().addComponents(selectMenu);
 
         await interaction.update({ embeds: [embed], components: [row] });
-    
+
     }
 
     private async handleShowStatusOptions(interaction: TrackedInteraction): Promise<void> {
@@ -350,38 +350,35 @@ export class UpdateProposalStatusAction extends Action {
 
         const newStatus = parsedInteraction.values[0] as ProposalStatus;
 
-        try {
-            const updatedProposal = await AdminProposalLogic.updateProposalStatus(parseInt(proposalId), newStatus, this.screen);
+        const updatedProposal = await AdminProposalLogic.updateProposalStatus(parseInt(proposalId), newStatus, this.screen);
 
-            const embed = new EmbedBuilder()
-                .setColor('#00FF00')
-                .setTitle(`Proposal Status Updated: ${updatedProposal.name}`)
-                .setDescription(`New status: ${updatedProposal.status}`)
-                .addFields(
-                    { name: 'ID', value: updatedProposal.id.toString(), inline: true },
-                    {name: 'URL', value: updatedProposal.uri, inline: true},
-                    { name: 'Budget', value: updatedProposal.budget.toString(), inline: true },
-                    { name: 'Proposer', value: updatedProposal.proposerDuid, inline: true }
-                );
+        const embed = new EmbedBuilder()
+            .setColor('#00FF00')
+            .setTitle(`Proposal Status Updated: ${updatedProposal.name}`)
+            .setDescription(`New status: ${updatedProposal.status}`)
+            .addFields(
+                { name: 'ID', value: updatedProposal.id.toString(), inline: true },
+                { name: 'URL', value: updatedProposal.uri, inline: true },
+                { name: 'Budget', value: updatedProposal.budget.toString(), inline: true },
+                { name: 'Proposer', value: updatedProposal.proposerDuid, inline: true }
+            );
 
-            const selectPropAction: SelectProposalAction = (this.screen as ManageProposalStatusesScreen).selectProposalAction;
+        const selectPropAction: SelectProposalAction = (this.screen as ManageProposalStatusesScreen).selectProposalAction;
 
-            if (!updatedProposal.fundingRoundId) {
-                await DiscordStatus.Warning.warning(interaction, `Proposal does not have a Funding Round associated`);
-                throw new EndUserError(`Proposal ${updatedProposal.id} does not have a Funding Round associated`);
-            }
-
-            const backButton = new ButtonBuilder()
-                .setCustomId(CustomIDOracle.addArgumentsToAction(selectPropAction, SelectProposalAction.OPERATIONS.showProposals, 'fundingRoundId', updatedProposal.fundingRoundId.toString()))
-                .setLabel('Update Status Again')
-                .setStyle(ButtonStyle.Primary);
-
-            const row = new ActionRowBuilder<ButtonBuilder>().addComponents(backButton);
-
-            await interaction.update({ embeds: [embed], components: [row] });
-        } catch (error) {
-            await DiscordStatus.Error.error(interaction, `Failed to update proposal status: ${error instanceof Error ? error.message : 'Unknown error'}`);
+        if (!updatedProposal.fundingRoundId) {
+            await DiscordStatus.Warning.warning(interaction, `Proposal does not have a Funding Round associated`);
+            throw new EndUserError(`Proposal ${updatedProposal.id} does not have a Funding Round associated`);
         }
+
+        const backButton = new ButtonBuilder()
+            .setCustomId(CustomIDOracle.addArgumentsToAction(selectPropAction, SelectProposalAction.OPERATIONS.showProposals, 'fundingRoundId', updatedProposal.fundingRoundId.toString()))
+            .setLabel('Update Status Again')
+            .setStyle(ButtonStyle.Primary);
+
+        const row = new ActionRowBuilder<ButtonBuilder>().addComponents(backButton);
+
+        await interaction.update({ embeds: [embed], components: [row] });
+
     }
 
     public allSubActions(): Action[] {

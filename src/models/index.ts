@@ -320,6 +320,23 @@ class FundingRound extends Model<FundingRoundAttributes, FundingRoundCreationAtt
   public createConsiderationPhase!: (phase: ConsiderationPhase) => Promise<ConsiderationPhase>;
   public createDeliberationPhase!: (phase: DeliberationPhase) => Promise<DeliberationPhase>;
   public createFundingVotingPhase!: (phase: FundingVotingPhase) => Promise<FundingVotingPhase>;
+
+  public async isReady(): Promise<boolean> {
+    return !!(
+      this.name &&
+      this.description &&
+      this.budget &&
+      this.stakingLedgerEpoch &&
+      this.topicId &&
+      this.startAt &&
+      this.endAt &&
+      this.votingOpenUntil &&
+      await this.getConsiderationPhase() &&
+      await this.getConsiderationPhase() &&
+      await this.getFundingVotingPhase() &&
+      this.forumChannelId
+    );
+  }
 }
 
 FundingRound.init(

@@ -26,7 +26,6 @@ export class DiscordStatus {
         },
 
         async handleError(interaction: TrackedInteraction, error: EndUserError | Error | unknown): Promise<void> {
-
             if (error instanceof EndUserError) {
                 const parentError: Error | undefined | unknown = error.parentError;
                 let message: string;

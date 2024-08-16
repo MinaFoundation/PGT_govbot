@@ -18,6 +18,7 @@ export class TrackedInteraction {
     public readonly interaction: AnyInteraction;
     public interactionReplies: Message<boolean>[] = [];
     public Context: Map<string, string> = new Map();
+    protected _isUpdated: boolean = false;
 
     constructor(interaction: AnyInteraction) {
         this.interaction = interaction;
@@ -29,22 +30,22 @@ export class TrackedInteraction {
 
     public getFromValuesCustomIdOrContext(index: number, name: string) {
         const interactionWithValues: AnyInteractionWithValues | undefined = InteractionProperties.toInteractionWithValuesOrUndefined(this.interaction);
-        logger.trace(`Looking for value at index ${index} for name ${name}, in ${this.interaction.customId}`); 
+        logger.debug(`Looking for value at index ${index} for name ${name}, in ${this.interaction.customId}`); 
         if (interactionWithValues) {
             const value = interactionWithValues.values[index];
-            logger.trace(`Interaction values: ${interactionWithValues.values}, returning value at index ${index}: ${value}`);
+            logger.debug(`Interaction values: ${interactionWithValues.values}, returning value at index ${index}: ${value}`);
             return value;
         }
 
         const valueFromCustomId = this.getFromCustomId(name);
         if (valueFromCustomId) {
-            logger.trace(`Returning value from custom_id: ${valueFromCustomId}`);
+            logger.debug(`Returning value from custom_id: ${valueFromCustomId}`);
             return valueFromCustomId;
         }
 
         const valueFromContext = this.Context.get(name);
         if (valueFromContext) {
-            logger.trace(`Returning value from context: ${valueFromContext}`);
+            logger.debug(`Returning value from context: ${valueFromContext}`);
         }
         return valueFromContext;
     }
@@ -63,15 +64,15 @@ export class TrackedInteraction {
         }
 
         try {
-
-            if (this.interactionReplies.length === 0) {
-            
-                const response: Message<boolean> = await this.interaction.reply(args);
-                this.interactionReplies.push(response);
-                return response;
-            } else {
+            const followUp: boolean = this.interactionReplies.length > 0 || this._isUpdated;
+            if (followUp) {  
                 const lastResponse = this.interactionReplies[this.interactionReplies.length - 1];
                 const response: Message<boolean> = await this.interaction.followUp(args);
+                this.interactionReplies.push(response);
+                return response;
+
+            } else {
+                const response: Message<boolean> = await this.interaction.reply(args);
                 this.interactionReplies.push(response);
                 return response;
             }
@@ -85,6 +86,7 @@ export class TrackedInteraction {
     public async update(args: any) {
         const parsedInteraction = InteractionProperties.toUpdateableOrUndefined(this.interaction);
         if (parsedInteraction) {
+            this._isUpdated = true;
             return await parsedInteraction.update(args);
         } else {
             throw new EndUserError('Interaction is not updatable, so unable to update');
@@ -414,7 +416,7 @@ export abstract class Dashboard {
         }
     }
 
-    protected getScreen(screenId: string): Screen | undefined {
+    public getScreen(screenId: string): Screen | undefined {
         return this.screens.get(screenId);
     }
 
