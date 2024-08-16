@@ -30,22 +30,22 @@ export class TrackedInteraction {
 
     public getFromValuesCustomIdOrContext(index: number, name: string) {
         const interactionWithValues: AnyInteractionWithValues | undefined = InteractionProperties.toInteractionWithValuesOrUndefined(this.interaction);
-        logger.trace(`Looking for value at index ${index} for name ${name}, in ${this.interaction.customId}`); 
+        logger.debug(`Looking for value at index ${index} for name ${name}, in ${this.interaction.customId}`); 
         if (interactionWithValues) {
             const value = interactionWithValues.values[index];
-            logger.trace(`Interaction values: ${interactionWithValues.values}, returning value at index ${index}: ${value}`);
+            logger.debug(`Interaction values: ${interactionWithValues.values}, returning value at index ${index}: ${value}`);
             return value;
         }
 
         const valueFromCustomId = this.getFromCustomId(name);
         if (valueFromCustomId) {
-            logger.trace(`Returning value from custom_id: ${valueFromCustomId}`);
+            logger.debug(`Returning value from custom_id: ${valueFromCustomId}`);
             return valueFromCustomId;
         }
 
         const valueFromContext = this.Context.get(name);
         if (valueFromContext) {
-            logger.trace(`Returning value from context: ${valueFromContext}`);
+            logger.debug(`Returning value from context: ${valueFromContext}`);
         }
         return valueFromContext;
     }
