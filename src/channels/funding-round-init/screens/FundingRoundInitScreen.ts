@@ -226,7 +226,7 @@ export class CreateDraftFundingRoundAction extends Action {
 
         const votingOpenUntilInput = new TextInputBuilder()
             .setCustomId(CreateDraftFundingRoundAction.INPUT_IDS.VOTING_OPEN_UNTIL)
-            .setLabel('Voting Open Until (YYYY-MM-DD HH:MM)')
+            .setLabel('Funding Round Activation Voting Until (YYYY-MM-DD HH:MM)')
             .setStyle(TextInputStyle.Short)
             .setRequired(true);
 
