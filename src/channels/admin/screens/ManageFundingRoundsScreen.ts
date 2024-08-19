@@ -641,7 +641,7 @@ export class SetPhaseAction extends Action {
         if (phase === FundingRoundMI.PHASES.ROUND) {
             const votingOpenUntilInput = new TextInputBuilder()
                 .setCustomId(SetPhaseAction.INPUT_IDS.VOTING_OPEN_UNTIL)
-                .setLabel('Voting Open Until (YYYY-MM-DD HH:MM)')
+                .setLabel('Funding Round Activation Voting Until (YYYY-MM-DD HH:MM)')
                 .setStyle(TextInputStyle.Short)
                 .setValue(votingOpenUntilValue)
                 .setRequired(true);
