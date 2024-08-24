@@ -337,6 +337,25 @@ class FundingRound extends Model<FundingRoundAttributes, FundingRoundCreationAtt
       this.forumChannelId
     );
   }
+
+  public async isSMEGroupMember(duid: string): Promise<boolean> {
+    const topic: Topic = await this.getTopic();
+    const topicCommittee: TopicCommittee | null = await TopicCommittee.findOne({
+      where: { topicId: topic.id }
+    });
+    
+    if (!topicCommittee) {
+      return false;
+    }
+
+    const smeGroupMembership = await SMEGroupMembership.findOne({
+      where: {
+        duid,
+        smeGroupId: topicCommittee.smeGroupId,
+      },
+    });
+    return !!smeGroupMembership;
+  }
 }
 
 FundingRound.init(

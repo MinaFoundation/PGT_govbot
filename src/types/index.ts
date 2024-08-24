@@ -218,3 +218,8 @@ export type FundingRoundPhase = {
   startDate: Date;
   endDate: Date;
 };
+
+export interface TopicCommitteeWithSMEGroup extends TopicCommitteeAttributes {
+    smeGroupName: string;
+  }
+
