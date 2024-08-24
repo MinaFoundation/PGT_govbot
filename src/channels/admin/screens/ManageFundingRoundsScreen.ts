@@ -5,15 +5,13 @@ import { ArgumentOracle, CustomIDOracle } from '../../../CustomIDOracle';
 import { ConsiderationPhase, DeliberationPhase, FundingRound, FundingVotingPhase, SMEGroup, Topic, TopicCommittee } from '../../../models';
 import { InteractionProperties } from '../../../core/Interaction';
 import { PaginationComponent } from '../../../components/PaginationComponent';
-import { FundingRoundPhase, FundingRoundStatus } from '../../../types';
-import { TopicLogic } from './ManageTopicLogicScreen';
 import logger from '../../../logging';
 import { EndUserError, NotFoundEndUserError } from '../../../Errors';
 import { DiscordStatus } from '../../DiscordStatus';
 import { FundingRoundMI, FundingRoundMIPhaseValue } from '../../../models/Interface';
 import { InputDate } from '../../../dates/Input';
-import { ExclusionConstraintError } from 'sequelize';
 import { ApproveRejectFundingRoundPaginator, EditFundingRoundPaginator, FundingRoundPaginator, RemoveCommiteeFundingRoundPaginator, SetCommitteeFundingRoundPaginator } from '../../../components/FundingRoundPaginator';
+import { TopicLogic } from '../../../logic/TopicLogic';
 
 
 
@@ -297,7 +295,8 @@ export class SelectTopicAction extends PaginationComponent {
     }
 
     protected async getItemsForPage(interaction: TrackedInteraction, page: number): Promise<Topic[]> {
-        const topics = await TopicLogic.getAllTopics();
+        const duid: string = interaction.discordUserId;
+        const topics = await TopicLogic.getTopicsForSMEMember(duid);
         return topics.slice(page * 25, (page + 1) * 25);
     }
 

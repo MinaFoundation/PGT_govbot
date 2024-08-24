@@ -87,12 +87,12 @@ class SelectFundingRoundAction extends PaginationComponent {
   };
 
   protected async getTotalPages(interaction: TrackedInteraction): Promise<number> {
-    const eligibleFundingRounds = await FundingRoundLogic.getEligibleVotingRounds();
+    const eligibleFundingRounds = await FundingRoundLogic.getEligibleVotingRounds(interaction);
     return Math.ceil(eligibleFundingRounds.length / 25);
   }
 
   protected async getItemsForPage(interaction: TrackedInteraction, page: number): Promise<FundingRound[]> {
-    const eligibleFundingRounds = await FundingRoundLogic.getEligibleVotingRounds();
+    const eligibleFundingRounds = await FundingRoundLogic.getEligibleVotingRounds(interaction);
     return eligibleFundingRounds.slice(page * 25, (page + 1) * 25);
   }
 

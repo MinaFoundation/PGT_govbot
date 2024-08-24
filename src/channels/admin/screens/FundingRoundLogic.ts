@@ -1,7 +1,8 @@
 import sequelize from '../../../config/database';
+import { TrackedInteraction } from '../../../core/BaseClasses';
 import { EndUserError } from '../../../Errors';
 import logger from '../../../logging';
-import { FundingRound, Topic, ConsiderationPhase, DeliberationPhase, FundingVotingPhase, SMEGroup, SMEGroupMembership, FundingRoundDeliberationCommitteeSelection, FundingRoundApprovalVote, TopicSMEGroupProposalCreationLimiter, Proposal } from '../../../models';
+import { FundingRound, Topic, ConsiderationPhase, DeliberationPhase, FundingVotingPhase, SMEGroup, SMEGroupMembership, FundingRoundDeliberationCommitteeSelection, FundingRoundApprovalVote, TopicSMEGroupProposalCreationLimiter, Proposal, TopicCommittee } from '../../../models';
 import { FundingRoundMI, FundingRoundMIPhase, FundingRoundMIPhaseValue } from '../../../models/Interface';
 import { FundingRoundAttributes, FundingRoundStatus, FundingRoundPhase, ProposalStatus } from '../../../types';
 import { Op, Transaction } from 'sequelize';
@@ -351,7 +352,9 @@ export class FundingRoundLogic {
         });
     }
 
-    static async getEligibleVotingRounds(): Promise<FundingRound[]> {
+    static async getEligibleVotingRounds(interaction: TrackedInteraction): Promise<FundingRound[]> {
+        const duid: string = interaction.discordUserId;
+
         const now = new Date();
         const allFindingRoundsInVoting = await FundingRound.findAll({
             where: {
@@ -361,8 +364,11 @@ export class FundingRoundLogic {
                 },
             },
     });
-    const onlyReadyFundingRounds = allFindingRoundsInVoting.filter( value => value.isReady())
-    return onlyReadyFundingRounds;
+    const onlyReadyFundingRounds = allFindingRoundsInVoting.filter( value => value.isReady());
+
+    const onlyFundingRoundsWhereUserIsSME = onlyReadyFundingRounds.filter(value => value.isSMEGroupMember(duid));
+
+    return onlyFundingRoundsWhereUserIsSME;
 }
 
     static async hasUserVotedOnFundingRound(userId: string, fundingRoundId: number): Promise<boolean> {
@@ -846,12 +852,50 @@ export class FundingRoundLogic {
     }
 
     static async setTopic(fundingRoundId: number, topicId: number): Promise<FundingRound> {
-        const { TopicLogic } = await import('../../admin/screens/ManageTopicLogicScreen');
+        const { TopicLogic } = await import("../../../logic/TopicLogic");
 
         const fundingRound = await this.getFundingRoundByIdOrError(fundingRoundId);
         const topic = await TopicLogic.getByIdOrError(topicId);
 
         return await fundingRound.update({ topicId: topic.id });
-    } 
+    }
 
+    static async getFundingRoundsForUser(duid: string): Promise<FundingRound[]> {
+        // Get all SMEGroups the user belongs to
+        const userSMEGroups = await SMEGroupMembership.findAll({
+            where: { duid },
+            attributes: ['smeGroupId']
+        });
+
+        const userSMEGroupIds = userSMEGroups.map(group => group.smeGroupId);
+
+        // Find all TopicCommittees associated with the user's SMEGroups
+        const relevantTopicCommittees = await TopicCommittee.findAll({
+            where: {
+                smeGroupId: {
+                    [Op.in]: userSMEGroupIds
+                }
+            },
+            attributes: ['topicId']
+        });
+
+        const relevantTopicIds = relevantTopicCommittees.map(committee => committee.topicId);
+
+        // Find all FundingRounds associated with these Topics
+        const fundingRounds = await FundingRound.findAll({
+            where: {
+                topicId: {
+                    [Op.in]: relevantTopicIds
+                }
+            },
+            include: [
+                {
+                    model: Topic,
+                    as: 'topic'
+                }
+            ]
+        });
+
+        return fundingRounds;
+    }
 }

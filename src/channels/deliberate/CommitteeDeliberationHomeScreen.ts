@@ -636,7 +636,7 @@ class CommitteeDeliberationVoteAction extends Action {
         }
 
         await CommitteeDeliberationLogic.submitVote(interaction.interaction.user.id, projectId, fundingRoundId, vote, reason, uri);
-
+        // TODO: don't show the button to vote on the current vote value
         const embed = new EmbedBuilder()
             .setColor('#28a745')
             .setTitle('Vote Submitted Successfully')
@@ -653,7 +653,7 @@ class CommitteeDeliberationVoteAction extends Action {
                 {name: 'Reason', value: reason}
             )
         }
-        await interaction.update({ embeds: [embed], ephemeral: true });
+        await interaction.respond({ embeds: [embed], ephemeral: true });
 
     }
 
