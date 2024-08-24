@@ -24,6 +24,10 @@ export class TrackedInteraction {
         this.interaction = interaction;
     }
 
+    get discordUserId(): string {
+        return this.interaction.user.id;
+    }
+
     public getFromCustomId(name: string): string | undefined {
         return CustomIDOracle.getNamedArgument(this.customId, name);
     }
