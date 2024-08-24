@@ -42,6 +42,11 @@ export class EditFundingRoundPaginator extends FundingRoundPaginator {
 
     public args: string[] = []
     public title: string = "Select A Funding Round To Edit";
+
+    public async getItems(interaction: TrackedInteraction): Promise<FundingRound[]> {
+        const duid: string = interaction.discordUserId;
+        return await FundingRoundLogic.getFundingRoundsForUser(duid);
+    }
 }
 
 export class SetCommitteeFundingRoundPaginator extends FundingRoundPaginator {
@@ -75,6 +80,6 @@ export class InVotingFundingRoundPaginator extends FundingRoundPaginator {
 
 
     public async getItems(interaction: TrackedInteraction): Promise<FundingRound[]> {
-        return await FundingRoundLogic.getEligibleVotingRounds();
+        return await FundingRoundLogic.getEligibleVotingRounds(interaction);
     }
 }

@@ -4,7 +4,7 @@ import { Action, TrackedInteraction } from '../core/BaseClasses';
 import { ActionRowBuilder, ButtonBuilder, ButtonStyle, EmbedBuilder, MessageActionRowComponentBuilder, StringSelectMenuBuilder } from 'discord.js';
 import { ArgumentOracle, CustomIDOracle } from '../CustomIDOracle';
 import { Screen } from '../core/BaseClasses';
-import { EndUserError } from '../Errors';
+import { EndUserError, NotFoundEndUserError, NotFoundEndUserInfo } from '../Errors';
 import logger from '../logging';
 
 export abstract class PaginationComponent extends Action {
@@ -135,6 +135,11 @@ export abstract class ORMModelPaginator<ORMModel> extends PaginationComponent {
     const customId: string = CustomIDOracle.addArgumentsToAction(this.action, this.operation, ...allArgs);
 
     const selectMenuOptions = await this.getOptions(interaction, allItems);
+
+    if (!selectMenuOptions || selectMenuOptions.length === 0) {
+      throw new NotFoundEndUserInfo('No available items found');
+    }
+
     const selectMenu = new StringSelectMenuBuilder()
       .setCustomId(customId)
       .setPlaceholder(this.placeholder)
