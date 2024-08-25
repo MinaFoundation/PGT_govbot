@@ -82,6 +82,19 @@ export class CustomIDOracle {
     return outputCustomId;
   }
 
+  static addArgumentsToActionCustomDashboardId(dashboardId: string, action: Action, operation?: string, ...args: string[]): string {
+    if (args.length % 2 !== 0) {
+      throw new EndUserError('Arguments must be key-value pairs');
+    }
+    const customId = this.customIdFromRawParts(dashboardId, action.screen.ID, action.ID, operation, ...args);
+
+    if (customId.length > this.MAX_LENGTH) {
+      throw new EndUserError(`Custom ID exceeds maximum length of ${this.MAX_LENGTH} characters by ${customId.length - this.MAX_LENGTH} characters`);
+    }
+
+    return customId;
+  }
+
   static getNamedArgument(customId: string, argName: string): string | undefined {
     const args = this.getArguments(customId);
     for (let i = 0; i < args.length; i += 2) {

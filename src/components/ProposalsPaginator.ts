@@ -37,7 +37,26 @@ export class EditMySubmittedProposalsPaginator extends ProposalsPaginator {
         );
         return eligibleProposals;
     }
+}
 
+export class ManageProposalStatusesPaginator extends ProposalsPaginator {
+    public static readonly ID = "ManPropStatPag";
+    public args: string[] = [];
+    public title: string = "Select a Proposal to Manage";
 
+    public readonly REQUIRED_ARGUMENTS: string[] = [ArgumentOracle.COMMON_ARGS.FUNDING_ROUND_ID];
 
+    public async getItems(interaction: TrackedInteraction): Promise<Proposal[]> {
+        const fundingRoundId: string = ArgumentOracle.getNamedArgument(interaction, ArgumentOracle.COMMON_ARGS.FUNDING_ROUND_ID);
+        const fundingRoundIdNum: number = parseInt(fundingRoundId);
+        return await ProposalLogic.getProposalsForFundingRound(fundingRoundIdNum);
+    }
+
+    protected async getOptions(interaction: TrackedInteraction, items: Proposal[]): Promise<any> {
+        return items.map((p: Proposal) => ({
+            label: p.name,
+            value: p.id.toString(),
+            description: `Status: ${p.status}, Budget: ${p.budget}`
+        }));
+    }
 }

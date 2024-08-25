@@ -3,16 +3,17 @@
 import { Screen, Action, Dashboard, Permission, TrackedInteraction } from '../../../core/BaseClasses';
 import { ActionRowBuilder, ButtonBuilder, ButtonStyle, EmbedBuilder, InteractionWebhook, StringSelectMenuBuilder } from 'discord.js';
 import { CustomIDOracle } from '../../../CustomIDOracle';
-import { FundingRoundLogic } from './FundingRoundLogic';
 import { AdminProposalLogic } from '../../../logic/AdminProposalLogic';
 import { PaginationComponent } from '../../../components/PaginationComponent';
 import { DiscordStatus } from '../../DiscordStatus';
-import { FundingRound, Proposal } from '../../../models';
+import { Proposal } from '../../../models';
 import { AnyInteractionWithValues } from '../../../types/common';
 import { InteractionProperties } from '../../../core/Interaction';
 import { ProposalStatus } from '../../../types';
-import { errorMonitor } from 'events';
 import { EndUserError } from '../../../Errors';
+import { ActiveFundingRoundPaginator } from '../../../components/FundingRoundPaginator';
+import { ManageProposalStatusesPaginator } from '../../../components/ProposalsPaginator';
+import { ArgumentOracle } from '../../../CustomIDOracle';
 
 export class ManageProposalStatusesScreen extends Screen {
     public static readonly ID = 'manageProposalStatuses';
@@ -25,8 +26,8 @@ export class ManageProposalStatusesScreen extends Screen {
 
     constructor(dashboard: Dashboard, screenId: string) {
         super(dashboard, screenId);
-        this.selectFundingRoundAction = new SelectFundingRoundAction(this, SelectFundingRoundAction.ID);
-        this.selectProposalAction = new SelectProposalAction(this, SelectProposalAction.ID);
+        this.selectFundingRoundAction = new SelectFundingRoundAction(this);
+        this.selectProposalAction = new SelectProposalAction(this);
         this.updateProposalStatusAction = new UpdateProposalStatusAction(this, UpdateProposalStatusAction.ID);
     }
 
@@ -60,23 +61,25 @@ export class ManageProposalStatusesScreen extends Screen {
     }
 }
 
-
-export class SelectFundingRoundAction extends PaginationComponent {
+export class SelectFundingRoundAction extends Action {
     public static readonly ID = 'selectFundingRound';
 
-    protected async getTotalPages(): Promise<number> {
-        const fundingRounds = await FundingRoundLogic.getActiveFundingRounds();
-        return Math.ceil(fundingRounds.length / 25);
-    }
+    private activeFundingRoundPaginator: ActiveFundingRoundPaginator;
 
-    protected async getItemsForPage(interaction: TrackedInteraction, page: number): Promise<FundingRound[]> {
-        const fundingRounds = await FundingRoundLogic.getActiveFundingRounds();
-        return fundingRounds.slice(page * 25, (page + 1) * 25);
+    constructor(screen: ManageProposalStatusesScreen) {
+        super(screen, SelectFundingRoundAction.ID);
+        this.activeFundingRoundPaginator = new ActiveFundingRoundPaginator(
+            this.screen,
+            this,
+            'selectFundingRound',
+            ActiveFundingRoundPaginator.ID
+        );
     }
 
     protected async handleOperation(interaction: TrackedInteraction, operationId: string): Promise<void> {
         switch (operationId) {
             case 'showFundingRounds':
+            case PaginationComponent.PAGINATION_ARG:
                 await this.handleShowFundingRounds(interaction);
                 break;
             case 'selectFundingRound':
@@ -88,33 +91,7 @@ export class SelectFundingRoundAction extends PaginationComponent {
     }
 
     private async handleShowFundingRounds(interaction: TrackedInteraction): Promise<void> {
-        const currentPage = this.getCurrentPage(interaction);
-        const totalPages = await this.getTotalPages();
-        const fundingRounds = await this.getItemsForPage(interaction, currentPage);
-
-        if (fundingRounds.length === 0) {
-            await DiscordStatus.Info.info(interaction, 'There are no active funding rounds.');
-            return;
-        }
-
-        const selectMenu = new StringSelectMenuBuilder()
-            .setCustomId(CustomIDOracle.addArgumentsToAction(this, 'selectFundingRound'))
-            .setPlaceholder('Select a Funding Round')
-            .addOptions(fundingRounds.map(fr => ({
-                label: fr.name,
-                value: fr.id.toString(),
-                description: `Status: ${fr.status}, Budget: ${fr.budget}`
-            })));
-
-        const row = new ActionRowBuilder<StringSelectMenuBuilder>().addComponents(selectMenu);
-        const components: ActionRowBuilder<ButtonBuilder | StringSelectMenuBuilder>[] = [row];
-
-        if (totalPages > 1) {
-            const paginationRow = this.getPaginationRow(interaction, currentPage, totalPages);
-            components.push(paginationRow);
-        }
-
-        await interaction.update({ components });
+        await this.activeFundingRoundPaginator.handlePagination(interaction);
     }
 
     private async handleSelectFundingRound(interaction: TrackedInteraction): Promise<void> {
@@ -142,52 +119,34 @@ export class SelectFundingRoundAction extends PaginationComponent {
     }
 }
 
-export class SelectProposalAction extends PaginationComponent {
+export class SelectProposalAction extends Action {
     public static readonly ID = 'selectProposal';
+
 
     public static readonly OPERATIONS = {
         showProposals: 'showProposals',
         selectProposal: 'selectProposal'
     }
 
-    protected async getTotalPages(interaction: TrackedInteraction, frId?: string): Promise<number> {
-        let fundingRoundId = CustomIDOracle.getNamedArgument(interaction.customId, 'frId');
+    private manageProposalStatusesPaginator: ManageProposalStatusesPaginator;
 
-        if (frId) {
-            fundingRoundId = frId.toString();
-        }
-
-        if (!fundingRoundId) {
-            await DiscordStatus.Error.error(interaction, 'Funding Round ID not found in customId');
-            throw new EndUserError('Funding Round ID not found in customId');
-        }
-        const proposals = await AdminProposalLogic.getProposalsForFundingRound(parseInt(fundingRoundId));
-        return Math.ceil(proposals.length / 25);
-    }
-
-    protected async getItemsForPage(interaction: TrackedInteraction, page: number, frId?: string): Promise<Proposal[]> {
-
-        let fundingRoundId = CustomIDOracle.getNamedArgument(interaction.customId, 'frId');
-
-        if (frId) {
-            fundingRoundId = frId.toString();
-        }
-
-        if (!fundingRoundId) {
-            await DiscordStatus.Error.error(interaction, 'Funding Round ID not found in customId');
-            throw new EndUserError('Funding Round ID not found in customId');
-        }
-
-        const proposals = await AdminProposalLogic.getProposalsForFundingRound(parseInt(fundingRoundId));
-        return proposals.slice(page * 25, (page + 1) * 25);
+    constructor(screen: ManageProposalStatusesScreen) {
+        super(screen, SelectProposalAction.ID);
+        this.manageProposalStatusesPaginator = new ManageProposalStatusesPaginator(
+            this.screen,
+            this,
+            'selectProposal',
+            ManageProposalStatusesPaginator.ID
+        );
     }
 
     protected async handleOperation(interaction: TrackedInteraction, operationId: string): Promise<void> {
         switch (operationId) {
-            case SelectProposalAction.OPERATIONS.showProposals:
+            case 'showProposals':
+            case PaginationComponent.PAGINATION_ARG:
                 await this.handleShowProposals(interaction);
                 break;
-            case SelectProposalAction.OPERATIONS.selectProposal:
+            case 'selectProposal':
                 await this.handleSelectProposal(interaction);
                 break;
             default:
@@ -195,56 +154,27 @@ export class SelectProposalAction extends PaginationComponent {
         }
     }
 
-    public async renderHandleShowProposals(interaction: TrackedInteraction, frId?: string): Promise<void> {
-        let fundingRoundId: string | undefined = CustomIDOracle.getNamedArgument(interaction.customId, 'frId');
-        if (frId) {
-            fundingRoundId = frId;
-        }
-
-        if (!fundingRoundId) {
-            await DiscordStatus.Error.error(interaction, 'Funding Round ID not found in customId or arg');
-            throw new EndUserError(`Funding Round ID not found in customId or context or arg`);
-        }
-
-        const currentPage = this.getCurrentPage(interaction);
-        const totalPages = await this.getTotalPages(interaction, frId);
-        const proposals = await this.getItemsForPage(interaction, currentPage, frId);
-
-        if (proposals.length === 0) {
-            await DiscordStatus.Info.info(interaction, 'There are no proposals for this funding round.');
-            return;
-        }
-
-        const selectMenu = new StringSelectMenuBuilder()
-            .setCustomId(CustomIDOracle.addArgumentsToAction(this, 'selectProposal', 'frId', fundingRoundId))
-            .setPlaceholder('Select a Proposal')
-            .addOptions(proposals.map(p => ({
-                label: p.name,
-                value: p.id.toString(),
-                description: `Status: ${p.status}, Budget: ${p.budget}`
-            })));
-
-        const row = new ActionRowBuilder<StringSelectMenuBuilder>().addComponents(selectMenu);
-        const components: ActionRowBuilder<ButtonBuilder | StringSelectMenuBuilder>[] = [row];
-
-        if (totalPages > 1) {
-            const paginationRow = this.getPaginationRow(interaction, currentPage, totalPages);
-            components.push(paginationRow);
-        }
-
-        await interaction.update({ components });
-    }
 
     private async handleShowProposals(interaction: TrackedInteraction): Promise<void> {
         return await this.renderHandleShowProposals(interaction);
     }
 
-    private async handleSelectProposal(interaction: TrackedInteraction): Promise<void> {
+    public async renderHandleShowProposals(interaction: TrackedInteraction, frId?: string): Promise<void> {
+        const fundingRoundId = frId || CustomIDOracle.getNamedArgument(interaction.customId, 'frId');
 
-        const parsedInteraction: AnyInteractionWithValues | undefined = InteractionProperties.toInteractionWithValuesOrUndefined(interaction.interaction);
+        if (!fundingRoundId) {
+            await DiscordStatus.Error.error(interaction, 'Funding Round ID not found');
+            throw new EndUserError('Funding Round ID not found');
+        }
+
+        interaction.Context.set(ArgumentOracle.COMMON_ARGS.FUNDING_ROUND_ID, fundingRoundId);
+        await this.manageProposalStatusesPaginator.handlePagination(interaction);
+    }
+
+    private async handleSelectProposal(interaction: TrackedInteraction): Promise<void> {
+        const parsedInteraction = InteractionProperties.toInteractionWithValuesOrUndefined(interaction.interaction);
         if (!parsedInteraction) {
-            await DiscordStatus.Error.error(interaction, 'Interaction does not have values');
-            throw new EndUserError('Interaction does not have values');
+            throw new EndUserError('Invalid interaction type.');
         }
 
         const proposalId = parsedInteraction.values[0];

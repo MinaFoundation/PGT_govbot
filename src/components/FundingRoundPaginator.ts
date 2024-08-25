@@ -95,3 +95,14 @@ export class ConsiderationFundingRoundPaginator extends FundingRoundPaginator {
         return await ConsiderationLogic.getEligibleFundingRounds(duid);
     }
 }
+
+export class ActiveFundingRoundPaginator extends FundingRoundPaginator {
+    public static readonly ID = 'activeFRPag';
+
+    public args: string[] = []
+    public title: string = "Select an Active Funding Round";
+
+    public async getItems(interaction: TrackedInteraction): Promise<FundingRound[]> {
+        return await FundingRoundLogic.getActiveFundingRounds();
+    }
+}
