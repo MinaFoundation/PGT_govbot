@@ -1,5 +1,6 @@
 import { FundingRoundLogic } from "../channels/admin/screens/FundingRoundLogic";
 import { TrackedInteraction } from "../core/BaseClasses";
+import { ConsiderationLogic } from "../logic/ConsiderationLogic";
 import { FundingRound } from "../models";
 import { ORMModelPaginator, PaginationComponent } from "./PaginationComponent";
 
@@ -81,5 +82,16 @@ export class InVotingFundingRoundPaginator extends FundingRoundPaginator {
 
     public async getItems(interaction: TrackedInteraction): Promise<FundingRound[]> {
         return await FundingRoundLogic.getEligibleVotingRounds(interaction);
+    }
+}
+
+export class ConsiderationFundingRoundPaginator extends FundingRoundPaginator {
+    public static readonly ID = 'consFRPag';
+    public args: string[] = []
+    public title: string = "Select A Funding Round To Consider On";
+
+    public async getItems(interaction: TrackedInteraction): Promise<FundingRound[]> {
+        const duid: string = interaction.discordUserId;
+        return await ConsiderationLogic.getEligibleFundingRounds(duid);
     }
 }

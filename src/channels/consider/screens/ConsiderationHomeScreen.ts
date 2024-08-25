@@ -1,7 +1,7 @@
 // src/channels/consideration/screens/ConsiderationHomeScreen.ts
 
 import { ActionRowBuilder, ButtonBuilder, ButtonStyle, EmbedBuilder, MessageActionRowComponentBuilder, ModalBuilder, StringSelectMenuBuilder, TextChannel, TextInputBuilder, TextInputStyle } from 'discord.js';
-import { PaginationComponent } from '../../../components/PaginationComponent';
+import { ORMModelPaginator, PaginationComponent } from '../../../components/PaginationComponent';
 import { Action, Dashboard, Permission, RenderArgs, Screen, TrackedInteraction } from '../../../core/BaseClasses';
 import { InteractionProperties } from '../../../core/Interaction';
 import { CustomIDOracle } from '../../../CustomIDOracle';
@@ -10,11 +10,12 @@ import { FundingRound, Proposal } from '../../../models';
 import { IHomeScreen } from '../../../types/common';
 import { CONSIDERATION_CONSTANTS } from '../Constants';
 import { EndUserError } from '../../../Errors';
+import { ConsiderationFundingRoundPaginator } from '../../../components/FundingRoundPaginator';
 
 export class ConsiderationHomeScreen extends Screen implements IHomeScreen {
     public static readonly ID = CONSIDERATION_CONSTANTS.SCREEN_IDS.HOME;
 
-    protected permissions: Permission[] = []; // TODO: Implement SME permission check
+    protected permissions: Permission[] = [];
 
     public readonly selectFundingRoundAction: SelectFundingRoundAction;
     public readonly selectVoteTypeAction: SelectVoteTypeAction;
@@ -72,9 +73,17 @@ export class ConsiderationHomeScreen extends Screen implements IHomeScreen {
 class SelectFundingRoundAction extends Action {
     public static readonly ID = CONSIDERATION_CONSTANTS.ACTION_IDS.SELECT_FUNDING_ROUND;
 
+    private readonly considerationFundingRoundPaginator: ConsiderationFundingRoundPaginator;
+
+    constructor(screen: Screen, actionId: string) {
+        super(screen, actionId);
+        this.considerationFundingRoundPaginator = new ConsiderationFundingRoundPaginator(this.screen, this, CONSIDERATION_CONSTANTS.OPERATION_IDS.SELECT_FUNDING_ROUND, ConsiderationFundingRoundPaginator.ID);
+    }
+
     protected async handleOperation(interaction: TrackedInteraction, operationId: string): Promise<void> {
         switch (operationId) {
             case CONSIDERATION_CONSTANTS.OPERATION_IDS.SHOW_FUNDING_ROUNDS:
+            case PaginationComponent.PAGINATION_ARG:
                 await this.handleShowFundingRounds(interaction);
                 break;
             case CONSIDERATION_CONSTANTS.OPERATION_IDS.SELECT_FUNDING_ROUND:
@@ -86,35 +95,7 @@ class SelectFundingRoundAction extends Action {
     }
 
     private async handleShowFundingRounds(interaction: TrackedInteraction): Promise<void> {
-        const eligibleFundingRounds = await ConsiderationLogic.getEligibleFundingRounds(interaction.interaction.user.id);
-
-        if (eligibleFundingRounds.length === 0) {
-            await interaction.respond({
-                content: '😊 This functionality is only available for selected subject matter experts. If you believe this is an error, please contact an administrator.',
-                ephemeral: true
-            });
-            return;
-        }
-
-        const options = eligibleFundingRounds.map(fr => ({
-            label: fr.name,
-            value: fr.id.toString(),
-            description: `Budget: ${fr.budget}, Ends: ${fr.endAt.toLocaleDateString()}`
-        }));
-
-        const selectMenu = new StringSelectMenuBuilder()
-            .setCustomId(CustomIDOracle.addArgumentsToAction(this, CONSIDERATION_CONSTANTS.OPERATION_IDS.SELECT_FUNDING_ROUND))
-            .setPlaceholder('Select a Funding Round')
-            .addOptions(options);
-
-        const embed = new EmbedBuilder()
-            .setColor('#0099ff')
-            .setTitle('Select A Funding Round To Consider On')
-            .setDescription('Welcome, consideration phase voter!\n\nPlease select a Funding Round on which you would like to submit your consideration votes in the dropdown below.');
-
-        const row = new ActionRowBuilder<StringSelectMenuBuilder>().addComponents(selectMenu);
-
-        await interaction.respond({ embeds: [embed], components: [row], ephemeral: true });
+        await this.considerationFundingRoundPaginator.handlePagination(interaction);
     }
 
     private async handleSelectFundingRound(interaction: TrackedInteraction): Promise<void> {
@@ -137,7 +118,7 @@ class SelectFundingRoundAction extends Action {
 
     getComponent(): ButtonBuilder {
         return new ButtonBuilder()
-            .setCustomId(CustomIDOracle.addArgumentsToAction(this, CONSIDERATION_CONSTANTS.OPERATION_IDS.SHOW_FUNDING_ROUNDS))
+            .setCustomId(CustomIDOracle.addArgumentsToAction(this, CONSIDERATION_CONSTANTS.OPERATION_IDS.SHOW_FUNDING_ROUNDS, ORMModelPaginator.BOOLEAN.ARGUMENTS.FORCE_REPLY, ORMModelPaginator.BOOLEAN.TRUE))
             .setLabel('Select Funding Round')
             .setStyle(ButtonStyle.Primary);
     }

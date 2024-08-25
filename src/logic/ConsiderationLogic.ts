@@ -2,7 +2,7 @@
 
 import { FundingRound, Proposal, SMEConsiderationVoteLog, TopicCommittee, ConsiderationPhase, SMEGroupMembership } from '../models';
 import { Op } from 'sequelize';
-import { ProposalStatus } from '../types';
+import { FundingRoundStatus, ProposalStatus } from '../types';
 import { EndUserError } from '../Errors';
 
 export class ConsiderationLogic {
@@ -18,7 +18,7 @@ export class ConsiderationLogic {
         return await FundingRound.findAll({
             where: {
                 topicId: eligibleTopicIds,
-                status: 'APPROVED',
+                status: FundingRoundStatus.APPROVED,
                 startAt: { [Op.lte]: now },
                 endAt: { [Op.gt]: now },
             },
