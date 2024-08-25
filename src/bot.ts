@@ -92,13 +92,6 @@ client.once('ready', async () => {
       logger.error('Propose channel not found');
     }
 
-    // Render initial screen in #vote channel
-    const voteChannel = guild.channels.cache.find(channel => channel.name === 'vote') as TextChannel | undefined;
-    if (voteChannel) {
-      await voteDashboard.homeScreen.renderToTextChannel(voteChannel);
-    } else {
-      logger.error('Vote channel not found');
-    }
 
     // Render initial screen in #deliberate channel
     const deliberateChannel = guild.channels.cache.find(channel => channel.name === 'deliberate') as TextChannel | undefined;
@@ -140,8 +133,8 @@ client.on('interactionCreate', async (interaction: Interaction<CacheType>) => {
 
     try {
       logger.error(error);
-      const trackedInteratction = new TrackedInteraction(interaction as AnyInteraction);
-      await DiscordStatus.handleException(trackedInteratction, error);
+      const trackedInteraction = new TrackedInteraction(interaction as AnyInteraction);
+      await DiscordStatus.handleException(trackedInteraction, error);
 
     } catch (error) {
       logger.error(`Unrecoverable error: ${error}`);
