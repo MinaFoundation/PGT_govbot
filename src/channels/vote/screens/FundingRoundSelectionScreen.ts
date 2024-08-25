@@ -143,7 +143,7 @@ export class SelectFundingRoundAction extends PaginationComponent {
       throw new EndUserError('Funding round not found.');
     }
 
-    interaction.Context.set('fundingRoundId', fundingRoundId.toString());
+    interaction.Context.set('frId', fundingRoundId.toString());
     if (fundingRound.status === FundingRoundStatus.VOTING) {
         await (this.screen as FundingRoundSelectionScreen).voteFundingRoundAction.handleOperation(
             interaction,

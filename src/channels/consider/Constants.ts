@@ -13,7 +13,7 @@ export const CONSIDERATION_CONSTANTS = {
     ACTION_IDS: {
       SELECT_FUNDING_ROUND: 'selectFundingRound',
       SELECT_VOTE_TYPE: 'svta', // Select Vote Type Action
-      SELECT_PROJECT: 'selectProject',
+      SELECT_PROJECT: 'slPr',
       SME_CONSIDERATION_VOTE: 'smeConsiderationVote',
     },
   
@@ -23,7 +23,7 @@ export const CONSIDERATION_CONSTANTS = {
       SHOW_VOTE_TYPES: 'showVoteTypes',
       SELECT_VOTE_TYPE: 'svto', // Select Vote Type Operation
       SHOW_PROJECTS: 'showProjects',
-      SELECT_PROJECT: 'selectProject',
+      SELECT_PROJECT: 'slPr',
       SHOW_VOTE_OPTIONS: 'showVoteOptions',
       SUBMIT_VOTE: 'submitVote',
       CONFIRM_VOTE: 'confirmVote',

@@ -186,7 +186,7 @@ export class CreateOrEditFundingRoundAction extends Action {
     }
 
     private async handleShowProgress(interaction: TrackedInteraction): Promise<void> {
-        const fundingRoundId = ArgumentOracle.getNamedArgument(interaction, 'fundingRoundId', 0);
+        const fundingRoundId = ArgumentOracle.getNamedArgument(interaction, 'frId', 0);
         const fundingRound = await FundingRoundLogic.getFundingRoundByIdOrError(parseInt(fundingRoundId));
         const topic: Topic = await fundingRound.getTopic();
         const onlyShowPhases: boolean = ArgumentOracle.isArgumentEquals(interaction, CreateOrEditFundingRoundAction.BOOLEANS.ARGUMENTS.ONLY_SHOW_PHASES, CreateOrEditFundingRoundAction.BOOLEANS.TRUE_VALUE);
@@ -579,7 +579,7 @@ export class SetPhaseAction extends Action {
     };
 
     public static readonly ARGUMENTS = {
-        PHASE: 'phase',
+        PHASE: 'ph',
     }
 
     public static PHASE_OPTIONS = {

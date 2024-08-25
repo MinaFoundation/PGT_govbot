@@ -487,17 +487,17 @@ class CommitteeDeliberationVoteAction extends Action {
         }
 
         const approveButton = new ButtonBuilder()
-            .setCustomId(CustomIDOracle.addArgumentsToAction(this, OPERATION_IDS.SUBMIT_VOTE, 'projectId', projectId.toString(), FUNDING_ROUND_ID, fundingRoundId.toString(), 'vote', VOTING_OPTION_IDS.APPROVE))
+            .setCustomId(CustomIDOracle.addArgumentsToAction(this, OPERATION_IDS.SUBMIT_VOTE, 'prId', projectId.toString(), FUNDING_ROUND_ID, fundingRoundId.toString(), 'vote', VOTING_OPTION_IDS.APPROVE))
             .setLabel(existingVote ? 'Change to Approve' : 'Approve Project')
             .setStyle(ButtonStyle.Success);
 
         const approveModifiedButton = new ButtonBuilder()
-            .setCustomId(CustomIDOracle.addArgumentsToAction(this, OPERATION_IDS.SUBMIT_VOTE, 'projectId', projectId.toString(), FUNDING_ROUND_ID, fundingRoundId.toString(), 'vote', VOTING_OPTION_IDS.APPROVE_MODIFIED))
+            .setCustomId(CustomIDOracle.addArgumentsToAction(this, OPERATION_IDS.SUBMIT_VOTE, 'prId', projectId.toString(), FUNDING_ROUND_ID, fundingRoundId.toString(), 'vote', VOTING_OPTION_IDS.APPROVE_MODIFIED))
             .setLabel(existingVote ? 'Change to Approve Modified' : 'Approve With Modifications')
             .setStyle(ButtonStyle.Success);
 
         const rejectButton = new ButtonBuilder()
-            .setCustomId(CustomIDOracle.addArgumentsToAction(this, OPERATION_IDS.SUBMIT_VOTE, 'projectId', projectId.toString(), FUNDING_ROUND_ID, fundingRoundId.toString(), 'vote', VOTING_OPTION_IDS.REJECT))
+            .setCustomId(CustomIDOracle.addArgumentsToAction(this, OPERATION_IDS.SUBMIT_VOTE, 'prId', projectId.toString(), FUNDING_ROUND_ID, fundingRoundId.toString(), 'vote', VOTING_OPTION_IDS.REJECT))
             .setLabel(existingVote ? 'Change to Reject' : 'Reject Project')
             .setStyle(ButtonStyle.Danger);
 
@@ -519,7 +519,7 @@ class CommitteeDeliberationVoteAction extends Action {
     }
 
     private async handleSubmitVote(interaction: TrackedInteraction): Promise<void> {
-        const projectIdRaw: string | undefined = CustomIDOracle.getNamedArgument(interaction.customId, 'projectId');
+        const projectIdRaw: string | undefined = CustomIDOracle.getNamedArgument(interaction.customId, 'prId');
         if (!projectIdRaw) {
             throw new EndUserError('projectId not included in the customId');
         }
@@ -554,7 +554,7 @@ class CommitteeDeliberationVoteAction extends Action {
         }
 
         const modal = new ModalBuilder()
-            .setCustomId(CustomIDOracle.addArgumentsToAction(this, OPERATION_IDS.CONFIRM_VOTE, 'projectId', projectId.toString(), FUNDING_ROUND_ID, fundingRoundId.toString(), 'vote', voteRaw))
+            .setCustomId(CustomIDOracle.addArgumentsToAction(this, OPERATION_IDS.CONFIRM_VOTE, 'prId', projectId.toString(), FUNDING_ROUND_ID, fundingRoundId.toString(), 'vote', voteRaw))
             .setTitle(title);
 
         const uriInput = new TextInputBuilder()
@@ -593,7 +593,7 @@ class CommitteeDeliberationVoteAction extends Action {
             throw new EndUserError('Invalid interaction type.');
         }
 
-        const projectIdRaw: string | undefined = CustomIDOracle.getNamedArgument(interaction.customId, 'projectId');
+        const projectIdRaw: string | undefined = CustomIDOracle.getNamedArgument(interaction.customId, 'prId');
         if (!projectIdRaw) {
             throw new EndUserError('projectId not included in the customId');
         }

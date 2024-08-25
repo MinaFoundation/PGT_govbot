@@ -13,11 +13,11 @@ export class DashboardManager {
   }
 
   async handleInteraction(interaction: AnyInteraction): Promise<void> {
-    const trackedInteratction: TrackedInteraction = new TrackedInteraction(interaction);
+    const trackedInteraction: TrackedInteraction = new TrackedInteraction(interaction);
     const channelName = this.isNamedChannelInteraction(interaction) ? interaction.channel.name : undefined;
     
     if (!channelName) {
-      await DiscordStatus.Error.error(trackedInteratction, 'No channel name found in interaction');
+      await DiscordStatus.Error.error(trackedInteraction, 'No channel name found in interaction');
       throw new EndUserError('No channel name found in interaction');
     }
 
@@ -32,13 +32,25 @@ export class DashboardManager {
       }
     }
 
-    const dashboard = this.dashboards.get(parentMostChannelName);
+    let dashboard = this.dashboards.get(parentMostChannelName);
+    
     if (!dashboard) {
-      await DiscordStatus.Error.error(trackedInteratction, `No dashboard found for channel '${parentMostChannelName}'`);
-      throw new EndUserError(`No dashboard found for channel '${parentMostChannelName}'`);
+      // Iterate over all dashboards to find a fallback
+      for (const [_, fallbackDashboard] of this.dashboards) {
+        if (await fallbackDashboard.isFallback(trackedInteraction)) {
+          logger.info(`Using fallback dashboard for channel '${parentMostChannelName}'`);
+          dashboard = fallbackDashboard;
+          break;
+        }
+      } 
     }
 
-    await dashboard.handleInteraction(trackedInteratction)
+    // If no fallback dashboard is found, throw an error
+    if (!dashboard) {
+      throw new EndUserError(`No dashboard or fallback found for channel '${parentMostChannelName}'`);
+    }
+
+    await dashboard.handleInteraction(trackedInteraction)
   }
 
   private isNamedChannelInteraction(interaction: AnyInteraction): interaction is AnyNamedChannelInteraction {

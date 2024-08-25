@@ -11,14 +11,12 @@ import { InteractionProperties } from '../../../core/Interaction';
 import { FundingRoundLogic } from '../../admin/screens/FundingRoundLogic';
 import { OCVLinkGenerator } from '../../../utils/OCVLinkGenerator';
 import logger from '../../../logging';
-import { DiscordStatus } from '../../DiscordStatus';
 import { EndUserError, EndUserInfo } from '../../../Errors';
 import { proposalStatusToPhase } from '../../proposals/ProposalsForumManager';
-import { ProposalStatus } from '../../../types';
 
 
 export class ProjectVotingScreen extends Screen {
-    public static readonly ID = 'projectVoting';
+    public static readonly ID = 'prVt';
 
     protected permissions: Permission[] = [];
 
@@ -46,7 +44,7 @@ export class ProjectVotingScreen extends Screen {
     }
 
     protected async getResponse(interaction: TrackedInteraction, args?: RenderArgs): Promise<any> {
-        const fundingRoundIdFromContext: string | undefined = interaction?.Context.get('fundingRoundId');
+        const fundingRoundIdFromContext: string | undefined = interaction?.Context.get('frId');
         if (!fundingRoundIdFromContext) {
             return {
                 content: 'FundingRoundID not passed in context',
@@ -96,8 +94,8 @@ export class ProjectVotingScreen extends Screen {
             components.push(new ActionRowBuilder<ButtonBuilder>().addComponents(selectPhaseButton));
         } else if (activePhases.length === 1) {
             const selectProjectButton = this.selectProjectAction.getComponent(fundingRoundId, activePhases[0]);
-            interaction.Context.set('phase', activePhases[0]);
-            interaction.Context.set('fundingRoundId', fundingRoundId.toString());
+            interaction.Context.set('ph', activePhases[0]);
+            interaction.Context.set('frId', fundingRoundId.toString());
             const displayData = await this.selectProjectAction.getSelectProjectComponent(interaction, fundingRoundId, activePhases[0]);
             components = displayData.components;
         } else {
@@ -121,7 +119,7 @@ class SelectPhaseAction extends Action {
     };
 
     protected async handleOperation(interaction: TrackedInteraction, operationId: string): Promise<void> {
-        const fundingRoundId = parseInt(CustomIDOracle.getNamedArgument(interaction.customId, 'fundingRoundId') || '');
+        const fundingRoundId = parseInt(CustomIDOracle.getNamedArgument(interaction.customId, 'frId') || '');
         const activePhases = await FundingRoundLogic.getActiveFundingRoundPhases(fundingRoundId);
 
         const options = activePhases.map(phase => ({
@@ -131,7 +129,7 @@ class SelectPhaseAction extends Action {
 
         const selectMenu = new StringSelectMenuBuilder()
             .setCustomId(CustomIDOracle.generateCustomId(this.screen.dashboard, this.screen, (this.screen as ProjectVotingScreen).selectProjectAction, SelectProjectAction.OPERATIONS.showProjects))
-            .setCustomId(CustomIDOracle.addArgumentsToAction(this, 'selectPhase', 'fundingRoundId', fundingRoundId.toString()))
+            .setCustomId(CustomIDOracle.addArgumentsToAction(this, 'selectPhase', 'frId', fundingRoundId.toString()))
             .setPlaceholder('Select a Voting Phase')
             .addOptions(options);
 
@@ -146,18 +144,18 @@ class SelectPhaseAction extends Action {
 
     getComponent(fundingRoundId: number): ButtonBuilder {
         return new ButtonBuilder()
-            .setCustomId(CustomIDOracle.addArgumentsToAction(this, 'selectPhase', 'fundingRoundId', fundingRoundId.toString()))
+            .setCustomId(CustomIDOracle.addArgumentsToAction(this, 'selectPhase', 'frId', fundingRoundId.toString()))
             .setLabel('Select Voting Phase')
             .setStyle(ButtonStyle.Primary);
     }
 }
 
 export class SelectProjectAction extends PaginationComponent {
-    public static readonly ID = 'selectProject';
+    public static readonly ID = 'slPr';
 
     public static readonly OPERATIONS = {
         showProjects: 'showProjects',
-        selectProject: 'selectProject',
+        selectProject: 'slPr',
         paginate: 'paginate',
     };
 
@@ -222,7 +220,7 @@ export class SelectProjectAction extends PaginationComponent {
         }));
 
         const selectMenu: StringSelectMenuBuilder = new StringSelectMenuBuilder()
-            .setCustomId(CustomIDOracle.addArgumentsToAction(this, SelectProjectAction.OPERATIONS.selectProject, 'fundingRoundId', fundingRoundId.toString(), 'phase', phase))
+            .setCustomId(CustomIDOracle.addArgumentsToAction(this, SelectProjectAction.OPERATIONS.selectProject, 'frId', fundingRoundId.toString(), 'ph', phase))
             .setPlaceholder('Select a Project to Vote On')
             .addOptions(options);
 
@@ -242,13 +240,13 @@ export class SelectProjectAction extends PaginationComponent {
         const totalPages = await this.getTotalPages(interaction);
         const projects = await this.getItemsForPage(interaction, currentPage);
 
-        const fundingRoundIdRaw: string | undefined = CustomIDOracle.getNamedArgument(interaction.customId, 'fundingRoundId');
+        const fundingRoundIdRaw: string | undefined = CustomIDOracle.getNamedArgument(interaction.customId, 'frId');
         if (!fundingRoundIdRaw) {
             throw new EndUserError('fundingRoundId not passed in customId');
         }
         const fundingRoundId: number = parseInt(fundingRoundIdRaw);
 
-        const phase: string | undefined = CustomIDOracle.getNamedArgument(interaction.customId, 'phase');
+        const phase: string | undefined = CustomIDOracle.getNamedArgument(interaction.customId, 'ph');
         let parsedPhase: string;
 
         if (!phase) {
@@ -273,18 +271,18 @@ export class SelectProjectAction extends PaginationComponent {
     }
 
     private async handleSelectProject(interaction: TrackedInteraction): Promise<void> {
-        const projectId = ArgumentOracle.getNamedArgument(interaction, 'projectId')
+        const projectId = ArgumentOracle.getNamedArgument(interaction, 'prId')
 
         const fundingRoundIdFromCI: string = ArgumentOracle.getNamedArgument(interaction, ArgumentOracle.COMMON_ARGS.FUNDING_ROUND_ID);
 
 
         const fundingRoundId: number = parseInt(fundingRoundIdFromCI);
-        const phase = ArgumentOracle.getNamedArgument(interaction, 'phase');
+        const phase = ArgumentOracle.getNamedArgument(interaction, 'ph');
  
 
-        interaction.Context.set('projectId', projectId.toString());
-        interaction.Context.set('fundingRoundId', fundingRoundId.toString());
-        interaction.Context.set('phase', phase);
+        interaction.Context.set('prId', projectId.toString());
+        interaction.Context.set('frId', fundingRoundId.toString());
+        interaction.Context.set('ph', phase);
         await (this.screen as ProjectVotingScreen).voteProjectAction.handleOperation(
             interaction,
             'showVoteOptions',
@@ -298,7 +296,7 @@ export class SelectProjectAction extends PaginationComponent {
 
     getComponent(fundingRoundId: number, phase: string): ButtonBuilder {
         return new ButtonBuilder()
-            .setCustomId(CustomIDOracle.addArgumentsToAction(this, SelectProjectAction.OPERATIONS.showProjects, 'fundingRoundId', fundingRoundId.toString(), 'phase', phase))
+            .setCustomId(CustomIDOracle.addArgumentsToAction(this, SelectProjectAction.OPERATIONS.showProjects, 'frId', fundingRoundId.toString(), 'ph', phase))
             .setLabel('Select Project')
             .setStyle(ButtonStyle.Primary);
     }
@@ -427,7 +425,7 @@ class VoteProjectAction extends Action {
                 break;
             case 'deliberation':
                 const deliberationButton = new ButtonBuilder()
-                    .setCustomId(CustomIDOracle.addArgumentsToAction(this, VoteProjectAction.OPERATIONS.submitDeliberationReasoning, 'projectId', projectId.toString(), 'fundingRoundId', fundingRoundId.toString()))
+                    .setCustomId(CustomIDOracle.addArgumentsToAction(this, VoteProjectAction.OPERATIONS.submitDeliberationReasoning, 'prId', projectId.toString(), 'frId', fundingRoundId.toString()))
                     .setLabel(gptResponseButtonLabel)
                     .setStyle(ButtonStyle.Primary);
                 components.push(new ActionRowBuilder<ButtonBuilder>().addComponents(deliberationButton));
@@ -438,8 +436,8 @@ class VoteProjectAction extends Action {
     }
 
     private async handleSubmitDeliberationReasoning(interaction: TrackedInteraction): Promise<void> {
-        const projectIdRaw = CustomIDOracle.getNamedArgument(interaction.customId, 'projectId');
-        const fundingRoundIdRaw = CustomIDOracle.getNamedArgument(interaction.customId, 'fundingRoundId');
+        const projectIdRaw = CustomIDOracle.getNamedArgument(interaction.customId, 'prId');
+        const fundingRoundIdRaw = CustomIDOracle.getNamedArgument(interaction.customId, 'frId');
 
         if (!projectIdRaw) {
             throw new EndUserError('projectId not passed in customId');
@@ -457,7 +455,7 @@ class VoteProjectAction extends Action {
         const title: string = hasUserSubmittedReasoning ? '✏️ Update Reasoning' : '✍️ Submit Reasoning';
 
         const modal = new ModalBuilder()
-            .setCustomId(CustomIDOracle.addArgumentsToAction(this, VoteProjectAction.OPERATIONS.submitReasoningModal, 'projectId', projectId.toString(), 'fundingRoundId', fundingRoundId.toString()))
+            .setCustomId(CustomIDOracle.addArgumentsToAction(this, VoteProjectAction.OPERATIONS.submitReasoningModal, 'prId', projectId.toString(), 'frId', fundingRoundId.toString()))
             .setTitle(title);
 
         const reasoningInput = new TextInputBuilder()
@@ -493,8 +491,8 @@ class VoteProjectAction extends Action {
             throw new EndUserError('Invalid interaction type.');
         }
 
-        const projectIdRaw = CustomIDOracle.getNamedArgument(interaction.customId, 'projectId');
-        const fundingRoundIdRaw = CustomIDOracle.getNamedArgument(interaction.customId, 'fundingRoundId');
+        const projectIdRaw = CustomIDOracle.getNamedArgument(interaction.customId, 'prId');
+        const fundingRoundIdRaw = CustomIDOracle.getNamedArgument(interaction.customId, 'frId');
 
         if (!projectIdRaw) {
             throw new EndUserError('projectId not passed in customId');
@@ -542,7 +540,7 @@ class VoteProjectAction extends Action {
 
     getComponent(projectId: number, fundingRoundId: number, phase: string): ButtonBuilder {
         return new ButtonBuilder()
-            .setCustomId(CustomIDOracle.addArgumentsToAction(this, 'showVoteOptions', 'projectId', projectId.toString(), 'fundingRoundId', fundingRoundId.toString(), 'phase', phase))
+            .setCustomId(CustomIDOracle.addArgumentsToAction(this, 'showVoteOptions', 'prId', projectId.toString(), 'frId', fundingRoundId.toString(), 'ph', phase))
             .setLabel('Vote on Project')
             .setStyle(ButtonStyle.Primary);
     }

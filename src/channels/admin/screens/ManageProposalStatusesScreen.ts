@@ -151,7 +151,7 @@ export class SelectProposalAction extends PaginationComponent {
     }
 
     protected async getTotalPages(interaction: TrackedInteraction, frId?: string): Promise<number> {
-        let fundingRoundId = CustomIDOracle.getNamedArgument(interaction.customId, 'fundingRoundId');
+        let fundingRoundId = CustomIDOracle.getNamedArgument(interaction.customId, 'frId');
 
         if (frId) {
             fundingRoundId = frId.toString();
@@ -167,7 +167,7 @@ export class SelectProposalAction extends PaginationComponent {
 
     protected async getItemsForPage(interaction: TrackedInteraction, page: number, frId?: string): Promise<Proposal[]> {
 
-        let fundingRoundId = CustomIDOracle.getNamedArgument(interaction.customId, 'fundingRoundId');
+        let fundingRoundId = CustomIDOracle.getNamedArgument(interaction.customId, 'frId');
 
         if (frId) {
             fundingRoundId = frId.toString();
@@ -196,7 +196,7 @@ export class SelectProposalAction extends PaginationComponent {
     }
 
     public async renderHandleShowProposals(interaction: TrackedInteraction, frId?: string): Promise<void> {
-        let fundingRoundId: string | undefined = CustomIDOracle.getNamedArgument(interaction.customId, 'fundingRoundId');
+        let fundingRoundId: string | undefined = CustomIDOracle.getNamedArgument(interaction.customId, 'frId');
         if (frId) {
             fundingRoundId = frId;
         }
@@ -216,7 +216,7 @@ export class SelectProposalAction extends PaginationComponent {
         }
 
         const selectMenu = new StringSelectMenuBuilder()
-            .setCustomId(CustomIDOracle.addArgumentsToAction(this, 'selectProposal', 'fundingRoundId', fundingRoundId))
+            .setCustomId(CustomIDOracle.addArgumentsToAction(this, 'selectProposal', 'frId', fundingRoundId))
             .setPlaceholder('Select a Proposal')
             .addOptions(proposals.map(p => ({
                 label: p.name,
@@ -259,7 +259,7 @@ export class SelectProposalAction extends PaginationComponent {
 
     getComponent(fundingRoundId: string): ButtonBuilder {
         return new ButtonBuilder()
-            .setCustomId(CustomIDOracle.addArgumentsToAction(this, 'showProposals', 'fundingRoundId', fundingRoundId))
+            .setCustomId(CustomIDOracle.addArgumentsToAction(this, 'showProposals', 'frId', fundingRoundId))
             .setLabel('Select Proposal')
             .setStyle(ButtonStyle.Primary);
     }
@@ -371,7 +371,7 @@ export class UpdateProposalStatusAction extends Action {
         }
 
         const backButton = new ButtonBuilder()
-            .setCustomId(CustomIDOracle.addArgumentsToAction(selectPropAction, SelectProposalAction.OPERATIONS.showProposals, 'fundingRoundId', updatedProposal.fundingRoundId.toString()))
+            .setCustomId(CustomIDOracle.addArgumentsToAction(selectPropAction, SelectProposalAction.OPERATIONS.showProposals, 'frId', updatedProposal.fundingRoundId.toString()))
             .setLabel('Update Status Again')
             .setStyle(ButtonStyle.Primary);
 

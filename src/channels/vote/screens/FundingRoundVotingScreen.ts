@@ -233,7 +233,7 @@ export class MemberVoteFundingRoundAction extends Action {
   }
 
   private async handleUnvote(interaction: TrackedInteraction): Promise<void> {
-    const fundingRoundId = parseInt(CustomIDOracle.getNamedArgument(interaction.customId, 'fundingRoundId') || '');
+    const fundingRoundId = parseInt(CustomIDOracle.getNamedArgument(interaction.customId, 'frId') || '');
     const userId = interaction.interaction.user.id;
 
     try {
@@ -244,7 +244,7 @@ export class MemberVoteFundingRoundAction extends Action {
   }
 
   private async handleVote(interaction: TrackedInteraction): Promise<void> {
-    const fundingRoundId = parseInt(CustomIDOracle.getNamedArgument(interaction.customId, 'fundingRoundId') || '');
+    const fundingRoundId = parseInt(CustomIDOracle.getNamedArgument(interaction.customId, 'frId') || '');
     const userId = interaction.interaction.user.id;
 
     try {
@@ -261,7 +261,7 @@ export class MemberVoteFundingRoundAction extends Action {
 
   getComponent(fundingRoundId: number): ButtonBuilder {
     return new ButtonBuilder()
-      .setCustomId(CustomIDOracle.addArgumentsToAction(this, 'showVoteOptions', 'fundingRoundId', fundingRoundId.toString()))
+      .setCustomId(CustomIDOracle.addArgumentsToAction(this, 'showVoteOptions', 'frId', fundingRoundId.toString()))
       .setLabel('Vote on Funding Round')
       .setStyle(ButtonStyle.Primary);
   }

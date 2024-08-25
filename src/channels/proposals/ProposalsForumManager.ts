@@ -8,6 +8,7 @@ import { EndUserError, NotFoundEndUserError } from '../../Errors';
 import { Screen } from '../../core/BaseClasses';
 import { ProposalLogic } from '../../logic/ProposalLogic';
 import { ProposalStatus } from '../../types';
+import { FundingRoundLogic } from '../admin/screens/FundingRoundLogic';
 
 export function proposalStatusToPhase(status: ProposalStatus): string {
     switch (status) {
@@ -139,9 +140,18 @@ export class ProposalsForumManager {
   }
 
   public static async createVoteButton(proposalId: number, fundingRoundId: number, screen: any): Promise<ActionRowBuilder<ButtonBuilder>> {
+    const fundingRound: FundingRound = await FundingRoundLogic.getFundingRoundByIdOrError(fundingRoundId);
+    
+    if (!fundingRound.forumChannelId) {
+      throw new EndUserError(`Funding round ${fundingRoundId} does not have a forum channel`);
+    }
+
+    const dashBoardId: string = fundingRound.forumChannelId.toString();
+  
+
     const proposal: Proposal = await ProposalLogic.getProposalByIdOrError(proposalId);
     const proposalPhase: string = proposalStatusToPhase(proposal.status);
-    const customId: string = CustomIDOracle.customIdFromRawParts(VoteDashboard.ID, ProjectVotingScreen.ID, SelectProjectAction.ID, SelectProjectAction.OPERATIONS.selectProject, "projectId", proposalId.toString(), ArgumentOracle.COMMON_ARGS.FUNDING_ROUND_ID, fundingRoundId.toString(), "phase", proposalPhase);
+    const customId: string = CustomIDOracle.customIdFromRawParts(dashBoardId, ProjectVotingScreen.ID, SelectProjectAction.ID, SelectProjectAction.OPERATIONS.selectProject, 'prId', proposalId.toString(), ArgumentOracle.COMMON_ARGS.FUNDING_ROUND_ID, fundingRoundId.toString(), 'ph', proposalPhase);
     const button = new ButtonBuilder()
       .setCustomId(customId)
       .setLabel('Vote On This Proposal')

@@ -198,7 +198,7 @@ export class ManageSubmittedProposalsAction extends PaginationComponent {
         }
 
         const proposalId: number = parseInt(interactionWithValues.values[0]);
-        const fundingRoundId: number = parseInt(CustomIDOracle.getNamedArgument(interaction.customId, 'fundingRoundId') || '');
+        const fundingRoundId: number = parseInt(CustomIDOracle.getNamedArgument(interaction.customId, 'frId') || '');
 
         const proposal: Proposal | null = await ProposalLogic.getProposalById(proposalId);
         const fundingRound: FundingRound | null = await FundingRoundLogic.getFundingRoundById(fundingRoundId);
@@ -216,7 +216,7 @@ export class ManageSubmittedProposalsAction extends PaginationComponent {
             );
 
         const cancelButton: ButtonBuilder = new ButtonBuilder()
-            .setCustomId(CustomIDOracle.addArgumentsToAction(this, ManageSubmittedProposalsAction.OPERATIONS.CONFIRM_CANCEL_PROPOSAL, 'proposalId', proposalId.toString(), 'fundingRoundId', fundingRoundId.toString()))
+            .setCustomId(CustomIDOracle.addArgumentsToAction(this, ManageSubmittedProposalsAction.OPERATIONS.CONFIRM_CANCEL_PROPOSAL, 'proposalId', proposalId.toString(), 'frId', fundingRoundId.toString()))
             .setLabel('Cancel My Proposal')
             .setStyle(ButtonStyle.Danger);
 
@@ -231,7 +231,7 @@ export class ManageSubmittedProposalsAction extends PaginationComponent {
 
     private async handleConfirmCancelProposal(interaction: TrackedInteraction): Promise<void> {
         const proposalId: string | undefined = CustomIDOracle.getNamedArgument(interaction.customId, 'proposalId');
-        const fundingRoundId: string | undefined = CustomIDOracle.getNamedArgument(interaction.customId, 'fundingRoundId');
+        const fundingRoundId: string | undefined = CustomIDOracle.getNamedArgument(interaction.customId, 'frId');
 
         if (!proposalId || !fundingRoundId) {
             throw new EndUserError('Invalid proposal or funding round ID.');
@@ -255,12 +255,12 @@ export class ManageSubmittedProposalsAction extends PaginationComponent {
             .setFooter({ text: 'Once cancelled, this proposal cannot be re-submitted to the funding round. You will need to create a new proposal if you want to submit again.' });
 
         const confirmButton: ButtonBuilder = new ButtonBuilder()
-            .setCustomId(CustomIDOracle.addArgumentsToAction(this, ManageSubmittedProposalsAction.OPERATIONS.EXECUTE_CANCEL_PROPOSAL, 'proposalId', proposalId, 'fundingRoundId', fundingRoundId))
+            .setCustomId(CustomIDOracle.addArgumentsToAction(this, ManageSubmittedProposalsAction.OPERATIONS.EXECUTE_CANCEL_PROPOSAL, 'proposalId', proposalId, 'frId', fundingRoundId))
             .setLabel('Confirm Cancellation')
             .setStyle(ButtonStyle.Danger);
 
         const cancelButton: ButtonBuilder = new ButtonBuilder()
-            .setCustomId(CustomIDOracle.addArgumentsToAction(this, ManageSubmittedProposalsAction.OPERATIONS.SHOW_PROPOSAL_DETAILS, 'proposalId', proposalId, 'fundingRoundId', fundingRoundId))
+            .setCustomId(CustomIDOracle.addArgumentsToAction(this, ManageSubmittedProposalsAction.OPERATIONS.SHOW_PROPOSAL_DETAILS, 'proposalId', proposalId, 'frId', fundingRoundId))
             .setLabel('Go Back')
             .setStyle(ButtonStyle.Secondary);
 
@@ -271,7 +271,7 @@ export class ManageSubmittedProposalsAction extends PaginationComponent {
 
     private async handleExecuteCancelProposal(interaction: TrackedInteraction): Promise<void> {
         const proposalId: string | undefined = CustomIDOracle.getNamedArgument(interaction.customId, 'proposalId');
-        const fundingRoundId: string | undefined = CustomIDOracle.getNamedArgument(interaction.customId, 'fundingRoundId');
+        const fundingRoundId: string | undefined = CustomIDOracle.getNamedArgument(interaction.customId, 'frId');
 
         if (!proposalId || !fundingRoundId) {
             throw new EndUserError('Invalid proposal or funding round ID.');
@@ -286,7 +286,7 @@ export class ManageSubmittedProposalsAction extends PaginationComponent {
                 .setDescription('Your proposal has been cancelled and cannot be re-submitted to this funding round.');
 
             const backButton: ButtonBuilder = new ButtonBuilder()
-                .setCustomId(CustomIDOracle.addArgumentsToAction(this, ManageSubmittedProposalsAction.OPERATIONS.SHOW_PROPOSALS, 'fundingRoundId', fundingRoundId))
+                .setCustomId(CustomIDOracle.addArgumentsToAction(this, ManageSubmittedProposalsAction.OPERATIONS.SHOW_PROPOSALS, 'frId', fundingRoundId))
                 .setLabel('Back to My Proposals')
                 .setStyle(ButtonStyle.Primary);
 
@@ -804,10 +804,10 @@ export class SubmitProposalToFundingRoundAction extends Action {
     public static readonly ID = 'submitProposalToFundingRound';
 
     public static readonly OPERATIONS = {
-        SHOW_DRAFT_PROPOSALS: 'showDraftProposals',
-        SELECT_FUNDING_ROUND: 'selectFundingRound',
-        CONFIRM_SUBMISSION: 'confirmSubmission',
-        EXECUTE_SUBMISSION: 'executeSubmission',
+        SHOW_DRAFT_PROPOSALS: 'shDrP',
+        SELECT_FUNDING_ROUND: 'slFr',
+        CONFIRM_SUBMISSION: 'cnSb',
+        EXECUTE_SUBMISSION: 'exSb',
     };
 
     protected async handleOperation(interaction: TrackedInteraction, operationId: string): Promise<void> {
@@ -923,7 +923,7 @@ export class SubmitProposalToFundingRoundAction extends Action {
             .setFooter({ text: 'Note: Once submitted, you cannot remove or reassign this proposal to another funding round. You can cancel your proposal later.' });
 
         const confirmButton = new ButtonBuilder()
-            .setCustomId(CustomIDOracle.addArgumentsToAction(this, SubmitProposalToFundingRoundAction.OPERATIONS.EXECUTE_SUBMISSION, 'proposalId', proposalId.toString(), 'fundingRoundId', fundingRoundId.toString()))
+            .setCustomId(CustomIDOracle.addArgumentsToAction(this, SubmitProposalToFundingRoundAction.OPERATIONS.EXECUTE_SUBMISSION, 'proposalId', proposalId.toString(), 'frId', fundingRoundId.toString()))
             .setLabel('Confirm Submission')
             .setStyle(ButtonStyle.Success);
 
@@ -939,11 +939,9 @@ export class SubmitProposalToFundingRoundAction extends Action {
 
     private async handleExecuteSubmission(interaction: TrackedInteraction): Promise<void> {
         const proposalId = parseInt(CustomIDOracle.getNamedArgument(interaction.customId, 'proposalId') || '');
-        const fundingRoundId = parseInt(CustomIDOracle.getNamedArgument(interaction.customId, 'fundingRoundId') || '');
+        const fundingRoundId = parseInt(CustomIDOracle.getNamedArgument(interaction.customId, 'frId') || '');
 
         try {
-            await ProposalLogic.submitProposalToFundingRound(proposalId, fundingRoundId, this.screen);
-
             const embed = new EmbedBuilder()
                 .setColor('#00FF00')
                 .setTitle('Proposal Submitted Successfully')
@@ -956,12 +954,13 @@ export class SubmitProposalToFundingRoundAction extends Action {
                 .setStyle(ButtonStyle.Primary);
 
             const row = new ActionRowBuilder<ButtonBuilder>().addComponents(manageButton);
-
             await interaction.update({ embeds: [embed], components: [row] });
+            await ProposalLogic.submitProposalToFundingRound(proposalId, fundingRoundId, this.screen);
         } catch (error) {
             logger.error(error);
             throw new EndUserError('Failed to submit proposal', error);
         }
+
     }
 
     public allSubActions(): Action[] {
