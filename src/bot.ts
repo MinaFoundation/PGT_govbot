@@ -117,7 +117,7 @@ client.once('ready', async () => {
 });
 
 client.on('interactionCreate', async (interaction: Interaction<CacheType>) => {
-  logger.info("Start handling interaction");
+  logger.info(`Start handling interaction: ${interaction.isMessageComponent() ? interaction.customId : 'N/A'}`);
   try {
 
     if (!interaction.isButton() && !interaction.isStringSelectMenu() && !interaction.isModalSubmit() && !interaction.isMessageComponent()) {

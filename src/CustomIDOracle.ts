@@ -35,7 +35,7 @@ export class CustomIDOracle {
     const customId = parts.join(this.SEPARATOR);
 
     if (customId.length > this.MAX_LENGTH) {
-      throw new EndUserError(`CustomId length of ${customId.length} exceeds the maximum allowed value of ${this.MAX_LENGTH} characters.`);
+      throw new EndUserError(`CustomId length of ${customId.length} exceeds the maximum allowed value of ${this.MAX_LENGTH} characters: ${customId}`);
     }
 
     return customId;
@@ -61,7 +61,7 @@ export class CustomIDOracle {
     const customId = parts.join(this.SEPARATOR);
 
     if (customId.length > this.MAX_LENGTH) {
-      throw new EndUserError(`CustomId length of ${customId.length} exceeds the maximum allowed value of ${this.MAX_LENGTH} characters.`);
+      throw new EndUserError(`CustomId length of ${customId.length} exceeds the maximum allowed value of ${this.MAX_LENGTH} characters: ${customId}`);
     }
 
     return customId;
@@ -142,8 +142,8 @@ export class CustomIDOracle {
 export class ArgumentOracle {
 
   static COMMON_ARGS = {
-    FUNDING_ROUND_ID: 'fundingRoundId',
-    PHASE: 'phase',
+    FUNDING_ROUND_ID: 'frId',
+    PHASE: 'ph',
   }
 
   static isArgumentEquals(intreaction: TrackedInteraction, argName: string, value: string): boolean {
