@@ -164,6 +164,7 @@ export class CreateDraftFundingRoundAction extends Action {
     private async handleShowTopicSelect(interaction: TrackedInteraction): Promise<void> {
         const topics = await Topic.findAll({ order: [['name', 'ASC']] });
 
+        // FIXME: add pagination
         const topicSelect = new StringSelectMenuBuilder()
             .setCustomId(CustomIDOracle.addArgumentsToAction(this, CreateDraftFundingRoundAction.OPERATIONS.SUBMIT_TOPIC_SELECT))
             .setPlaceholder('Select Parent Topic For Funding Round')
@@ -440,7 +441,7 @@ export class CreateDraftFundingRoundAction extends Action {
 export class VoteFundingRoundAction extends PaginationComponent {
     public static readonly ID = 'voteFundingRound';
     
-    public readonly editFundingRoundPaginator: InVotingFundingRoundPaginator = new InVotingFundingRoundPaginator(this.screen, this, VoteFundingRoundAction.OPERATIONS.SELECT_ROUND, InVotingFundingRoundPaginator.ID);
+    public readonly inVotingFundingRoundPaginator: InVotingFundingRoundPaginator = new InVotingFundingRoundPaginator(this.screen, this, VoteFundingRoundAction.OPERATIONS.SELECT_ROUND, InVotingFundingRoundPaginator.ID);
 
     public static readonly OPERATIONS = {
         SHOW_ELIGIBLE_ROUNDS: 'showEligibleRounds',
@@ -491,7 +492,7 @@ export class VoteFundingRoundAction extends PaginationComponent {
     }
 
     private async handleShowEligibleRounds(interaction: TrackedInteraction): Promise<void> {
-        await this.editFundingRoundPaginator.handlePagination(interaction);
+        await this.inVotingFundingRoundPaginator.handlePagination(interaction);
     }
 
     private async handleSelectRound(interaction: TrackedInteraction, successMessage: string | undefined = undefined, errorMesasge: string | undefined = undefined): Promise<void> {

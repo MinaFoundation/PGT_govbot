@@ -202,7 +202,7 @@ export class CreateOrEditFundingRoundAction extends Action {
             .setDescription(`Status: ${progress}`)
             .addFields(
                 { name: 'Topic', value: fundingRound.topicId ? `✅\n${topic.name}` : '❌', inline: true },
-                { name: 'Core Information', value: fundingRound.name && fundingRound.description && fundingRound.budget ? `✅\nName: ${fundingRound.name}\nDescription: ${fundingRound.description}\nBudget: ${fundingRound.budget}` : '❌', inline: true },
+                { name: 'Core Information', value: fundingRound.name && fundingRound.description && fundingRound.budget &&fundingRound.stakingLedgerEpoch ? `✅\nName: ${fundingRound.name}\nDescription: ${fundingRound.description}\nBudget: ${fundingRound.budget}\Epoch For Voting: ${fundingRound.stakingLedgerEpoch}` : '❌', inline: true },
                 { name: 'Funding Round Dates', value: fundingRound.startAt && fundingRound.endAt && fundingRound.votingOpenUntil ? this.formatStringForRound(fundingRound) : '❌', inline: true },
                 { name: 'Consideration Phase', value: considerationPhase ? this.formatStringForPhase(considerationPhase) : '❌', inline: true },
                 { name: 'Deliberation Phase', value: deliberationPhase ? this.formatStringForPhase(deliberationPhase) : '❌', inline: true },
@@ -464,9 +464,9 @@ export class CoreInformationAction extends Action {
             parsedTopicId = topicId as string;
         }
 
-
+        const customId: string = fundingRoundId ? CustomIDOracle.addArgumentsToAction(this, CoreInformationAction.OPERATIONS.SUBMIT_FORM, CoreInformationAction.INPUT_IDS.TOPIC, parsedTopicId, ArgumentOracle.COMMON_ARGS.FUNDING_ROUND_ID, fundingRoundId) : CustomIDOracle.addArgumentsToAction(this, CoreInformationAction.OPERATIONS.SUBMIT_FORM, CoreInformationAction.INPUT_IDS.TOPIC, parsedTopicId);
         const modal = new ModalBuilder()
-            .setCustomId(CustomIDOracle.addArgumentsToAction(this, CoreInformationAction.OPERATIONS.SUBMIT_FORM, CoreInformationAction.INPUT_IDS.TOPIC, parsedTopicId))
+            .setCustomId(customId)
             .setTitle('Funding Round Core Information');
 
         const nameInput = new TextInputBuilder()
@@ -492,7 +492,7 @@ export class CoreInformationAction extends Action {
 
         const stakingLedgerEpochInput = new TextInputBuilder()
             .setCustomId(CoreInformationAction.INPUT_IDS.STAKING_LEDGER_EPOCH)
-            .setLabel('Staking Ledger Epoch Number')
+            .setLabel('Staking Ledger Epoch For Voting')
             .setStyle(TextInputStyle.Short)
             .setValue(stakingLedgerEpochValue)
             .setRequired(true);
@@ -517,8 +517,32 @@ export class CoreInformationAction extends Action {
         const budget = parseFloat(modalInteraction.fields.getTextInputValue(CoreInformationAction.INPUT_IDS.BUDGET));
         const stakingLedgerEpoch = parseInt(modalInteraction.fields.getTextInputValue(CoreInformationAction.INPUT_IDS.STAKING_LEDGER_EPOCH));
 
-        const fundingRoung: FundingRound = await FundingRoundLogic.newFundingRoundFromCoreInfo(name, description, parseInt(topicId), budget, stakingLedgerEpoch);
-        interaction.Context.set(ArgumentOracle.COMMON_ARGS.FUNDING_ROUND_ID, fundingRoung.id.toString());
+        let fundingRound: FundingRound;
+        let fundingRoundId: string | undefined;
+
+        try {
+            fundingRoundId = ArgumentOracle.getNamedArgument(interaction, ArgumentOracle.COMMON_ARGS.FUNDING_ROUND_ID);
+        } catch (error) {
+            if (!(error instanceof NotFoundEndUserError)) {
+                throw error;
+            }
+        }
+
+        if (fundingRoundId) {
+            // Update existing funding round
+            fundingRound = await FundingRoundLogic.updateFundingRound(parseInt(fundingRoundId), {
+                name,
+                description,
+                topicId: parseInt(topicId),
+                budget,
+                stakingLedgerEpoch
+            });
+        } else {
+            // Create new funding round
+            fundingRound = await FundingRoundLogic.newFundingRoundFromCoreInfo(name, description, parseInt(topicId), budget, stakingLedgerEpoch);
+        }
+
+        interaction.Context.set(ArgumentOracle.COMMON_ARGS.FUNDING_ROUND_ID, fundingRound.id.toString());
 
         await (this.screen as ManageFundingRoundsScreen).createFundingRoundAction.handleOperation(
             interaction,

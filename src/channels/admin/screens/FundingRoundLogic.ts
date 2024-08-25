@@ -354,22 +354,26 @@ export class FundingRoundLogic {
 
     static async getEligibleVotingRounds(interaction: TrackedInteraction): Promise<FundingRound[]> {
         const duid: string = interaction.discordUserId;
-
         const now = new Date();
-        const allFindingRoundsInVoting = await FundingRound.findAll({
-            where: {
-                status: FundingRoundStatus.VOTING,
-                votingOpenUntil: {
-                    [Op.gte]: now,
-                },
-            },
-    });
-    const onlyReadyFundingRounds = allFindingRoundsInVoting.filter( value => value.isReady());
 
-    const onlyFundingRoundsWhereUserIsSME = onlyReadyFundingRounds.filter(value => value.isSMEGroupMember(duid));
+        const userFundingRounds = await FundingRoundLogic.getFundingRoundsForUser(duid);
+        
+        const eligibleFundingRounds = userFundingRounds.filter((fr) =>  
+            fr.status === FundingRoundStatus.VOTING &&
+            fr.votingOpenUntil >= now
+        );
 
-    return onlyFundingRoundsWhereUserIsSME;
-}
+        const readyFundingRounds = await Promise.all(
+            eligibleFundingRounds.map(async (fr) => ({
+                fundingRound: fr,
+                isReady: await fr.isReady()
+            }))
+        );
+
+        return readyFundingRounds
+            .filter(({ isReady }) => isReady)
+            .map(({ fundingRound }) => fundingRound);
+    }
 
     static async hasUserVotedOnFundingRound(userId: string, fundingRoundId: number): Promise<boolean> {
         const vote = await FundingRoundApprovalVote.findOne({
