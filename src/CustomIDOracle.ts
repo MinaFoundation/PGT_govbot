@@ -35,7 +35,7 @@ export class CustomIDOracle {
     const customId = parts.join(this.SEPARATOR);
 
     if (customId.length > this.MAX_LENGTH) {
-      throw new EndUserError(`CustomId length of ${customId.length} exceeds the maximum allowed value of ${this.MAX_LENGTH} characters.`);
+      throw new EndUserError(`CustomId length of ${customId.length} exceeds the maximum allowed value of ${this.MAX_LENGTH} characters: ${customId}`);
     }
 
     return customId;
@@ -61,7 +61,7 @@ export class CustomIDOracle {
     const customId = parts.join(this.SEPARATOR);
 
     if (customId.length > this.MAX_LENGTH) {
-      throw new EndUserError(`CustomId length of ${customId.length} exceeds the maximum allowed value of ${this.MAX_LENGTH} characters.`);
+      throw new EndUserError(`CustomId length of ${customId.length} exceeds the maximum allowed value of ${this.MAX_LENGTH} characters: ${customId}`);
     }
 
     return customId;
@@ -80,6 +80,19 @@ export class CustomIDOracle {
     }
 
     return outputCustomId;
+  }
+
+  static addArgumentsToActionCustomDashboardId(dashboardId: string, action: Action, operation?: string, ...args: string[]): string {
+    if (args.length % 2 !== 0) {
+      throw new EndUserError('Arguments must be key-value pairs');
+    }
+    const customId = this.customIdFromRawParts(dashboardId, action.screen.ID, action.ID, operation, ...args);
+
+    if (customId.length > this.MAX_LENGTH) {
+      throw new EndUserError(`Custom ID exceeds maximum length of ${this.MAX_LENGTH} characters by ${customId.length - this.MAX_LENGTH} characters`);
+    }
+
+    return customId;
   }
 
   static getNamedArgument(customId: string, argName: string): string | undefined {
@@ -142,8 +155,8 @@ export class CustomIDOracle {
 export class ArgumentOracle {
 
   static COMMON_ARGS = {
-    FUNDING_ROUND_ID: 'fundingRoundId',
-    PHASE: 'phase',
+    FUNDING_ROUND_ID: 'frId',
+    PHASE: 'ph',
   }
 
   static isArgumentEquals(intreaction: TrackedInteraction, argName: string, value: string): boolean {

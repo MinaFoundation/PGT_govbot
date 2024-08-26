@@ -87,12 +87,12 @@ class SelectFundingRoundAction extends PaginationComponent {
   };
 
   protected async getTotalPages(interaction: TrackedInteraction): Promise<number> {
-    const eligibleFundingRounds = await FundingRoundLogic.getEligibleVotingRounds();
+    const eligibleFundingRounds = await FundingRoundLogic.getEligibleVotingRounds(interaction);
     return Math.ceil(eligibleFundingRounds.length / 25);
   }
 
   protected async getItemsForPage(interaction: TrackedInteraction, page: number): Promise<FundingRound[]> {
-    const eligibleFundingRounds = await FundingRoundLogic.getEligibleVotingRounds();
+    const eligibleFundingRounds = await FundingRoundLogic.getEligibleVotingRounds(interaction);
     return eligibleFundingRounds.slice(page * 25, (page + 1) * 25);
   }
 
@@ -233,7 +233,7 @@ export class MemberVoteFundingRoundAction extends Action {
   }
 
   private async handleUnvote(interaction: TrackedInteraction): Promise<void> {
-    const fundingRoundId = parseInt(CustomIDOracle.getNamedArgument(interaction.customId, 'fundingRoundId') || '');
+    const fundingRoundId = parseInt(CustomIDOracle.getNamedArgument(interaction.customId, 'frId') || '');
     const userId = interaction.interaction.user.id;
 
     try {
@@ -244,7 +244,7 @@ export class MemberVoteFundingRoundAction extends Action {
   }
 
   private async handleVote(interaction: TrackedInteraction): Promise<void> {
-    const fundingRoundId = parseInt(CustomIDOracle.getNamedArgument(interaction.customId, 'fundingRoundId') || '');
+    const fundingRoundId = parseInt(CustomIDOracle.getNamedArgument(interaction.customId, 'frId') || '');
     const userId = interaction.interaction.user.id;
 
     try {
@@ -261,7 +261,7 @@ export class MemberVoteFundingRoundAction extends Action {
 
   getComponent(fundingRoundId: number): ButtonBuilder {
     return new ButtonBuilder()
-      .setCustomId(CustomIDOracle.addArgumentsToAction(this, 'showVoteOptions', 'fundingRoundId', fundingRoundId.toString()))
+      .setCustomId(CustomIDOracle.addArgumentsToAction(this, 'showVoteOptions', 'frId', fundingRoundId.toString()))
       .setLabel('Vote on Funding Round')
       .setStyle(ButtonStyle.Primary);
   }

@@ -3,392 +3,317 @@
 import { Screen, Action, Dashboard, Permission, TrackedInteraction } from '../../../core/BaseClasses';
 import { ActionRowBuilder, ButtonBuilder, ButtonStyle, EmbedBuilder, InteractionWebhook, StringSelectMenuBuilder } from 'discord.js';
 import { CustomIDOracle } from '../../../CustomIDOracle';
-import { FundingRoundLogic } from './FundingRoundLogic';
 import { AdminProposalLogic } from '../../../logic/AdminProposalLogic';
 import { PaginationComponent } from '../../../components/PaginationComponent';
 import { DiscordStatus } from '../../DiscordStatus';
-import { FundingRound, Proposal } from '../../../models';
+import { Proposal } from '../../../models';
 import { AnyInteractionWithValues } from '../../../types/common';
 import { InteractionProperties } from '../../../core/Interaction';
 import { ProposalStatus } from '../../../types';
-import { errorMonitor } from 'events';
 import { EndUserError } from '../../../Errors';
+import { ActiveFundingRoundPaginator } from '../../../components/FundingRoundPaginator';
+import { ManageProposalStatusesPaginator } from '../../../components/ProposalsPaginator';
+import { ArgumentOracle } from '../../../CustomIDOracle';
 
 export class ManageProposalStatusesScreen extends Screen {
-    public static readonly ID = 'manageProposalStatuses';
+  public static readonly ID = 'manageProposalStatuses';
 
-    protected permissions: Permission[] = []; // TODO: Implement proper admin permissions
+  protected permissions: Permission[] = []; // TODO: Implement proper admin permissions
 
-    public readonly selectFundingRoundAction: SelectFundingRoundAction;
-    public readonly selectProposalAction: SelectProposalAction;
-    public readonly updateProposalStatusAction: UpdateProposalStatusAction;
+  public readonly selectFundingRoundAction: SelectFundingRoundAction;
+  public readonly selectProposalAction: SelectProposalAction;
+  public readonly updateProposalStatusAction: UpdateProposalStatusAction;
 
-    constructor(dashboard: Dashboard, screenId: string) {
-        super(dashboard, screenId);
-        this.selectFundingRoundAction = new SelectFundingRoundAction(this, SelectFundingRoundAction.ID);
-        this.selectProposalAction = new SelectProposalAction(this, SelectProposalAction.ID);
-        this.updateProposalStatusAction = new UpdateProposalStatusAction(this, UpdateProposalStatusAction.ID);
-    }
+  constructor(dashboard: Dashboard, screenId: string) {
+    super(dashboard, screenId);
+    this.selectFundingRoundAction = new SelectFundingRoundAction(this);
+    this.selectProposalAction = new SelectProposalAction(this);
+    this.updateProposalStatusAction = new UpdateProposalStatusAction(this, UpdateProposalStatusAction.ID);
+  }
 
-    protected allSubScreens(): Screen[] {
-        return [];
-    }
+  protected allSubScreens(): Screen[] {
+    return [];
+  }
 
-    protected allActions(): Action[] {
-        return [
-            this.selectFundingRoundAction,
-            this.selectProposalAction,
-            this.updateProposalStatusAction,
-        ];
-    }
+  protected allActions(): Action[] {
+    return [this.selectFundingRoundAction, this.selectProposalAction, this.updateProposalStatusAction];
+  }
 
-    protected async getResponse(interaction: TrackedInteraction): Promise<any> {
-        const embed = new EmbedBuilder()
-            .setColor('#0099ff')
-            .setTitle('Manage Proposal Statuses')
-            .setDescription('Select a Funding Round to manage proposal statuses:');
+  protected async getResponse(interaction: TrackedInteraction): Promise<any> {
+    const embed = new EmbedBuilder()
+      .setColor('#0099ff')
+      .setTitle('Manage Proposal Statuses')
+      .setDescription('Select a Funding Round to manage proposal statuses:');
 
-        const selectFundingRoundButton = this.selectFundingRoundAction.getComponent();
+    const selectFundingRoundButton = this.selectFundingRoundAction.getComponent();
 
-        const row = new ActionRowBuilder<ButtonBuilder>().addComponents(selectFundingRoundButton);
+    const row = new ActionRowBuilder<ButtonBuilder>().addComponents(selectFundingRoundButton);
 
-        return {
-            embeds: [embed],
-            components: [row],
-            ephemeral: true
-        };
-    }
+    return {
+      embeds: [embed],
+      components: [row],
+      ephemeral: true,
+    };
+  }
 }
 
+export class SelectFundingRoundAction extends Action {
+  public static readonly ID = 'selectFundingRound';
 
-export class SelectFundingRoundAction extends PaginationComponent {
-    public static readonly ID = 'selectFundingRound';
+  private activeFundingRoundPaginator: ActiveFundingRoundPaginator;
 
-    protected async getTotalPages(): Promise<number> {
-        const fundingRounds = await FundingRoundLogic.getActiveFundingRounds();
-        return Math.ceil(fundingRounds.length / 25);
+  constructor(screen: ManageProposalStatusesScreen) {
+    super(screen, SelectFundingRoundAction.ID);
+    this.activeFundingRoundPaginator = new ActiveFundingRoundPaginator(this.screen, this, 'selectFundingRound', ActiveFundingRoundPaginator.ID);
+  }
+
+  protected async handleOperation(interaction: TrackedInteraction, operationId: string): Promise<void> {
+    switch (operationId) {
+      case 'showFundingRounds':
+      case PaginationComponent.PAGINATION_ARG:
+        await this.handleShowFundingRounds(interaction);
+        break;
+      case 'selectFundingRound':
+        await this.handleSelectFundingRound(interaction);
+        break;
+      default:
+        await this.handleInvalidOperation(interaction, operationId);
+    }
+  }
+
+  private async handleShowFundingRounds(interaction: TrackedInteraction): Promise<void> {
+    await this.activeFundingRoundPaginator.handlePagination(interaction);
+  }
+
+  private async handleSelectFundingRound(interaction: TrackedInteraction): Promise<void> {
+    const parsedInteraction: AnyInteractionWithValues | undefined = InteractionProperties.toInteractionWithValuesOrUndefined(interaction.interaction);
+
+    if (!parsedInteraction) {
+      await DiscordStatus.Error.error(interaction, 'Interaction does not have values');
+      throw new EndUserError('Interaction does not have values');
     }
 
-    protected async getItemsForPage(interaction: TrackedInteraction, page: number): Promise<FundingRound[]> {
-        const fundingRounds = await FundingRoundLogic.getActiveFundingRounds();
-        return fundingRounds.slice(page * 25, (page + 1) * 25);
-    }
+    const fundingRoundId = parsedInteraction.values[0];
 
-    protected async handleOperation(interaction: TrackedInteraction, operationId: string): Promise<void> {
-        switch (operationId) {
-            case 'showFundingRounds':
-                await this.handleShowFundingRounds(interaction);
-                break;
-            case 'selectFundingRound':
-                await this.handleSelectFundingRound(interaction);
-                break;
-            default:
-                await this.handleInvalidOperation(interaction, operationId);
-        }
-    }
+    await (this.screen as ManageProposalStatusesScreen).selectProposalAction.renderHandleShowProposals(interaction, fundingRoundId);
+  }
 
-    private async handleShowFundingRounds(interaction: TrackedInteraction): Promise<void> {
-        const currentPage = this.getCurrentPage(interaction);
-        const totalPages = await this.getTotalPages();
-        const fundingRounds = await this.getItemsForPage(interaction, currentPage);
+  public allSubActions(): Action[] {
+    return [];
+  }
 
-        if (fundingRounds.length === 0) {
-            await DiscordStatus.Info.info(interaction, 'There are no active funding rounds.');
-            return;
-        }
-
-        const selectMenu = new StringSelectMenuBuilder()
-            .setCustomId(CustomIDOracle.addArgumentsToAction(this, 'selectFundingRound'))
-            .setPlaceholder('Select a Funding Round')
-            .addOptions(fundingRounds.map(fr => ({
-                label: fr.name,
-                value: fr.id.toString(),
-                description: `Status: ${fr.status}, Budget: ${fr.budget}`
-            })));
-
-        const row = new ActionRowBuilder<StringSelectMenuBuilder>().addComponents(selectMenu);
-        const components: ActionRowBuilder<ButtonBuilder | StringSelectMenuBuilder>[] = [row];
-
-        if (totalPages > 1) {
-            const paginationRow = this.getPaginationRow(interaction, currentPage, totalPages);
-            components.push(paginationRow);
-        }
-
-        await interaction.update({ components });
-    }
-
-    private async handleSelectFundingRound(interaction: TrackedInteraction): Promise<void> {
-        const parsedInteraction: AnyInteractionWithValues | undefined = InteractionProperties.toInteractionWithValuesOrUndefined(interaction.interaction);
-
-        if (!parsedInteraction) {
-            await DiscordStatus.Error.error(interaction, 'Interaction does not have values');
-            throw new EndUserError('Interaction does not have values');
-        }
-
-        const fundingRoundId = parsedInteraction.values[0];
-
-        await (this.screen as ManageProposalStatusesScreen).selectProposalAction.renderHandleShowProposals(interaction, fundingRoundId);
-    }
-
-    public allSubActions(): Action[] {
-        return [];
-    }
-
-    getComponent(): ButtonBuilder {
-        return new ButtonBuilder()
-            .setCustomId(CustomIDOracle.addArgumentsToAction(this, 'showFundingRounds'))
-            .setLabel('Select Funding Round')
-            .setStyle(ButtonStyle.Primary);
-    }
+  getComponent(): ButtonBuilder {
+    return new ButtonBuilder()
+      .setCustomId(CustomIDOracle.addArgumentsToAction(this, 'showFundingRounds'))
+      .setLabel('Select Funding Round')
+      .setStyle(ButtonStyle.Primary);
+  }
 }
 
-export class SelectProposalAction extends PaginationComponent {
-    public static readonly ID = 'selectProposal';
+export class SelectProposalAction extends Action {
+  public static readonly ID = 'selectProposal';
 
-    public static readonly OPERATIONS = {
-        showProposals: 'showProposals',
-        selectProposal: 'selectProposal'
+  public static readonly OPERATIONS = {
+    showProposals: 'showProposals',
+    selectProposal: 'selectProposal',
+  };
+
+  private manageProposalStatusesPaginator: ManageProposalStatusesPaginator;
+
+  constructor(screen: ManageProposalStatusesScreen) {
+    super(screen, SelectProposalAction.ID);
+    this.manageProposalStatusesPaginator = new ManageProposalStatusesPaginator(
+      this.screen,
+      this,
+      'selectProposal',
+      ManageProposalStatusesPaginator.ID,
+    );
+  }
+
+  protected async handleOperation(interaction: TrackedInteraction, operationId: string): Promise<void> {
+    switch (operationId) {
+      case 'showProposals':
+      case PaginationComponent.PAGINATION_ARG:
+        await this.handleShowProposals(interaction);
+        break;
+      case 'selectProposal':
+        await this.handleSelectProposal(interaction);
+        break;
+      default:
+        await this.handleInvalidOperation(interaction, operationId);
+    }
+  }
+
+  private async handleShowProposals(interaction: TrackedInteraction): Promise<void> {
+    return await this.renderHandleShowProposals(interaction);
+  }
+
+  public async renderHandleShowProposals(interaction: TrackedInteraction, frId?: string): Promise<void> {
+    const fundingRoundId = frId || CustomIDOracle.getNamedArgument(interaction.customId, 'frId');
+
+    if (!fundingRoundId) {
+      await DiscordStatus.Error.error(interaction, 'Funding Round ID not found');
+      throw new EndUserError('Funding Round ID not found');
     }
 
-    protected async getTotalPages(interaction: TrackedInteraction, frId?: string): Promise<number> {
-        let fundingRoundId = CustomIDOracle.getNamedArgument(interaction.customId, 'fundingRoundId');
+    interaction.Context.set(ArgumentOracle.COMMON_ARGS.FUNDING_ROUND_ID, fundingRoundId);
+    await this.manageProposalStatusesPaginator.handlePagination(interaction);
+  }
 
-        if (frId) {
-            fundingRoundId = frId.toString();
-        }
-
-        if (!fundingRoundId) {
-            await DiscordStatus.Error.error(interaction, 'Funding Round ID not found in customId');
-            throw new EndUserError('Funding Round ID not found in customId');
-        }
-        const proposals = await AdminProposalLogic.getProposalsForFundingRound(parseInt(fundingRoundId));
-        return Math.ceil(proposals.length / 25);
+  private async handleSelectProposal(interaction: TrackedInteraction): Promise<void> {
+    const parsedInteraction = InteractionProperties.toInteractionWithValuesOrUndefined(interaction.interaction);
+    if (!parsedInteraction) {
+      throw new EndUserError('Invalid interaction type.');
     }
 
-    protected async getItemsForPage(interaction: TrackedInteraction, page: number, frId?: string): Promise<Proposal[]> {
+    const proposalId = parsedInteraction.values[0];
+    interaction.Context.set('prId', proposalId);
 
-        let fundingRoundId = CustomIDOracle.getNamedArgument(interaction.customId, 'fundingRoundId');
+    await (this.screen as ManageProposalStatusesScreen).updateProposalStatusAction.renderShowStatusOptions(interaction, proposalId);
+  }
 
-        if (frId) {
-            fundingRoundId = frId.toString();
-        }
+  public allSubActions(): Action[] {
+    return [];
+  }
 
-        if (!fundingRoundId) {
-            await DiscordStatus.Error.error(interaction, 'Funding Round ID not found in customId');
-            throw new EndUserError('Funding Round ID not found in customId');
-        }
-
-        const proposals = await AdminProposalLogic.getProposalsForFundingRound(parseInt(fundingRoundId));
-        return proposals.slice(page * 25, (page + 1) * 25);
-    }
-
-    protected async handleOperation(interaction: TrackedInteraction, operationId: string): Promise<void> {
-        switch (operationId) {
-            case SelectProposalAction.OPERATIONS.showProposals:
-                await this.handleShowProposals(interaction);
-                break;
-            case SelectProposalAction.OPERATIONS.selectProposal:
-                await this.handleSelectProposal(interaction);
-                break;
-            default:
-                await this.handleInvalidOperation(interaction, operationId);
-        }
-    }
-
-    public async renderHandleShowProposals(interaction: TrackedInteraction, frId?: string): Promise<void> {
-        let fundingRoundId: string | undefined = CustomIDOracle.getNamedArgument(interaction.customId, 'fundingRoundId');
-        if (frId) {
-            fundingRoundId = frId;
-        }
-
-        if (!fundingRoundId) {
-            await DiscordStatus.Error.error(interaction, 'Funding Round ID not found in customId or arg');
-            throw new EndUserError(`Funding Round ID not found in customId or context or arg`);
-        }
-
-        const currentPage = this.getCurrentPage(interaction);
-        const totalPages = await this.getTotalPages(interaction, frId);
-        const proposals = await this.getItemsForPage(interaction, currentPage, frId);
-
-        if (proposals.length === 0) {
-            await DiscordStatus.Info.info(interaction, 'There are no proposals for this funding round.');
-            return;
-        }
-
-        const selectMenu = new StringSelectMenuBuilder()
-            .setCustomId(CustomIDOracle.addArgumentsToAction(this, 'selectProposal', 'fundingRoundId', fundingRoundId))
-            .setPlaceholder('Select a Proposal')
-            .addOptions(proposals.map(p => ({
-                label: p.name,
-                value: p.id.toString(),
-                description: `Status: ${p.status}, Budget: ${p.budget}`
-            })));
-
-        const row = new ActionRowBuilder<StringSelectMenuBuilder>().addComponents(selectMenu);
-        const components: ActionRowBuilder<ButtonBuilder | StringSelectMenuBuilder>[] = [row];
-
-        if (totalPages > 1) {
-            const paginationRow = this.getPaginationRow(interaction, currentPage, totalPages);
-            components.push(paginationRow);
-        }
-
-        await interaction.update({ components });
-    }
-
-    private async handleShowProposals(interaction: TrackedInteraction): Promise<void> {
-        return await this.renderHandleShowProposals(interaction);
-    }
-
-    private async handleSelectProposal(interaction: TrackedInteraction): Promise<void> {
-
-        const parsedInteraction: AnyInteractionWithValues | undefined = InteractionProperties.toInteractionWithValuesOrUndefined(interaction.interaction);
-        if (!parsedInteraction) {
-            await DiscordStatus.Error.error(interaction, 'Interaction does not have values');
-            throw new EndUserError('Interaction does not have values');
-        }
-
-        const proposalId = parsedInteraction.values[0];
-        interaction.Context.set('proposalId', proposalId);
-
-        await (this.screen as ManageProposalStatusesScreen).updateProposalStatusAction.renderShowStatusOptions(interaction, proposalId);
-    }
-
-    public allSubActions(): Action[] {
-        return [];
-    }
-
-    getComponent(fundingRoundId: string): ButtonBuilder {
-        return new ButtonBuilder()
-            .setCustomId(CustomIDOracle.addArgumentsToAction(this, 'showProposals', 'fundingRoundId', fundingRoundId))
-            .setLabel('Select Proposal')
-            .setStyle(ButtonStyle.Primary);
-    }
+  getComponent(fundingRoundId: string): ButtonBuilder {
+    return new ButtonBuilder()
+      .setCustomId(CustomIDOracle.addArgumentsToAction(this, 'showProposals', 'frId', fundingRoundId))
+      .setLabel('Select Proposal')
+      .setStyle(ButtonStyle.Primary);
+  }
 }
 
 export class UpdateProposalStatusAction extends Action {
-    public static readonly ID = 'updateProposalStatus';
+  public static readonly ID = 'updateProposalStatus';
 
-    protected async handleOperation(interaction: TrackedInteraction, operationId: string): Promise<void> {
-        switch (operationId) {
-            case 'showStatusOptions':
-                await this.handleShowStatusOptions(interaction);
-                break;
-            case 'updateStatus':
-                await this.handleUpdateStatus(interaction);
-                break;
-            default:
-                await this.handleInvalidOperation(interaction, operationId);
-        }
+  protected async handleOperation(interaction: TrackedInteraction, operationId: string): Promise<void> {
+    switch (operationId) {
+      case 'showStatusOptions':
+        await this.handleShowStatusOptions(interaction);
+        break;
+      case 'updateStatus':
+        await this.handleUpdateStatus(interaction);
+        break;
+      default:
+        await this.handleInvalidOperation(interaction, operationId);
+    }
+  }
+
+  public async renderShowStatusOptions(interaction: TrackedInteraction, pId?: string): Promise<void> {
+    const proposalIdFromCntx: string | undefined = interaction.Context.get('prId');
+    const proposalIdFromCustomId = CustomIDOracle.getNamedArgument(interaction.customId, 'prId');
+
+    const proposalId: string | undefined = pId || proposalIdFromCntx || proposalIdFromCustomId;
+
+    if (!proposalId) {
+      await DiscordStatus.Error.error(interaction, 'Proposal ID not found in customId, context or arg.');
+      return;
     }
 
-    public async renderShowStatusOptions(interaction: TrackedInteraction, pId?: string): Promise<void> {
-
-        const proposalIdFromCntx: string | undefined = interaction.Context.get('proposalId');
-        const proposalIdFromCustomId = CustomIDOracle.getNamedArgument(interaction.customId, 'proposalId');
-
-        const proposalId: string | undefined = pId || proposalIdFromCntx || proposalIdFromCustomId;
-
-        if (!proposalId) {
-            await DiscordStatus.Error.error(interaction, 'Proposal ID not found in customId, context or arg.');
-            return;
-        }
-
-        const proposal = await AdminProposalLogic.getProposalById(parseInt(proposalId));
-        if (!proposal) {
-            await DiscordStatus.Error.error(interaction, 'Proposal not found');
-            return;
-        }
-
-        const statusOptions = Object.values(ProposalStatus).filter(status => status !== proposal.status);
-
-        const selectMenu = new StringSelectMenuBuilder()
-            .setCustomId(CustomIDOracle.addArgumentsToAction(this, 'updateStatus', 'proposalId', proposalId))
-            .setPlaceholder('Select new status')
-            .addOptions(statusOptions.map(status => ({
-                label: status,
-                value: status,
-                description: `Change status to ${status}`
-            })));
-
-        const embed = new EmbedBuilder()
-            .setColor('#0099ff')
-            .setTitle(`Update Proposal Status: ${proposal.name}`)
-            .setDescription(`Current status: ${proposal.status}`)
-            .addFields(
-                { name: 'ID', value: proposal.id.toString(), inline: true },
-                { name: 'URL', value: proposal.uri, inline: true },
-                { name: 'Budget', value: proposal.budget.toString(), inline: true },
-                { name: 'Proposer', value: proposal.proposerDuid, inline: true }
-            );
-
-        const row = new ActionRowBuilder<StringSelectMenuBuilder>().addComponents(selectMenu);
-
-        await interaction.update({ embeds: [embed], components: [row] });
-
+    const proposal = await AdminProposalLogic.getProposalById(parseInt(proposalId));
+    if (!proposal) {
+      await DiscordStatus.Error.error(interaction, 'Proposal not found');
+      return;
     }
 
-    private async handleShowStatusOptions(interaction: TrackedInteraction): Promise<void> {
-        await this.renderShowStatusOptions(interaction);
+    const statusOptions = Object.values(ProposalStatus).filter((status) => status !== proposal.status);
+
+    const selectMenu = new StringSelectMenuBuilder()
+      .setCustomId(CustomIDOracle.addArgumentsToAction(this, 'updateStatus', 'prId', proposalId))
+      .setPlaceholder('Select new status')
+      .addOptions(
+        statusOptions.map((status) => ({
+          label: status,
+          value: status,
+          description: `Change status to ${status}`,
+        })),
+      );
+
+    const embed = new EmbedBuilder()
+      .setColor('#0099ff')
+      .setTitle(`Update Proposal Status: ${proposal.name}`)
+      .setDescription(`Current status: ${proposal.status}`)
+      .addFields(
+        { name: 'ID', value: proposal.id.toString(), inline: true },
+        { name: 'URL', value: proposal.uri, inline: true },
+        { name: 'Budget', value: proposal.budget.toString(), inline: true },
+        { name: 'Proposer', value: proposal.proposerDuid, inline: true },
+      );
+
+    const row = new ActionRowBuilder<StringSelectMenuBuilder>().addComponents(selectMenu);
+
+    await interaction.update({ embeds: [embed], components: [row] });
+  }
+
+  private async handleShowStatusOptions(interaction: TrackedInteraction): Promise<void> {
+    await this.renderShowStatusOptions(interaction);
+  }
+
+  private async handleUpdateStatus(interaction: TrackedInteraction): Promise<void> {
+    const parsedInteraction: AnyInteractionWithValues | undefined = InteractionProperties.toInteractionWithValuesOrUndefined(interaction.interaction);
+
+    if (!parsedInteraction) {
+      await DiscordStatus.Error.error(interaction, 'Interaction does not have values');
+      throw new EndUserError('Interaction does not have values');
     }
 
-    private async handleUpdateStatus(interaction: TrackedInteraction): Promise<void> {
-        const parsedInteraction: AnyInteractionWithValues | undefined = InteractionProperties.toInteractionWithValuesOrUndefined(interaction.interaction);
+    const proposalIdFromCustomId: string | undefined = CustomIDOracle.getNamedArgument(interaction.customId, 'prId');
+    const proposalIdFromContext: string | undefined = interaction.Context.get('prId');
 
-        if (!parsedInteraction) {
-            await DiscordStatus.Error.error(interaction, 'Interaction does not have values');
-            throw new EndUserError('Interaction does not have values');
-        }
-
-        const proposalIdFromCustomId: string | undefined = CustomIDOracle.getNamedArgument(interaction.customId, 'proposalId');
-        const proposalIdFromContext: string | undefined = interaction.Context.get('proposalId');
-
-        const proposalId: string | undefined = proposalIdFromCustomId || proposalIdFromContext;
-        if (!proposalId) {
-            await DiscordStatus.Error.error(interaction, 'Proposal ID not found in customId or context.');
-            return;
-        }
-
-        const newStatus = parsedInteraction.values[0] as ProposalStatus;
-
-        const updatedProposal = await AdminProposalLogic.updateProposalStatus(parseInt(proposalId), newStatus, this.screen);
-
-        const embed = new EmbedBuilder()
-            .setColor('#00FF00')
-            .setTitle(`Proposal Status Updated: ${updatedProposal.name}`)
-            .setDescription(`New status: ${updatedProposal.status}`)
-            .addFields(
-                { name: 'ID', value: updatedProposal.id.toString(), inline: true },
-                { name: 'URL', value: updatedProposal.uri, inline: true },
-                { name: 'Budget', value: updatedProposal.budget.toString(), inline: true },
-                { name: 'Proposer', value: updatedProposal.proposerDuid, inline: true }
-            );
-
-        const selectPropAction: SelectProposalAction = (this.screen as ManageProposalStatusesScreen).selectProposalAction;
-
-        if (!updatedProposal.fundingRoundId) {
-            await DiscordStatus.Warning.warning(interaction, `Proposal does not have a Funding Round associated`);
-            throw new EndUserError(`Proposal ${updatedProposal.id} does not have a Funding Round associated`);
-        }
-
-        const backButton = new ButtonBuilder()
-            .setCustomId(CustomIDOracle.addArgumentsToAction(selectPropAction, SelectProposalAction.OPERATIONS.showProposals, 'fundingRoundId', updatedProposal.fundingRoundId.toString()))
-            .setLabel('Update Status Again')
-            .setStyle(ButtonStyle.Primary);
-
-        const row = new ActionRowBuilder<ButtonBuilder>().addComponents(backButton);
-
-        await interaction.update({ embeds: [embed], components: [row] });
-
+    const proposalId: string | undefined = proposalIdFromCustomId || proposalIdFromContext;
+    if (!proposalId) {
+      await DiscordStatus.Error.error(interaction, 'Proposal ID not found in customId or context.');
+      return;
     }
 
-    public allSubActions(): Action[] {
-        return [];
+    const newStatus = parsedInteraction.values[0] as ProposalStatus;
+
+    const updatedProposal = await AdminProposalLogic.updateProposalStatus(parseInt(proposalId), newStatus, this.screen);
+
+    const embed = new EmbedBuilder()
+      .setColor('#00FF00')
+      .setTitle(`Proposal Status Updated: ${updatedProposal.name}`)
+      .setDescription(`New status: ${updatedProposal.status}`)
+      .addFields(
+        { name: 'ID', value: updatedProposal.id.toString(), inline: true },
+        { name: 'URL', value: updatedProposal.uri, inline: true },
+        { name: 'Budget', value: updatedProposal.budget.toString(), inline: true },
+        { name: 'Proposer', value: updatedProposal.proposerDuid, inline: true },
+      );
+
+    const selectPropAction: SelectProposalAction = (this.screen as ManageProposalStatusesScreen).selectProposalAction;
+
+    if (!updatedProposal.fundingRoundId) {
+      await DiscordStatus.Warning.warning(interaction, `Proposal does not have a Funding Round associated`);
+      throw new EndUserError(`Proposal ${updatedProposal.id} does not have a Funding Round associated`);
     }
 
-    getComponent(): ButtonBuilder {
-        return new ButtonBuilder()
-            .setCustomId(CustomIDOracle.addArgumentsToAction(this, 'showStatusOptions'))
-            .setLabel('Update Proposal Status')
-            .setStyle(ButtonStyle.Primary);
-    }
+    const backButton = new ButtonBuilder()
+      .setCustomId(
+        CustomIDOracle.addArgumentsToAction(
+          selectPropAction,
+          SelectProposalAction.OPERATIONS.showProposals,
+          'frId',
+          updatedProposal.fundingRoundId.toString(),
+        ),
+      )
+      .setLabel('Update Status Again')
+      .setStyle(ButtonStyle.Primary);
+
+    const row = new ActionRowBuilder<ButtonBuilder>().addComponents(backButton);
+
+    await interaction.update({ embeds: [embed], components: [row] });
+  }
+
+  public allSubActions(): Action[] {
+    return [];
+  }
+
+  getComponent(): ButtonBuilder {
+    return new ButtonBuilder()
+      .setCustomId(CustomIDOracle.addArgumentsToAction(this, 'showStatusOptions'))
+      .setLabel('Update Proposal Status')
+      .setStyle(ButtonStyle.Primary);
+  }
 }

@@ -1,7 +1,6 @@
 import { Message } from "discord.js";
 import { TrackedInteraction } from "../core/BaseClasses";
-import { EndUserError, EndUserInfo, GovBotError } from "../Errors";
-import logger from "../logging";
+import { EndUserError, EndUserInfo} from "../Errors";
 
 
 export class DiscordStatus {

@@ -1,7 +1,6 @@
 import { Screen, Action, Dashboard, Permission, TrackedInteraction, RenderArgs } from '../../../core/BaseClasses';
 import { ActionRowBuilder, ButtonBuilder, ButtonStyle, EmbedBuilder, MessageActionRowComponentBuilder, MessageCreateOptions, ModalBuilder, StringSelectMenuBuilder, TextChannel, TextInputBuilder, TextInputStyle } from 'discord.js';
 import { ArgumentOracle, CustomIDOracle } from '../../../CustomIDOracle';
-import { ZkIgniteFacilitatorPermission } from '../permissions/ZkIgniteFacilitatorPermission';
 import { PaginationComponent } from '../../../components/PaginationComponent';
 import { FundingRoundLogic } from '../../admin/screens/FundingRoundLogic';
 import { FundingRound, Topic } from '../../../models';
@@ -20,7 +19,7 @@ export class FundingRoundInitScreen extends Screen implements IHomeScreen {
 
     public readonly voteFundingRoundAction: VoteFundingRoundAction;
 
-    protected permissions: Permission[] = [new ZkIgniteFacilitatorPermission()];
+    protected permissions: Permission[] = [];
 
     public readonly manageFundingRoundScreen: ManageFundingRoundsScreen;
     public readonly selectTopicAction: SelectTopicAction = new SelectTopicAction(this, SelectTopicAction.ID);
@@ -33,7 +32,6 @@ export class FundingRoundInitScreen extends Screen implements IHomeScreen {
     public async renderToTextChannel(channel: TextChannel): Promise<void> {
         const content: MessageCreateOptions = await this.getResponse();
         await channel.send(content);
-
     }
 
     protected allSubScreens(): Screen[] {
@@ -166,6 +164,7 @@ export class CreateDraftFundingRoundAction extends Action {
     private async handleShowTopicSelect(interaction: TrackedInteraction): Promise<void> {
         const topics = await Topic.findAll({ order: [['name', 'ASC']] });
 
+        // FIXME: add pagination
         const topicSelect = new StringSelectMenuBuilder()
             .setCustomId(CustomIDOracle.addArgumentsToAction(this, CreateDraftFundingRoundAction.OPERATIONS.SUBMIT_TOPIC_SELECT))
             .setPlaceholder('Select Parent Topic For Funding Round')
@@ -422,8 +421,6 @@ export class CreateDraftFundingRoundAction extends Action {
         try {
             // logic will be resused from #admin
             throw new EndUserError('This should not be used (deprecated');
-            //await FundingRoundLogic.setFundingRoundPhase(parseInt(fundingRoundId), mappedPhase, startDate, endDate);
-            await this.showSetPhaseDates(interaction, parseInt(fundingRoundId));
         } catch (error) {
             throw new EndUserError('Error setting phase dates', error);
         }
@@ -444,7 +441,7 @@ export class CreateDraftFundingRoundAction extends Action {
 export class VoteFundingRoundAction extends PaginationComponent {
     public static readonly ID = 'voteFundingRound';
     
-    public readonly editFundingRoundPaginator: InVotingFundingRoundPaginator = new InVotingFundingRoundPaginator(this.screen, this, VoteFundingRoundAction.OPERATIONS.SELECT_ROUND, InVotingFundingRoundPaginator.ID);
+    public readonly inVotingFundingRoundPaginator: InVotingFundingRoundPaginator = new InVotingFundingRoundPaginator(this.screen, this, VoteFundingRoundAction.OPERATIONS.SELECT_ROUND, InVotingFundingRoundPaginator.ID);
 
     public static readonly OPERATIONS = {
         SHOW_ELIGIBLE_ROUNDS: 'showEligibleRounds',
@@ -460,12 +457,12 @@ export class VoteFundingRoundAction extends PaginationComponent {
     };
 
     protected async getTotalPages(interaction: TrackedInteraction): Promise<number> {
-        const eligibleRounds = await FundingRoundLogic.getEligibleVotingRounds();
+        const eligibleRounds = await FundingRoundLogic.getEligibleVotingRounds(interaction);
         return Math.ceil(eligibleRounds.length / 25);
     }
 
     protected async getItemsForPage(interaction: TrackedInteraction, page: number): Promise<FundingRound[]> {
-        const eligibleRounds = await FundingRoundLogic.getEligibleVotingRounds();
+        const eligibleRounds = await FundingRoundLogic.getEligibleVotingRounds(interaction);
         return eligibleRounds.slice(page * 25, (page + 1) * 25);
     }
 
@@ -495,7 +492,7 @@ export class VoteFundingRoundAction extends PaginationComponent {
     }
 
     private async handleShowEligibleRounds(interaction: TrackedInteraction): Promise<void> {
-        await this.editFundingRoundPaginator.handlePagination(interaction);
+        await this.inVotingFundingRoundPaginator.handlePagination(interaction);
     }
 
     private async handleSelectRound(interaction: TrackedInteraction, successMessage: string | undefined = undefined, errorMesasge: string | undefined = undefined): Promise<void> {
@@ -507,7 +504,6 @@ export class VoteFundingRoundAction extends PaginationComponent {
             const fundingRoundIdFromContext: string | undefined = interaction.Context.get(FUNDING_ROUND_ID_ARG);
             if (!fundingRoundIdFromContext) {
                 throw new EndUserError('fundingRoundId not provided neither in customId, nor in context')
-                throw new EndUserError('fundingRoundId not provided neither in customId, nor in context');
             } else {
                 fundingRoundId = parseInt(fundingRoundIdFromContext);
             }

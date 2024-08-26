@@ -1,5 +1,6 @@
 import { FundingRoundLogic } from "../channels/admin/screens/FundingRoundLogic";
 import { TrackedInteraction } from "../core/BaseClasses";
+import { ConsiderationLogic } from "../logic/ConsiderationLogic";
 import { FundingRound } from "../models";
 import { ORMModelPaginator, PaginationComponent } from "./PaginationComponent";
 
@@ -42,6 +43,11 @@ export class EditFundingRoundPaginator extends FundingRoundPaginator {
 
     public args: string[] = []
     public title: string = "Select A Funding Round To Edit";
+
+    public async getItems(interaction: TrackedInteraction): Promise<FundingRound[]> {
+        const duid: string = interaction.discordUserId;
+        return await FundingRoundLogic.getFundingRoundsForUser(duid);
+    }
 }
 
 export class SetCommitteeFundingRoundPaginator extends FundingRoundPaginator {
@@ -75,6 +81,28 @@ export class InVotingFundingRoundPaginator extends FundingRoundPaginator {
 
 
     public async getItems(interaction: TrackedInteraction): Promise<FundingRound[]> {
-        return await FundingRoundLogic.getEligibleVotingRounds();
+        return await FundingRoundLogic.getEligibleVotingRounds(interaction);
+    }
+}
+
+export class ConsiderationFundingRoundPaginator extends FundingRoundPaginator {
+    public static readonly ID = 'consFRPag';
+    public args: string[] = []
+    public title: string = "Select A Funding Round To Consider On";
+
+    public async getItems(interaction: TrackedInteraction): Promise<FundingRound[]> {
+        const duid: string = interaction.discordUserId;
+        return await ConsiderationLogic.getEligibleFundingRounds(duid);
+    }
+}
+
+export class ActiveFundingRoundPaginator extends FundingRoundPaginator {
+    public static readonly ID = 'activeFRPag';
+
+    public args: string[] = []
+    public title: string = "Select an Active Funding Round";
+
+    public async getItems(interaction: TrackedInteraction): Promise<FundingRound[]> {
+        return await FundingRoundLogic.getActiveFundingRounds();
     }
 }

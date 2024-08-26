@@ -24,6 +24,10 @@ export class TrackedInteraction {
         this.interaction = interaction;
     }
 
+    get discordUserId(): string {
+        return this.interaction.user.id;
+    }
+
     public getFromCustomId(name: string): string | undefined {
         return CustomIDOracle.getNamedArgument(this.customId, name);
     }
@@ -354,6 +358,16 @@ export abstract class Dashboard {
         if (routes) {
             this.routes = routes;
         }
+    }
+
+    /**
+     * If no matching dashboards are round, .isFallBack() will be called on them one-by-one, until one of them returns true.
+     * This dashboard will then be used to handle the interaction.
+     * 
+     * Default implementation returns false, but you can override it in the subclass.
+     */
+    public async isFallback(interaction: TrackedInteraction): Promise<boolean> {
+        return false;
     }
 
     /**
