@@ -14,6 +14,7 @@ import { EndUserError } from '../../../Errors';
 import { ActiveFundingRoundPaginator } from '../../../components/FundingRoundPaginator';
 import { ManageProposalStatusesPaginator } from '../../../components/ProposalsPaginator';
 import { ArgumentOracle } from '../../../CustomIDOracle';
+import { DiscordLimiter } from '../../../utils/DiscordLimiter';
 
 export class ManageProposalStatusesScreen extends Screen {
   public static readonly ID = 'manageProposalStatuses';
@@ -232,7 +233,7 @@ export class UpdateProposalStatusAction extends Action {
 
     const embed = new EmbedBuilder()
       .setColor('#0099ff')
-      .setTitle(`Update Proposal Status: ${proposal.name}`)
+      .setTitle(DiscordLimiter.StringSelectMenu.limitDescription(`Update Proposal Status: ${proposal.name}`))
       .setDescription(`Current status: ${proposal.status}`)
       .addFields(
         { name: 'ID', value: proposal.id.toString(), inline: true },

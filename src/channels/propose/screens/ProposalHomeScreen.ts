@@ -24,6 +24,7 @@ import { EndUserError, EndUserInfo } from '../../../Errors';
 import { DiscordStatus } from '../../DiscordStatus';
 import logger from '../../../logging';
 import { EditMySubmittedProposalsPaginator } from '../../../components/ProposalsPaginator';
+import { DiscordLimiter } from '../../../utils/DiscordLimiter';
 
 export class ProposalHomeScreen extends Screen implements IHomeScreen {
   public static readonly ID = 'proposalHome';
@@ -215,10 +216,20 @@ export class ManageSubmittedProposalsAction extends PaginationComponent {
 
     const embed: EmbedBuilder = new EmbedBuilder()
       .setColor('#0099ff')
-      .setTitle(`Proposal: ${proposal.name}`)
+      .setTitle(DiscordLimiter.EmbedBuilder.limitTitle(`Proposal: ${proposal.name}`))
       .addFields(
-        { name: 'Proposal Details', value: `Budget: ${proposal.budget}\nStatus: ${proposal.status}\nURI: ${proposal.uri}` },
-        { name: 'Funding Round', value: `Name: ${fundingRound.name}\nBudget: ${fundingRound.budget}\nStatus: ${fundingRound.status}` },
+        {
+          name: 'Proposal Details',
+          value: DiscordLimiter.EmbedBuilder.limitFieldValue(`Budget: ${proposal.budget}
+Status: ${proposal.status}
+URI: ${proposal.uri}`),
+        },
+        {
+          name: 'Funding Round',
+          value: DiscordLimiter.EmbedBuilder.limitFieldValue(`Name: ${fundingRound.name}
+Budget: ${fundingRound.budget}
+Status: ${fundingRound.status}`),
+        },
       );
 
     const cancelButton: ButtonBuilder = new ButtonBuilder()
@@ -264,8 +275,18 @@ export class ManageSubmittedProposalsAction extends PaginationComponent {
       .setTitle('Confirm Proposal Cancellation')
       .setDescription('Are you sure you want to cancel this proposal? This action cannot be undone.')
       .addFields(
-        { name: 'Proposal Details', value: `Name: ${proposal.name}\nBudget: ${proposal.budget}\nStatus: ${proposal.status}\nURI: ${proposal.uri}` },
-        { name: 'Funding Round', value: `Name: ${fundingRound.name}\nBudget: ${fundingRound.budget}\nStatus: ${fundingRound.status}` },
+        {
+          name: 'Proposal Details',
+          value: DiscordLimiter.EmbedBuilder.limitFieldValue(
+            `Name: ${DiscordLimiter.limitTo100(proposal.name)}\nBudget: ${proposal.budget}\nStatus: ${proposal.status}\nURI: ${proposal.uri}`,
+          ),
+        },
+        {
+          name: 'Funding Round',
+          value: DiscordLimiter.EmbedBuilder.limitFieldValue(
+            `Name: ${fundingRound.name}\nBudget: ${fundingRound.budget}\nStatus: ${fundingRound.status}`,
+          ),
+        },
       )
       .setFooter({
         text: 'Once cancelled, this proposal cannot be re-submitted to the funding round. You will need to create a new proposal if you want to submit again.',
@@ -422,9 +443,9 @@ export class ManageDraftsAction extends PaginationComponent {
       .setPlaceholder('Select a Draft Proposal')
       .addOptions(
         drafts.map((draft) => ({
-          label: draft.name,
+          label: DiscordLimiter.StringSelectMenu.limitDescription(draft.name),
           value: draft.id.toString(),
-          description: `Budget: ${draft.budget}`,
+          description: DiscordLimiter.StringSelectMenu.limitDescription(`Budget: ${draft.budget}`),
         })),
       );
 
@@ -475,13 +496,13 @@ export class ManageDraftsAction extends PaginationComponent {
 
     const embed: EmbedBuilder = new EmbedBuilder()
       .setColor('#0099ff')
-      .setTitle(`Draft Proposal: ${proposal.name}`)
-      .setDescription(`Proposal URI: ${proposal.uri}`)
+      .setTitle(DiscordLimiter.EmbedBuilder.limitTitle(`Draft Proposal: ${proposal.name}`))
+      .setDescription(DiscordLimiter.EmbedBuilder.limitDescription(`Proposal URI: ${proposal.uri}`))
       .addFields(
         { name: 'ID (auto-assigned)', value: proposal.id.toString(), inline: true },
-        { name: 'Budget', value: proposal.budget.toString(), inline: true },
-        { name: 'URL', value: proposal.uri, inline: true },
-        { name: 'Status', value: proposal.status, inline: true },
+        { name: 'Budget', value: DiscordLimiter.EmbedBuilder.limitField(proposal.budget.toString()), inline: true },
+        { name: 'URL', value: DiscordLimiter.EmbedBuilder.limitField(proposal.uri), inline: true },
+        { name: 'Status', value: DiscordLimiter.EmbedBuilder.limitField(proposal.status), inline: true },
       );
 
     const editButton = new ButtonBuilder()
@@ -620,13 +641,13 @@ export class ManageDraftsAction extends PaginationComponent {
 
     const embed = new EmbedBuilder()
       .setColor('#ff0000')
-      .setTitle(`Confirm Delete: ${proposal.name}`)
+      .setTitle(DiscordLimiter.EmbedBuilder.limitTitle(`Confirm Delete: ${proposal.name}`))
       .setDescription('Are you sure you want to delete this proposal? This action cannot be undone.')
       .addFields(
-        { name: 'Name', value: proposal.name },
+        { name: 'Name', value: DiscordLimiter.EmbedBuilder.limitFieldValue(proposal.name) },
         { name: 'ID', value: proposal.id.toString() },
-        { name: 'Budget', value: proposal.budget.toString() },
-        { name: 'URL', value: proposal.uri },
+        { name: 'Budget', value: DiscordLimiter.EmbedBuilder.limitFieldValue(proposal.budget.toString()) },
+        { name: 'URL', value: DiscordLimiter.EmbedBuilder.limitFieldValue(proposal.uri) },
       );
 
     const confirmButton = new ButtonBuilder()
@@ -814,9 +835,9 @@ export class CreateNewProposalAction extends Action {
         .setDescription('Your new proposal draft has been created.')
         .addFields(
           { name: 'ID (auto-assigned)', value: newProposal.id.toString() },
-          { name: 'Name', value: newProposal.name },
-          { name: 'Budget', value: newProposal.budget.toString() },
-          { name: 'URL', value: newProposal.uri },
+          { name: 'Name', value: DiscordLimiter.EmbedBuilder.limitFieldValue(newProposal.name) },
+          { name: 'Budget', value: DiscordLimiter.EmbedBuilder.limitFieldValue(newProposal.budget.toString()) },
+          { name: 'URL', value: DiscordLimiter.EmbedBuilder.limitFieldValue(newProposal.uri) },
         );
 
       const manageButton = new ButtonBuilder()
@@ -897,9 +918,9 @@ export class SubmitProposalToFundingRoundAction extends Action {
       .setPlaceholder('Select a Draft Proposal')
       .addOptions(
         draftProposals.map((proposal) => ({
-          label: proposal.name,
+          label: DiscordLimiter.StringSelectMenu.limitDescription(proposal.name),
           value: proposal.id.toString(),
-          description: `Budget: ${proposal.budget}`,
+          description: DiscordLimiter.StringSelectMenu.limitDescription(`Budget: ${proposal.budget}`),
         })),
       );
 
@@ -972,9 +993,9 @@ export class SubmitProposalToFundingRoundAction extends Action {
       .setDescription('Please review the details below and confirm your submission.')
       .addFields(
         { name: 'Proposal ID (auto-assigned)', value: proposal.id.toString() },
-        { name: 'Proposal Name', value: proposal.name },
-        { name: 'Proposal Budget', value: proposal.budget.toString() },
-        { name: 'Proposal URI', value: proposal.uri },
+        { name: 'Proposal Name', value: DiscordLimiter.EmbedBuilder.limitFieldValue(proposal.name) },
+        { name: 'Proposal Budget', value: DiscordLimiter.EmbedBuilder.limitFieldValue(proposal.budget.toString()) },
+        { name: 'Proposal URI', value: DiscordLimiter.EmbedBuilder.limitFieldValue(proposal.uri) },
         { name: 'Funding Round', value: fundingRound.name },
         { name: 'Funding Round Budget', value: fundingRound.budget.toString() },
         { name: 'Funding Round End Date', value: fundingRound.endAt.toLocaleDateString() },

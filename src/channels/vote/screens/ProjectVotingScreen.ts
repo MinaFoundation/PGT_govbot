@@ -23,6 +23,7 @@ import { OCVLinkGenerator } from '../../../utils/OCVLinkGenerator';
 import logger from '../../../logging';
 import { EndUserError, EndUserInfo } from '../../../Errors';
 import { proposalStatusToPhase } from '../../proposals/ProposalsForumManager';
+import { DiscordLimiter } from '../../../utils/DiscordLimiter';
 
 export class ProjectVotingScreen extends Screen {
   public static readonly ID = 'prVt';
@@ -414,16 +415,20 @@ class VoteProjectAction extends Action {
             `;
     }
     // TODO: add description for each phase
-    const embed = new EmbedBuilder().setColor('#0099ff').setTitle(`Vote on Project: ${project.name}`).setDescription(description).addFields(
-      { name: 'Budget', value: project.budget.toString(), inline: true },
-      { name: 'Status', value: project.status, inline: true },
-      { name: 'URI', value: project.uri, inline: true },
-      {
-        name: 'Proposer Discord ID',
-        value: project.proposerDuid,
-        inline: true,
-      },
-    );
+    const embed = new EmbedBuilder()
+      .setColor('#0099ff')
+      .setTitle(DiscordLimiter.EmbedBuilder.limitTitle(`Vote on Project: ${project.name}`))
+      .setDescription(description)
+      .addFields(
+        { name: 'Budget', value: DiscordLimiter.EmbedBuilder.limitField(project.budget.toString()), inline: true },
+        { name: 'Status', value: project.status, inline: true },
+        { name: 'URI', value: DiscordLimiter.EmbedBuilder.limitField(project.uri), inline: true },
+        {
+          name: 'Proposer Discord ID',
+          value: project.proposerDuid,
+          inline: true,
+        },
+      );
 
     let components: ActionRowBuilder<MessageActionRowComponentBuilder>[] = [];
     switch (proposalPhase.toLowerCase()) {

@@ -14,24 +14,45 @@ export abstract class PaginationComponent extends Action {
   protected abstract getTotalPages(interaction: TrackedInteraction): Promise<number>;
   protected abstract getItemsForPage(interaction: TrackedInteraction, page: number): Promise<any[]>;
 
-  public getPaginationRow(interaction: TrackedInteraction, currentPage: number, totalPages: number, ...args: string[]): ActionRowBuilder<ButtonBuilder> {
+  public getPaginationRow(
+    interaction: TrackedInteraction,
+    currentPage: number,
+    totalPages: number,
+    ...args: string[]
+  ): ActionRowBuilder<ButtonBuilder> {
     const row = new ActionRowBuilder<ButtonBuilder>();
 
     if (currentPage > 0) {
       row.addComponents(
         new ButtonBuilder()
-          .setCustomId(CustomIDOracle.addArgumentsToAction(this, PaginationComponent.PAGINATION_ARG, PaginationComponent.PAGE_ARG, (currentPage - 1).toString(), ...args))
+          .setCustomId(
+            CustomIDOracle.addArgumentsToAction(
+              this,
+              PaginationComponent.PAGINATION_ARG,
+              PaginationComponent.PAGE_ARG,
+              (currentPage - 1).toString(),
+              ...args,
+            ),
+          )
           .setLabel('Previous')
-          .setStyle(ButtonStyle.Secondary)
+          .setStyle(ButtonStyle.Secondary),
       );
     }
 
     if (currentPage < totalPages - 1) {
       row.addComponents(
         new ButtonBuilder()
-          .setCustomId(CustomIDOracle.addArgumentsToAction(this, PaginationComponent.PAGINATION_ARG, PaginationComponent.PAGE_ARG, (currentPage + 1).toString(), ...args))
+          .setCustomId(
+            CustomIDOracle.addArgumentsToAction(
+              this,
+              PaginationComponent.PAGINATION_ARG,
+              PaginationComponent.PAGE_ARG,
+              (currentPage + 1).toString(),
+              ...args,
+            ),
+          )
           .setLabel('Next')
-          .setStyle(ButtonStyle.Secondary)
+          .setStyle(ButtonStyle.Secondary),
       );
     }
 
@@ -67,12 +88,11 @@ export abstract class PaginationComponent extends Action {
  * and let it do the rest.
  */
 export abstract class ORMModelPaginator<ORMModel> extends PaginationComponent {
-
   public static BOOLEAN = {
     TRUE: 'yes',
     ARGUMENTS: {
-      FORCE_REPLY: 'fRp'
-    }
+      FORCE_REPLY: 'fRp',
+    },
   };
 
   public readonly REQUIRED_ARGUMENTS: string[] = [];
@@ -98,13 +118,12 @@ export abstract class ORMModelPaginator<ORMModel> extends PaginationComponent {
       logger.debug(`Checking for ${argument} in ${this.REQUIRED_ARGUMENTS}`);
       const value: string = ArgumentOracle.getNamedArgument(interaction, argument);
       parsedArguments[argument] = value;
-
     }
     return parsedArguments;
   }
 
-  protected getRequiredArgumentsAsList(interaction: TrackedInteraction) :string[] {
-    const requiredArgs: {[key: string]: string} = this.parseRequiredArguments(interaction);
+  protected getRequiredArgumentsAsList(interaction: TrackedInteraction): string[] {
+    const requiredArgs: { [key: string]: string } = this.parseRequiredArguments(interaction);
     const requiredArgsAsList: string[] = requiredArgs ? Object.entries(requiredArgs).flat() : [];
     return requiredArgsAsList;
   }
@@ -131,7 +150,7 @@ export abstract class ORMModelPaginator<ORMModel> extends PaginationComponent {
     const fullDescription: string = `${this.description}\n\n${paginatorStr}`;
 
     const requiredArgsAsList = this.getRequiredArgumentsAsList(interaction);
-    const allArgs: string[] = [...this.args, ...requiredArgsAsList]
+    const allArgs: string[] = [...this.args, ...requiredArgsAsList];
     const customId: string = CustomIDOracle.addArgumentsToAction(this.action, this.operation, ...allArgs);
 
     const selectMenuOptions = await this.getOptions(interaction, allItems);
@@ -140,22 +159,13 @@ export abstract class ORMModelPaginator<ORMModel> extends PaginationComponent {
       throw new NotFoundEndUserInfo('No available items found');
     }
 
-    const selectMenu = new StringSelectMenuBuilder()
-      .setCustomId(customId)
-      .setPlaceholder(this.placeholder)
-      .addOptions(selectMenuOptions);
+    const selectMenu = new StringSelectMenuBuilder().setCustomId(customId).setPlaceholder(this.placeholder).addOptions(selectMenuOptions);
 
-    const embed = new EmbedBuilder()
-      .setTitle(this.title)
-      .setDescription(fullDescription);
+    const embed = new EmbedBuilder().setTitle(this.title).setDescription(fullDescription);
 
     const components: ActionRowBuilder<MessageActionRowComponentBuilder>[] = [
-      new ActionRowBuilder<StringSelectMenuBuilder>().addComponents(selectMenu)
+      new ActionRowBuilder<StringSelectMenuBuilder>().addComponents(selectMenu),
     ];
-
-
-
-    console.log(requiredArgsAsList);
 
     if (totalPages > 1) {
       const paginationRow = this.getPaginationRow(interaction, currentPage, totalPages, ...requiredArgsAsList);
@@ -166,7 +176,11 @@ export abstract class ORMModelPaginator<ORMModel> extends PaginationComponent {
   }
 
   protected async replyOrUpdate(interaction: TrackedInteraction, data: any): Promise<void> {
-    const isReply: boolean = ArgumentOracle.isArgumentEquals(interaction, ORMModelPaginator.BOOLEAN.ARGUMENTS.FORCE_REPLY, ORMModelPaginator.BOOLEAN.TRUE);
+    const isReply: boolean = ArgumentOracle.isArgumentEquals(
+      interaction,
+      ORMModelPaginator.BOOLEAN.ARGUMENTS.FORCE_REPLY,
+      ORMModelPaginator.BOOLEAN.TRUE,
+    );
 
     if (isReply) {
       await interaction.respond(data);
@@ -175,15 +189,11 @@ export abstract class ORMModelPaginator<ORMModel> extends PaginationComponent {
     }
   }
 
-
-
   public allSubActions(): Action[] {
     return [];
   }
 
-
   getComponent(...args: any[]): StringSelectMenuBuilder {
     throw new EndUserError('A paginator does not have a component');
-
   }
 }

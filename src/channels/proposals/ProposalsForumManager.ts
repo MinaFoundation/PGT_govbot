@@ -9,18 +9,19 @@ import { Screen } from '../../core/BaseClasses';
 import { ProposalLogic } from '../../logic/ProposalLogic';
 import { ProposalStatus } from '../../types';
 import { FundingRoundLogic } from '../admin/screens/FundingRoundLogic';
+import { DiscordLimiter } from '../../utils/DiscordLimiter';
 
 export function proposalStatusToPhase(status: ProposalStatus): string {
-    switch (status) {
-        case (ProposalStatus.CONSIDERATION_PHASE):
-            return "consideration";
-        case (ProposalStatus.DELIBERATION_PHASE):
-            return "deliberation";
-        case (ProposalStatus.FUNDING_VOTING_PHASE):
-            return "funding";
-        default:
-            throw new EndUserError(`Invalid proposal voting phase: ${status.toString()}`)
-    }
+  switch (status) {
+    case ProposalStatus.CONSIDERATION_PHASE:
+      return 'consideration';
+    case ProposalStatus.DELIBERATION_PHASE:
+      return 'deliberation';
+    case ProposalStatus.FUNDING_VOTING_PHASE:
+      return 'funding';
+    default:
+      throw new EndUserError(`Invalid proposal voting phase: ${status.toString()}`);
+  }
 }
 
 export class ProposalsForumManager {
@@ -34,7 +35,7 @@ export class ProposalsForumManager {
       }
 
       const thread = await forumChannel.threads.create({
-        name: proposal.name,
+        name: DiscordLimiter.limitTo100(proposal.name),
         message: { content: 'Loading proposal details...' },
       });
 
@@ -56,7 +57,7 @@ export class ProposalsForumManager {
       logger.debug(`Updating forum thread ${thread.id}:`);
       if (firstMessage) {
         logger.debug(`\tFirst message. Editing ${firstMessage.id}...`);
-        await firstMessage.edit({ content: "", embeds: [embed], components: [voteButton] });
+        await firstMessage.edit({ content: '', embeds: [embed], components: [voteButton] });
       } else {
         logger.debug(`\tNo first message. Sending new message to thread ${thread.id}...`);
         await thread.send({ embeds: [embed], components: [voteButton] });
@@ -129,39 +130,46 @@ export class ProposalsForumManager {
 
   private static createProposalEmbed(proposal: Proposal): EmbedBuilder {
     return new EmbedBuilder()
-      .setTitle(proposal.name)
+      .setTitle(DiscordLimiter.limitTo100(proposal.name))
       .setDescription('See the details of the proposal and vote on it below.')
       .addFields(
-        { name: 'Budget', value: proposal.budget.toString(), inline: true },
-        { name: 'Status', value: proposal.status, inline: true },
-        { name: 'URI', value: proposal.uri }
+        { name: 'Budget', value: DiscordLimiter.limitTo100(proposal.budget.toString()), inline: true },
+        { name: 'Status', value: DiscordLimiter.limitTo100(proposal.status), inline: true },
+        { name: 'URI', value: DiscordLimiter.limitTo100(proposal.uri) },
       )
       .setColor('#0099ff');
   }
 
   public static async createVoteButton(proposalId: number, fundingRoundId: number, screen: any): Promise<ActionRowBuilder<ButtonBuilder>> {
     const fundingRound: FundingRound = await FundingRoundLogic.getFundingRoundByIdOrError(fundingRoundId);
-    
+
     if (!fundingRound.forumChannelId) {
       throw new EndUserError(`Funding round ${fundingRoundId} does not have a forum channel`);
     }
 
     const dashBoardId: string = fundingRound.forumChannelId.toString();
-  
 
     const proposal: Proposal = await ProposalLogic.getProposalByIdOrError(proposalId);
     const proposalPhase: string = proposalStatusToPhase(proposal.status);
-    const customId: string = CustomIDOracle.customIdFromRawParts(dashBoardId, ProjectVotingScreen.ID, SelectProjectAction.ID, SelectProjectAction.OPERATIONS.selectProject, 'prId', proposalId.toString(), ArgumentOracle.COMMON_ARGS.FUNDING_ROUND_ID, fundingRoundId.toString(), 'ph', proposalPhase);
-    const button = new ButtonBuilder()
-      .setCustomId(customId)
-      .setLabel('Vote On This Proposal')
-      .setStyle(ButtonStyle.Primary);
+    const customId: string = CustomIDOracle.customIdFromRawParts(
+      dashBoardId,
+      ProjectVotingScreen.ID,
+      SelectProjectAction.ID,
+      SelectProjectAction.OPERATIONS.selectProject,
+      'prId',
+      proposalId.toString(),
+      ArgumentOracle.COMMON_ARGS.FUNDING_ROUND_ID,
+      fundingRoundId.toString(),
+      'ph',
+      proposalPhase,
+    );
+    const button = new ButtonBuilder().setCustomId(customId).setLabel('Vote On This Proposal').setStyle(ButtonStyle.Primary);
 
     return new ActionRowBuilder<ButtonBuilder>().addComponents(button);
   }
 
   private static async getForumChannelOrError(fundingRound: FundingRound): Promise<ForumChannel> {
-    const { client } = await import("../../bot");
+    const { client } = await import('../../bot');
 
     const guild = client.guilds.cache.first();
 
@@ -170,7 +178,7 @@ export class ProposalsForumManager {
     }
 
     const allChannels = await guild.channels.fetch();
-    logger.debug(`All channels: ${allChannels.map(channel => channel?.id).join(', ')}`);
+    logger.debug(`All channels: ${allChannels.map((channel) => channel?.id).join(', ')}`);
 
     const proposalChannelId: string | null = fundingRound.forumChannelId.toString();
 
@@ -178,7 +186,7 @@ export class ProposalsForumManager {
       throw new NotFoundEndUserError(`Funding round ${fundingRound.id} does not have a forum channel`);
     }
 
-    //FIXME: ensure proposal is being fetched correcly
+    //FIXME: ensure proposal is being fetched correctly
     logger.debug(`Fetching proposal channel ${proposalChannelId}...`);
     const channel = await guild.channels.fetch(proposalChannelId);
 
@@ -191,6 +199,5 @@ export class ProposalsForumManager {
     }
 
     return channel as ForumChannel;
-
   }
 }
