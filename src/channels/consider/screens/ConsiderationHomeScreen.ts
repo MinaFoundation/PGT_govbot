@@ -442,18 +442,18 @@ class SMEConsiderationVoteAction extends Action {
       )
       .addFields(
         {
-          name: 'About Funding Round',
-          value: `ID: ${fundingRound.id}\nBudget: ${
-            fundingRound.budget
-          }\nStart: ${fundingRound.startAt.toLocaleString()}\nEnd: ${fundingRound.endAt.toLocaleString()}`,
+          name: 'Funding Round Info',
+          value: DiscordLimiter.EmbedBuilder.limitFieldValue(
+            `ID: ${fundingRound.id}\nBudget: ${
+              fundingRound.budget
+            }\nStart: ${fundingRound.startAt.toLocaleString()}\nEnd: ${fundingRound.endAt.toLocaleString()}`,
+          ),
         },
         {
-          name: 'About Project',
-          value: DiscordLimiter.limitTo100(`ID: ${project.id}
-Name: ${DiscordLimiter.limitTo25(project.name)}
-Budget: ${DiscordLimiter.limitTo25(project.budget.toString())}
-Submitter: ${DiscordLimiter.limitTo25(project.proposerDuid)}
-URI: ${DiscordLimiter.limitTo25(project.uri)}`),
+          name: 'Project Info',
+          value: DiscordLimiter.EmbedBuilder.limitFieldValue(
+            `ID: ${project.id}\nName: ${project.name}\nBudget: ${project.budget.toString()}\nSubmitter: ${project.proposerDuid}\nURI: ${project.uri}`,
+          ),
         },
       );
 
