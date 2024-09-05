@@ -7,17 +7,20 @@ import { ManageSMEGroupsScreen } from './ManageSMEGroupsScreen';
 import { ManageTopicsScreen } from './ManageTopicLogicScreen';
 import { ManageFundingRoundsScreen } from './ManageFundingRoundsScreen';
 import { ManageProposalStatusesScreen } from './ManageProposalStatusesScreen';
-
+import { CountVotesScreen } from './CountVotesScreen';
 
 export class AdminHomeScreen extends Screen implements IHomeScreen {
   public static readonly ID = 'home';
 
   protected permissions: Permission[] = []; // access allowed for all
-  protected manageSMEGroupsScreen: ManageSMEGroupsScreen =  new ManageSMEGroupsScreen(this.dashboard, ManageSMEGroupsScreen.ID);
+  protected manageSMEGroupsScreen: ManageSMEGroupsScreen = new ManageSMEGroupsScreen(this.dashboard, ManageSMEGroupsScreen.ID);
   protected manageTopicsScreen: ManageTopicsScreen = new ManageTopicsScreen(this.dashboard, ManageTopicsScreen.ID);
   protected manageFundingRoundsScreen: ManageFundingRoundsScreen = new ManageFundingRoundsScreen(this.dashboard, ManageFundingRoundsScreen.ID);
-  protected manageProposalStatusesScreen: ManageProposalStatusesScreen = new ManageProposalStatusesScreen(this.dashboard, ManageProposalStatusesScreen.ID);
-
+  protected manageProposalStatusesScreen: ManageProposalStatusesScreen = new ManageProposalStatusesScreen(
+    this.dashboard,
+    ManageProposalStatusesScreen.ID,
+  );
+  protected countVotesScreen: CountVotesScreen = new CountVotesScreen(this.dashboard, CountVotesScreen.ID);
 
   async renderToTextChannel(channel: TextChannel): Promise<void> {
     const embed = this.createEmbed();
@@ -38,16 +41,12 @@ export class AdminHomeScreen extends Screen implements IHomeScreen {
     return {
       embeds: [embed],
       components: [row],
-      ephemeral: true
+      ephemeral: true,
     };
   }
 
   protected allSubScreens(): Screen[] {
-    return [
-      this.manageSMEGroupsScreen,
-      this.manageTopicsScreen,
-      this.manageFundingRoundsScreen,
-    ]
+    return [this.manageSMEGroupsScreen, this.manageTopicsScreen, this.manageFundingRoundsScreen, this.countVotesScreen];
   }
   protected allActions(): Action[] {
     return [];
@@ -61,33 +60,29 @@ export class AdminHomeScreen extends Screen implements IHomeScreen {
       .addFields(
         { name: '👥 SME Management', value: 'Manage SME Groups and Users' },
         { name: '📋 Topic Management', value: 'Manage Topics and Committees' },
-        { name: '💰 Funding Round Management', value: 'Manage Funding Rounds and Phases' }
+        { name: '💰 Funding Round Management', value: 'Manage Funding Rounds and Phases' },
       );
   }
 
   private createActionRow(): ActionRowBuilder<ButtonBuilder> {
-    return new ActionRowBuilder<ButtonBuilder>()
-      .addComponents(
-        new ButtonBuilder()
-          .setCustomId(this.manageSMEGroupsScreen.fullCustomId)
-          .setLabel('SME Management')
-          .setStyle(ButtonStyle.Primary)
-          .setEmoji('👥'),
-          new ButtonBuilder()
-          .setCustomId(this.manageTopicsScreen.fullCustomId)
-          .setLabel('Topic Management')
-          .setStyle(ButtonStyle.Primary)
-          .setEmoji('📋'),
-        new ButtonBuilder()
-          .setCustomId(this.manageFundingRoundsScreen.fullCustomId)
-          .setLabel('Funding Round Management')
-          .setStyle(ButtonStyle.Primary)
-          .setEmoji('💰'),
-        new ButtonBuilder()
-          .setCustomId(this.manageProposalStatusesScreen.fullCustomId)
-          .setLabel('Proposal Status Management')
-          .setStyle(ButtonStyle.Primary)
-          .setEmoji('📊')
-      );
+    return new ActionRowBuilder<ButtonBuilder>().addComponents(
+      new ButtonBuilder()
+        .setCustomId(this.manageSMEGroupsScreen.fullCustomId)
+        .setLabel('SME Management')
+        .setStyle(ButtonStyle.Primary)
+        .setEmoji('👥'),
+      new ButtonBuilder().setCustomId(this.manageTopicsScreen.fullCustomId).setLabel('Topic Management').setStyle(ButtonStyle.Primary).setEmoji('📋'),
+      new ButtonBuilder()
+        .setCustomId(this.manageFundingRoundsScreen.fullCustomId)
+        .setLabel('Funding Round Management')
+        .setStyle(ButtonStyle.Primary)
+        .setEmoji('💰'),
+      new ButtonBuilder()
+        .setCustomId(this.manageProposalStatusesScreen.fullCustomId)
+        .setLabel('Proposal Status Management')
+        .setStyle(ButtonStyle.Primary)
+        .setEmoji('📊'),
+      new ButtonBuilder().setCustomId(this.countVotesScreen.fullCustomId).setLabel('Count Votes').setStyle(ButtonStyle.Primary).setEmoji('🗳️'),
+    );
   }
 }

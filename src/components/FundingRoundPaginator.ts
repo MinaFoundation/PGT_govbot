@@ -100,3 +100,13 @@ export class ActiveFundingRoundPaginator extends FundingRoundPaginator {
     return await FundingRoundLogic.getActiveFundingRounds();
   }
 }
+
+export class AllFundingRoundsPaginator extends FundingRoundPaginator {
+  public static readonly ID = 'allFRPag';
+  public args: string[] = [];
+  public title: string = 'Select a Funding Round';
+
+  public async getItems(interaction: TrackedInteraction): Promise<FundingRound[]> {
+    return await FundingRoundLogic.getAllFundingRounds();
+  }
+}
