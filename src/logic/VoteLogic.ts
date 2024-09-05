@@ -6,7 +6,6 @@ import { FundingRoundStatus, ProposalStatus } from '../types';
 import { FundingRoundLogic } from '../channels/admin/screens/FundingRoundLogic';
 import { EndUserError } from '../Errors';
 
-
 export class VoteLogic {
   static async voteFundingRound(userId: string, fundingRoundId: number): Promise<void> {
     const fundingRound = await FundingRoundLogic.getFundingRoundById(fundingRoundId);
@@ -50,7 +49,13 @@ export class VoteLogic {
     });
   }
 
-  static async submitDeliberationReasoning(userId: string, projectId: number, fundingRoundId: number, reasoning: string, reason: string | null = null): Promise<void> {
+  static async submitDeliberationReasoning(
+    userId: string,
+    projectId: number,
+    fundingRoundId: number,
+    reasoning: string,
+    reason: string | null = null,
+  ): Promise<void> {
     const proposal = await ProposalLogic.getProposalById(projectId);
     if (!proposal) {
       throw new EndUserError('Project not found');
