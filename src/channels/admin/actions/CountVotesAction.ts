@@ -6,6 +6,7 @@ import { VoteCountingLogic } from '../../../logic/VoteCountingLogic';
 import { EndUserError } from '../../../Errors';
 import { AnyModalMessageComponent } from '../../../types/common';
 import { DiscordStatus } from '../../DiscordStatus';
+import { Client } from 'discord.js';
 
 export class CountVotesAction extends Action {
   public allSubActions(): Action[] {
@@ -66,28 +67,62 @@ export class CountVotesAction extends Action {
   }
 
   private async handleCountVotes(interaction: TrackedInteraction): Promise<void> {
+    await interaction.interaction.deferReply();
+
     const fundingRoundId = ArgumentOracle.getNamedArgument(interaction, ArgumentOracle.COMMON_ARGS.FUNDING_ROUND_ID);
     const phase = ArgumentOracle.getNamedArgument(interaction, ArgumentOracle.COMMON_ARGS.PHASE, 0);
 
-    const voteResults = await VoteCountingLogic.countVotes(parseInt(fundingRoundId), phase);
-
-    const embed = new EmbedBuilder()
+    const progressEmbed = new EmbedBuilder()
       .setColor('#0099ff')
-      .setTitle(`Vote Count Results - ${phase.charAt(0).toUpperCase() + phase.slice(1)} Phase`)
-      .setDescription('Here are the vote counts for each project:');
+      .setTitle('Counting Votes')
+      .setDescription('Please wait while our quantum computers count all possible vote outcomes...');
 
-    voteResults.forEach((result, index) => {
-      let voteInfo = `Yes Votes: ${result.yesVotes}\nNo Votes: ${result.noVotes}`;
-      if (phase === 'deliberation' && result.approvedModifiedVotes !== undefined) {
-        voteInfo += `\nApproved Modified Votes: ${result.approvedModifiedVotes}`;
-      }
+    await interaction.interaction.editReply({ embeds: [progressEmbed], components: [] });
 
-      embed.addFields({
-        name: `${index + 1}. ${result.projectName} (ID: ${result.projectId})`,
-        value: `Proposer: ${result.proposerDuid}\n${voteInfo}`,
+    let updateCounter = 0;
+    const updateInterval = setInterval(async () => {
+      updateCounter++;
+      progressEmbed.setDescription(
+        `Please wait while our quantum computers count all possible vote outcomes...\nTime elapsed: ${updateCounter * 5} seconds`,
+      );
+      await interaction.interaction.editReply({ embeds: [progressEmbed] });
+    }, 5000);
+
+    try {
+      const voteResults = await VoteCountingLogic.countVotes(parseInt(fundingRoundId), phase, interaction);
+
+      clearInterval(updateInterval);
+
+      const resultEmbed = new EmbedBuilder()
+        .setColor('#0099ff')
+        .setTitle(`Vote Count Results - ${phase.charAt(0).toUpperCase() + phase.slice(1)} Phase`)
+        .setDescription('Here are the vote counts for each project:');
+
+      voteResults.forEach((result, index) => {
+        let voteInfo = `Yes Votes: ${result.yesVotes}\nNo Votes: ${result.noVotes}`;
+        if (phase === 'deliberation' && result.approvedModifiedVotes !== undefined) {
+          voteInfo += `\nApproved Modified Votes: ${result.approvedModifiedVotes}`;
+        }
+
+        let voterInfo = `Yes Voters: ${result.yesVoters.join(', ')}\nNo Voters: ${result.noVoters.join(', ')}`;
+        if (phase === 'deliberation' && result.approvedModifiedVoters) {
+          voterInfo += `\nApproved Modified Voters: ${result.approvedModifiedVoters.join(', ')}`;
+        }
+
+        resultEmbed.addFields({
+          name: `${index + 1}. ${result.projectName} (ID: ${result.projectId})`,
+          value: `Proposer: ${result.proposerUsername}\n${voteInfo}\n\n${voterInfo}`,
+        });
       });
-    });
 
-    await interaction.update({ embeds: [embed], components: [] });
+      await interaction.interaction.editReply({ embeds: [resultEmbed], components: [] });
+    } catch (error) {
+      clearInterval(updateInterval);
+      if (error instanceof EndUserError) {
+        throw error;
+      } else {
+        throw new EndUserError('An unexpected error occurred while counting votes.');
+      }
+    }
   }
 }

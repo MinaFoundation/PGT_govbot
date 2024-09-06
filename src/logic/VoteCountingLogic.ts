@@ -1,18 +1,24 @@
 import { FundingRound, Proposal, SMEConsiderationVoteLog, CommitteeDeliberationVoteLog } from '../models';
 import { EndUserError } from '../Errors';
 import { CommitteeDeliberationVoteChoice } from '../types';
+import { TrackedInteraction } from '../core/BaseClasses';
+import logger from '../logging';
+import { Op } from 'sequelize';
 
 interface VoteResult {
   projectId: number;
   projectName: string;
-  proposerDuid: string;
+  proposerUsername: string;
   yesVotes: number;
   noVotes: number;
-  approvedModifiedVotes?: number; // Only for deliberation phase
+  approvedModifiedVotes?: number;
+  yesVoters: string[];
+  noVoters: string[];
+  approvedModifiedVoters?: string[];
 }
 
 export class VoteCountingLogic {
-  public static async countVotes(fundingRoundId: number, phase: string): Promise<VoteResult[]> {
+  public static async countVotes(fundingRoundId: number, phase: string, trackedInteraction: TrackedInteraction): Promise<VoteResult[]> {
     const fundingRound = await FundingRound.findByPk(fundingRoundId, { include: [Proposal] });
     if (!fundingRound) {
       throw new EndUserError('Funding round not found');
@@ -24,10 +30,10 @@ export class VoteCountingLogic {
 
     switch (phase) {
       case 'consideration':
-        voteResults = await this.countConsiderationVotes(proposals);
+        voteResults = await this.countConsiderationVotes(proposals, trackedInteraction);
         break;
       case 'deliberation':
-        voteResults = await this.countDeliberationVotes(proposals);
+        voteResults = await this.countDeliberationVotes(proposals, trackedInteraction);
         break;
       case 'voting':
         throw new EndUserError('Voting phase vote counting is not yet implemented');
@@ -47,47 +53,124 @@ export class VoteCountingLogic {
     });
   }
 
-  private static async countConsiderationVotes(proposals: Proposal[]): Promise<VoteResult[]> {
+  private static async getUsername(trackedInteraction: TrackedInteraction, duid: string): Promise<string> {
+    try {
+      const user = await trackedInteraction.interaction.client.users.fetch(duid);
+      return user.username;
+    } catch (error) {
+      logger.error(`Error fetching user ${duid}:`, error);
+      return duid; // Fallback to using DUID if username can't be fetched
+    }
+  }
+
+  private static async getVoterUsernames(trackedInteraction: TrackedInteraction, duids: string[]): Promise<string[]> {
+    const usernames: string[] = [];
+    for (const duid of duids) {
+      try {
+        const username: string = await this.getUsername(trackedInteraction, duid);
+        usernames.push(username);
+      } catch (error) {
+        logger.error(`Error fetching user ${duid}:`, error);
+        usernames.push(duid); // Fallback to using DUID if username can't be fetched
+      }
+    }
+    return usernames;
+  }
+
+  private static async countConsiderationVotes(proposals: Proposal[], trackedInteraction: TrackedInteraction): Promise<VoteResult[]> {
     return Promise.all(
       proposals.map(async (proposal) => {
-        const yesVotes = await SMEConsiderationVoteLog.count({
-          where: { proposalId: proposal.id, isPass: true },
+        const allVotes = await SMEConsiderationVoteLog.findAll({
+          where: { proposalId: proposal.id },
+          order: [['createdAt', 'DESC']],
         });
-        const noVotes = await SMEConsiderationVoteLog.count({
-          where: { proposalId: proposal.id, isPass: false },
+
+        const latestVotes = new Map<string, boolean>();
+        const yesVoters: string[] = [];
+        const noVoters: string[] = [];
+
+        allVotes.forEach((vote) => {
+          if (!latestVotes.has(vote.duid)) {
+            latestVotes.set(vote.duid, vote.isPass);
+            if (vote.isPass) {
+              yesVoters.push(vote.duid);
+            } else {
+              noVoters.push(vote.duid);
+            }
+          }
         });
+
+        const yesVotes = yesVoters.length;
+        const noVotes = noVoters.length;
+
+        const yesVoterUsernames = await this.getVoterUsernames(trackedInteraction, yesVoters);
+        const noVoterUsernames = await this.getVoterUsernames(trackedInteraction, noVoters);
+
+        const proposerUsername = await this.getUsername(trackedInteraction, proposal.proposerDuid);
 
         return {
           projectId: proposal.id,
           projectName: proposal.name,
-          proposerDuid: proposal.proposerDuid,
+          proposerUsername,
           yesVotes,
           noVotes,
+          yesVoters: yesVoterUsernames,
+          noVoters: noVoterUsernames,
         };
       }),
     );
   }
 
-  private static async countDeliberationVotes(proposals: Proposal[]): Promise<VoteResult[]> {
+  private static async countDeliberationVotes(proposals: Proposal[], trackedInteraction: TrackedInteraction): Promise<VoteResult[]> {
     return Promise.all(
       proposals.map(async (proposal) => {
-        const yesVotes = await CommitteeDeliberationVoteLog.count({
-          where: { proposalId: proposal.id, vote: CommitteeDeliberationVoteChoice.APPROVED },
+        const allVotes = await CommitteeDeliberationVoteLog.findAll({
+          where: { proposalId: proposal.id },
+          order: [['createdAt', 'DESC']],
         });
-        const noVotes = await CommitteeDeliberationVoteLog.count({
-          where: { proposalId: proposal.id, vote: CommitteeDeliberationVoteChoice.REJECTED },
+
+        const latestVotes = new Map<string, CommitteeDeliberationVoteChoice>();
+        const yesVoters: string[] = [];
+        const noVoters: string[] = [];
+        const approvedModifiedVoters: string[] = [];
+
+        allVotes.forEach((vote) => {
+          if (!latestVotes.has(vote.duid)) {
+            latestVotes.set(vote.duid, vote.vote);
+            switch (vote.vote) {
+              case CommitteeDeliberationVoteChoice.APPROVED:
+                yesVoters.push(vote.duid);
+                break;
+              case CommitteeDeliberationVoteChoice.REJECTED:
+                noVoters.push(vote.duid);
+                break;
+              case CommitteeDeliberationVoteChoice.APPROVED_MODIFIED:
+                approvedModifiedVoters.push(vote.duid);
+                break;
+            }
+          }
         });
-        const approvedModifiedVotes = await CommitteeDeliberationVoteLog.count({
-          where: { proposalId: proposal.id, vote: CommitteeDeliberationVoteChoice.APPROVED_MODIFIED },
-        });
+
+        const yesVotes = yesVoters.length;
+        const noVotes = noVoters.length;
+        const approvedModifiedVotes = approvedModifiedVoters.length;
+
+        const yesVoterUsernames = await this.getVoterUsernames(trackedInteraction, yesVoters);
+        const noVoterUsernames = await this.getVoterUsernames(trackedInteraction, noVoters);
+        const approvedModifiedVoterUsernames = await this.getVoterUsernames(trackedInteraction, approvedModifiedVoters);
+
+        const proposerUsername = await this.getUsername(trackedInteraction, proposal.proposerDuid);
 
         return {
           projectId: proposal.id,
           projectName: proposal.name,
-          proposerDuid: proposal.proposerDuid,
+          proposerUsername,
           yesVotes,
           noVotes,
           approvedModifiedVotes,
+          yesVoters: yesVoterUsernames,
+          noVoters: noVoterUsernames,
+          approvedModifiedVoters: approvedModifiedVoterUsernames,
         };
       }),
     );
