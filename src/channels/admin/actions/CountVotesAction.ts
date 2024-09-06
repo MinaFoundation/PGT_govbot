@@ -72,14 +72,19 @@ export class CountVotesAction extends Action {
     const fundingRoundId = ArgumentOracle.getNamedArgument(interaction, ArgumentOracle.COMMON_ARGS.FUNDING_ROUND_ID);
     const phase = ArgumentOracle.getNamedArgument(interaction, ArgumentOracle.COMMON_ARGS.PHASE, 0);
 
-    const progressEmbed = new EmbedBuilder().setColor('#0099ff').setTitle('Counting Votes').setDescription('Please wait while we count the votes...');
+    const progressEmbed = new EmbedBuilder()
+      .setColor('#0099ff')
+      .setTitle('Counting Votes')
+      .setDescription('Please wait while our quantum computers count all possible vote outcomes...');
 
     await interaction.interaction.editReply({ embeds: [progressEmbed], components: [] });
 
     let updateCounter = 0;
     const updateInterval = setInterval(async () => {
       updateCounter++;
-      progressEmbed.setDescription(`Please wait while we count the votes...\nTime elapsed: ${updateCounter * 5} seconds`);
+      progressEmbed.setDescription(
+        `Please wait while our quantum computers count all possible vote outcomes...\nTime elapsed: ${updateCounter * 5} seconds`,
+      );
       await interaction.interaction.editReply({ embeds: [progressEmbed] });
     }, 5000);
 
@@ -106,7 +111,7 @@ export class CountVotesAction extends Action {
 
         resultEmbed.addFields({
           name: `${index + 1}. ${result.projectName} (ID: ${result.projectId})`,
-          value: `Proposer: ${result.proposerDuid}\n${voteInfo}\n\n${voterInfo}`,
+          value: `Proposer: ${result.proposerUsername}\n${voteInfo}\n\n${voterInfo}`,
         });
       });
 
