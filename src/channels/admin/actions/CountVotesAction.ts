@@ -75,21 +75,19 @@ export class CountVotesAction extends Action {
     const progressEmbed = new EmbedBuilder()
       .setColor('#0099ff')
       .setTitle('Counting Votes')
-      .setDescription('Please wait while our quantum computers count all possible vote outcomes...');
+      .setDescription('Please wait while we count the votes and gather reasoning...');
 
     await interaction.interaction.editReply({ embeds: [progressEmbed], components: [] });
 
     let updateCounter = 0;
     const updateInterval = setInterval(async () => {
       updateCounter++;
-      progressEmbed.setDescription(
-        `Please wait while our quantum computers count all possible vote outcomes...\nTime elapsed: ${updateCounter * 5} seconds`,
-      );
+      progressEmbed.setDescription(`Please wait while we count the votes and gather reasoning...\nTime elapsed: ${updateCounter * 5} seconds`);
       await interaction.interaction.editReply({ embeds: [progressEmbed] });
     }, 5000);
 
     try {
-      const voteResults = await VoteCountingLogic.countVotes(parseInt(fundingRoundId), phase, interaction);
+      const voteResults = await VoteCountingLogic.countVotesWithReasoning(parseInt(fundingRoundId), phase, interaction);
 
       clearInterval(updateInterval);
 
@@ -116,6 +114,16 @@ export class CountVotesAction extends Action {
       });
 
       await interaction.interaction.editReply({ embeds: [resultEmbed], components: [] });
+
+      // Send vote reasoning as follow-up messages with embeds
+      const reasoningEmbeds = VoteCountingLogic.formatVoteReasoningMessage(voteResults);
+      if (reasoningEmbeds.length > 0) {
+        for (const embed of reasoningEmbeds) {
+          await interaction.interaction.followUp({ embeds: [embed], ephemeral: true });
+        }
+      } else {
+        await interaction.interaction.followUp({ content: 'No vote reasoning available for any projects.', ephemeral: true });
+      }
     } catch (error) {
       clearInterval(updateInterval);
       if (error instanceof EndUserError) {
