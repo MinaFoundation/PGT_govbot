@@ -18,11 +18,13 @@ import { ConsiderationHomeScreen } from './channels/consider/screens/Considerati
 import logger from './logging';
 import { DiscordStatus } from './channels/DiscordStatus';
 import { TrackedInteraction } from './core/BaseClasses';
+import { networkInterfaces } from 'os';
+import { startServer } from './app';
 
 config();
 
 export const client = new Client({
-  intents: [GatewayIntentBits.Guilds, GatewayIntentBits.GuildMessages]
+  intents: [GatewayIntentBits.Guilds, GatewayIntentBits.GuildMessages],
 });
 
 const dashboardManager = new DashboardManager();
@@ -30,6 +32,9 @@ const dashboardManager = new DashboardManager();
 client.once('ready', async () => {
   logger.info('Bot is ready!');
   await syncDatabase();
+
+  // Start the Express server
+  await startServer();
 
   // Register dashboards
   const adminDashboard = new AdminDashboard(AdminDashboard.ID);
@@ -64,11 +69,10 @@ client.once('ready', async () => {
   considerDashboard.homeScreen = considerHomeScreen;
   dashboardManager.registerDashboard('consider', considerDashboard);
 
-
   // Render initial screen in #admin channel
   const guild = client.guilds.cache.first();
   if (guild) {
-    const adminChannel = guild.channels.cache.find(channel => channel.name === 'admin') as TextChannel | undefined;
+    const adminChannel = guild.channels.cache.find((channel) => channel.name === 'admin') as TextChannel | undefined;
     if (adminChannel) {
       await adminDashboard.homeScreen.renderToTextChannel(adminChannel);
     } else {
@@ -76,25 +80,23 @@ client.once('ready', async () => {
     }
 
     // Render initial screen in #funding-round-init channel
-    const fundingRoundInitChannel = guild.channels.cache.find(channel => channel.name === 'funding-round-init') as TextChannel | undefined;
+    const fundingRoundInitChannel = guild.channels.cache.find((channel) => channel.name === 'funding-round-init') as TextChannel | undefined;
     if (fundingRoundInitChannel) {
       await fundingRoundInitDashboard.homeScreen.renderToTextChannel(fundingRoundInitChannel);
     } else {
       logger.error('Funding Round Init channel not found');
     }
 
-
     // Render initial screen in #propose channel
-    const proposeChannel = guild.channels.cache.find(channel => channel.name === 'propose') as TextChannel | undefined;
+    const proposeChannel = guild.channels.cache.find((channel) => channel.name === 'propose') as TextChannel | undefined;
     if (proposeChannel) {
       await proposeDashboard.homeScreen.renderToTextChannel(proposeChannel);
     } else {
       logger.error('Propose channel not found');
     }
 
-
     // Render initial screen in #deliberate channel
-    const deliberateChannel = guild.channels.cache.find(channel => channel.name === 'deliberate') as TextChannel | undefined;
+    const deliberateChannel = guild.channels.cache.find((channel) => channel.name === 'deliberate') as TextChannel | undefined;
     if (deliberateChannel) {
       await committeeDeliberationDashboard.homeScreen.renderToTextChannel(deliberateChannel);
     } else {
@@ -102,24 +104,26 @@ client.once('ready', async () => {
     }
 
     // Render initial screen in #consider channel
-    const considerChannel = guild.channels.cache.find(channel => channel.name === 'consider') as TextChannel | undefined;
+    const considerChannel = guild.channels.cache.find((channel) => channel.name === 'consider') as TextChannel | undefined;
     if (considerChannel) {
       await considerDashboard.homeScreen.renderToTextChannel(considerChannel);
     } else {
       logger.error('Consider channel not found');
     }
-
   } else {
     logger.error('No guild found');
   }
 
-  // Register other dashboards here
+  // Log IP address and port
+  const port = process.env.PORT || 3000;
+  const ipAddress = getIPAddress();
+  console.info(`Application is running at http://${ipAddress}:${port}`);
+  console.info(`API endpoints are accessible at http://${ipAddress}:${port}/api`);
 });
 
 client.on('interactionCreate', async (interaction: Interaction<CacheType>) => {
   logger.info(`Start handling interaction: ${interaction.isMessageComponent() ? interaction.customId : 'N/A'}`);
   try {
-
     if (!interaction.isButton() && !interaction.isStringSelectMenu() && !interaction.isModalSubmit() && !interaction.isMessageComponent()) {
       logger.info(`Interaction type not supported: ${interaction.type}`);
       return;
@@ -135,14 +139,28 @@ client.on('interactionCreate', async (interaction: Interaction<CacheType>) => {
       logger.error(error);
       const trackedInteraction = new TrackedInteraction(interaction as AnyInteraction);
       await DiscordStatus.handleException(trackedInteraction, error);
-
     } catch (error) {
       logger.error(`Unrecoverable error: ${error}`);
     }
   }
 
-    logger.info("Finished handling interaction");
-
+  logger.info('Finished handling interaction');
 });
+
+function getIPAddress(): string {
+  const interfaces = networkInterfaces();
+  for (const devName in interfaces) {
+    const iface = interfaces[devName];
+    if (iface) {
+      for (let i = 0; i < iface.length; i++) {
+        const alias = iface[i];
+        if (alias.family === 'IPv4' && alias.address !== '127.0.0.1' && !alias.internal) {
+          return alias.address;
+        }
+      }
+    }
+  }
+  return 'localhost';
+}
 
 client.login(process.env.DISCORD_TOKEN);
