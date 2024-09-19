@@ -1,4 +1,4 @@
-import { FundingRound, Proposal, SMEConsiderationVoteLog, CommitteeDeliberationVoteLog } from '../models';
+import { FundingRound, Proposal, SMEConsiderationVoteLog, CommitteeDeliberationVoteLog, GPTSummarizerVoteLog } from '../models';
 import { EndUserError } from '../Errors';
 import { CommitteeDeliberationVoteChoice } from '../types';
 import { TrackedInteraction } from '../core/BaseClasses';
@@ -27,6 +27,11 @@ interface VoteResultWithReasoning extends VoteResult {
   considerationVotes: {
     voterUsername: string;
     isPass: boolean;
+    reason: string | null;
+  }[];
+  communityFeedback?: {
+    voterUsername: string;
+    feedback: string;
     reason: string | null;
   }[];
 }
@@ -334,6 +339,8 @@ export class VoteCountingLogic {
 
         const proposerUsername = await this.getUsername(trackedInteraction, proposal.proposerDuid);
 
+        const communityFeedback = await this.getCommunityFeedback(proposal.id, trackedInteraction);
+
         return {
           projectId: proposal.id,
           projectName: proposal.name,
@@ -346,17 +353,44 @@ export class VoteCountingLogic {
           approvedModifiedVoters: approvedModifiedVoterUsernames,
           deliberationVotes,
           considerationVotes: [],
+          communityFeedback,
         };
       }),
     );
+  }
+
+  private static async getCommunityFeedback(proposalId: number, trackedInteraction: TrackedInteraction) {
+    const feedbackLogs = await GPTSummarizerVoteLog.findAll({
+      where: { proposalId },
+      order: [['createdAt', 'DESC']],
+    });
+
+    const latestFeedback = new Map<string, { feedback: string; reason: string | null }>();
+    for (const log of feedbackLogs) {
+      if (!latestFeedback.has(log.duid)) {
+        latestFeedback.set(log.duid, { feedback: log.why, reason: log.reason });
+      }
+    }
+
+    const communityFeedback = [];
+    for (const [duid, { feedback, reason }] of latestFeedback) {
+      const voterUsername = await this.getUsername(trackedInteraction, duid);
+      communityFeedback.push({ voterUsername, feedback, reason });
+    }
+
+    return communityFeedback;
   }
 
   public static formatVoteReasoningMessage(voteResults: VoteResultWithReasoning[]): EmbedBuilder[] {
     const embeds: EmbedBuilder[] = [];
 
     for (const result of voteResults) {
-      if (result.deliberationVotes.length === 0 && result.considerationVotes.length === 0) {
-        continue; // Skip projects with no votes
+      if (
+        result.deliberationVotes.length === 0 &&
+        result.considerationVotes.length === 0 &&
+        (!result.communityFeedback || result.communityFeedback.length === 0)
+      ) {
+        continue; // Skip projects with no votes or feedback
       }
 
       const embed = new EmbedBuilder()
@@ -380,6 +414,16 @@ export class VoteCountingLogic {
           considerationField += `Reasoning: ${vote.reason || 'No reason provided'}\n\n`;
         }
         embed.addFields({ name: 'Consideration Phase Votes', value: considerationField.trim() });
+      }
+
+      if (result.communityFeedback && result.communityFeedback.length > 0) {
+        let feedbackField = '';
+        for (const feedback of result.communityFeedback) {
+          feedbackField += `**${feedback.voterUsername}**\n`;
+          feedbackField += `Feedback: ${feedback.feedback}\n`;
+          feedbackField += `Reason for Change: ${feedback.reason || 'No reason provided'}\n\n`;
+        }
+        embed.addFields({ name: 'Community Feedback', value: feedbackField.trim() });
       }
 
       embeds.push(embed);
