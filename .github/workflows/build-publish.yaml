@@ -49,7 +49,7 @@ jobs:
 
       - name: 🔍 Check if Tag already exists
         id: checktag
-        uses: tyriis/docker-image-tag-exists@main
+        uses: tyriis/docker-image-tag-exists@v2.0.1
         with:
           registry: ${{ env.ECR_REPOSITORY_URL}}
           repository: ${{ env.ECR_REPOSITORY_NAME }}
