@@ -7,6 +7,7 @@ import { EndUserError } from '../../../Errors';
 import { AnyModalMessageComponent } from '../../../types/common';
 import { DiscordStatus } from '../../DiscordStatus';
 import { Client } from 'discord.js';
+import logging from '../../../logging';
 
 export class CountVotesAction extends Action {
   public allSubActions(): Action[] {
@@ -129,6 +130,7 @@ export class CountVotesAction extends Action {
       if (error instanceof EndUserError) {
         throw error;
       } else {
+        logging.error(error);
         throw new EndUserError('An unexpected error occurred while counting votes.');
       }
     }

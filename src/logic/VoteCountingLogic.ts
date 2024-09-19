@@ -4,7 +4,7 @@ import { CommitteeDeliberationVoteChoice } from '../types';
 import { TrackedInteraction } from '../core/BaseClasses';
 import logger from '../logging';
 import { Op } from 'sequelize';
-import { EmbedBuilder } from 'discord.js';
+import { APIEmbedField, EmbedBuilder } from 'discord.js';
 
 interface VoteResult {
   projectId: number;
@@ -381,6 +381,33 @@ export class VoteCountingLogic {
     return communityFeedback;
   }
 
+  private static splitTextIntoChunks(text: string, maxLength: number): string[] {
+    const chunks: string[] = [];
+    let currentChunk = '';
+
+    text.split('\n').forEach((line) => {
+      if (currentChunk.length + line.length + 1 > maxLength) {
+        chunks.push(currentChunk.trim());
+        currentChunk = '';
+      }
+      currentChunk += line + '\n';
+    });
+
+    if (currentChunk) {
+      chunks.push(currentChunk.trim());
+    }
+
+    return chunks;
+  }
+
+  private static createEmbedField(name: string, value: string): APIEmbedField[] {
+    const chunks = this.splitTextIntoChunks(value, 1024);
+    return chunks.map((chunk, index) => ({
+      name: index === 0 ? name : `${name} (continued)`,
+      value: chunk,
+    }));
+  }
+
   public static formatVoteReasoningMessage(voteResults: VoteResultWithReasoning[]): EmbedBuilder[] {
     const embeds: EmbedBuilder[] = [];
 
@@ -393,10 +420,20 @@ export class VoteCountingLogic {
         continue; // Skip projects with no votes or feedback
       }
 
-      const embed = new EmbedBuilder()
+      let currentEmbed = new EmbedBuilder()
         .setColor('#0099ff')
         .setTitle(`Vote Reasoning - ${result.projectName} (ID: ${result.projectId})`)
         .setDescription(`Proposer: ${result.proposerUsername}`);
+
+      const addFieldsToEmbed = (fields: APIEmbedField[]) => {
+        fields.forEach((field) => {
+          if (currentEmbed.data.fields && currentEmbed.data.fields.length >= 25) {
+            embeds.push(currentEmbed);
+            currentEmbed = new EmbedBuilder().setColor('#0099ff').setTitle(`Vote Reasoning - ${result.projectName} (Continued)`);
+          }
+          currentEmbed.addFields(field);
+        });
+      };
 
       if (result.deliberationVotes.length > 0) {
         let deliberationField = '';
@@ -404,7 +441,7 @@ export class VoteCountingLogic {
           deliberationField += `**${vote.voterUsername}**: ${vote.vote}\n`;
           deliberationField += `Reasoning: ${vote.reason || 'No reason provided'}\n\n`;
         }
-        embed.addFields({ name: 'Deliberation Phase Votes', value: deliberationField.trim() });
+        addFieldsToEmbed(this.createEmbedField('Deliberation Phase Votes', deliberationField.trim()));
       }
 
       if (result.considerationVotes.length > 0) {
@@ -413,7 +450,7 @@ export class VoteCountingLogic {
           considerationField += `**${vote.voterUsername}**: ${vote.isPass ? 'Yes' : 'No'}\n`;
           considerationField += `Reasoning: ${vote.reason || 'No reason provided'}\n\n`;
         }
-        embed.addFields({ name: 'Consideration Phase Votes', value: considerationField.trim() });
+        addFieldsToEmbed(this.createEmbedField('Consideration Phase Votes', considerationField.trim()));
       }
 
       if (result.communityFeedback && result.communityFeedback.length > 0) {
@@ -423,10 +460,10 @@ export class VoteCountingLogic {
           feedbackField += `Feedback: ${feedback.feedback}\n`;
           feedbackField += `Reason for Change: ${feedback.reason || 'No reason provided'}\n\n`;
         }
-        embed.addFields({ name: 'Community Feedback', value: feedbackField.trim() });
+        addFieldsToEmbed(this.createEmbedField('Community Feedback', feedbackField.trim()));
       }
 
-      embeds.push(embed);
+      embeds.push(currentEmbed);
     }
 
     return embeds;
