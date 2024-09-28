@@ -1,7 +1,18 @@
 // src/channels/admin/screens/ManageSMEGroupsScreen.ts
 
 import { Screen, Action, Dashboard, Permission, TrackedInteraction, RenderArgs } from '../../../core/BaseClasses';
-import { ActionRowBuilder, ButtonBuilder, ButtonStyle, EmbedBuilder, StringSelectMenuBuilder, MessageActionRowComponentBuilder, ModalBuilder, TextInputBuilder, TextInputStyle, UserSelectMenuBuilder } from 'discord.js';
+import {
+  ActionRowBuilder,
+  ButtonBuilder,
+  ButtonStyle,
+  EmbedBuilder,
+  StringSelectMenuBuilder,
+  MessageActionRowComponentBuilder,
+  ModalBuilder,
+  TextInputBuilder,
+  TextInputStyle,
+  UserSelectMenuBuilder,
+} from 'discord.js';
 import { SMEGroup, SMEGroupMembership, User } from '../../../models';
 import { CustomIDOracle } from '../../../CustomIDOracle';
 import { AnyInteraction, AnyInteractionWithValues, AnyModalMessageComponent } from '../../../types/common';
@@ -10,7 +21,6 @@ import { PaginationLogic } from '../../../utils/Pagination';
 import { InteractionProperties } from '../../../core/Interaction';
 import logger from '../../../logging';
 import { EndUserError, EndUserInfo } from '../../../Errors';
-
 
 export class SMEGroupLogic {
   static async getTotalGroupsCount(): Promise<number> {
@@ -42,7 +52,7 @@ export class SMEGroupLogic {
 
   static async getGroupMemberCount(groupId: number): Promise<number> {
     return await SMEGroupMembership.count({
-      where: { smeGroupId: groupId }
+      where: { smeGroupId: groupId },
     });
   }
 
@@ -52,14 +62,14 @@ export class SMEGroupLogic {
       limit: pageSize,
       offset: page * pageSize,
     });
-    return memberships.map(membership => membership.duid);
+    return memberships.map((membership) => membership.duid);
   }
 
   static async getGroupMembers(groupId: number): Promise<string[]> {
     const memberships = await SMEGroupMembership.findAll({
       where: { smeGroupId: groupId },
     });
-    return memberships.map(membership => membership.duid);
+    return memberships.map((membership) => membership.duid);
   }
 
   static async removeMemberFromGroup(groupId: number, duid: string): Promise<void> {
@@ -93,16 +103,19 @@ export class SMEGroupLogic {
         transaction: t,
       });
 
-      const existingDuids = new Set(existingMemberships.map(membership => membership.duid));
+      const existingDuids = new Set(existingMemberships.map((membership) => membership.duid));
 
       for (const duid of duids) {
         if (existingDuids.has(duid)) {
           result.skipped++;
         } else {
-          await SMEGroupMembership.create({
-            smeGroupId: groupId,
-            duid: duid,
-          }, { transaction: t });
+          await SMEGroupMembership.create(
+            {
+              smeGroupId: groupId,
+              duid: duid,
+            },
+            { transaction: t },
+          );
           result.added++;
         }
       }
@@ -161,7 +174,7 @@ export class SMEGroupLogic {
 
 class SMEGroupsPaginationAction extends PaginationComponent {
   public allSubActions(): Action[] {
-    return []
+    return [];
   }
   getComponent(...args: any[]): AnyModalMessageComponent {
     throw new EndUserError('Method not implemented.');
@@ -211,13 +224,7 @@ export class ManageSMEGroupsScreen extends Screen {
   }
 
   protected allActions(): Action[] {
-    return [
-      this.paginationAction,
-      this.selectSMEGroupAction,
-      this.addSMEGroupAction,
-      this.removeSMEGroupAction,
-      this.manageMembersAction,
-    ];
+    return [this.paginationAction, this.selectSMEGroupAction, this.addSMEGroupAction, this.removeSMEGroupAction, this.manageMembersAction];
   }
 
   protected async getResponse(interaction: TrackedInteraction, args?: RenderArgs): Promise<any> {
@@ -228,7 +235,13 @@ export class ManageSMEGroupsScreen extends Screen {
     return this.buildGroupListResponse(interaction, groups, currentPage, totalPages, args);
   }
 
-  public async renderGroupList(interaction: TrackedInteraction, groups: any[], currentPage: number, totalPages: number, args?: RenderArgs): Promise<void> {
+  public async renderGroupList(
+    interaction: TrackedInteraction,
+    groups: any[],
+    currentPage: number,
+    totalPages: number,
+    args?: RenderArgs,
+  ): Promise<void> {
     const response = this.buildGroupListResponse(interaction, groups, currentPage, totalPages, args);
     await interaction.update(response);
   }
@@ -236,8 +249,8 @@ export class ManageSMEGroupsScreen extends Screen {
   private buildGroupListResponse(interaction: TrackedInteraction, groups: any[], currentPage: number, totalPages: number, args?: RenderArgs): any {
     const embed = new EmbedBuilder()
       .setColor('#0099ff')
-      .setTitle('Manage SME Groups')
-      .setDescription(`Select an SME Group to manage or add a new one. (Page ${currentPage + 1}/${totalPages})`);
+      .setTitle('Manage Reviewers')
+      .setDescription(`Select a Reviewer group to manage or add a new one. (Page ${currentPage + 1}/${totalPages})`);
 
     const selectMenu = this.selectSMEGroupAction.getComponent(groups);
     const addButton = this.addSMEGroupAction.getComponent();
@@ -255,21 +268,17 @@ export class ManageSMEGroupsScreen extends Screen {
     const embeds = [embed];
 
     if (args?.successMessage) {
-      const successEmbed = new EmbedBuilder()
-        .setColor('#28a745')
-        .setDescription(args.successMessage);
+      const successEmbed = new EmbedBuilder().setColor('#28a745').setDescription(args.successMessage);
       embeds.push(successEmbed);
     } else if (args?.errorMessage) {
-      const errorEmbed = new EmbedBuilder()
-        .setColor('#dc3545')
-        .setDescription(args.errorMessage);
+      const errorEmbed = new EmbedBuilder().setColor('#dc3545').setDescription(args.errorMessage);
       embeds.push(errorEmbed);
     }
 
     return {
       embeds: embeds,
       components,
-      ephemeral: true
+      ephemeral: true,
     };
   }
 }
@@ -308,15 +317,14 @@ class SelectSMEGroupAction extends Action {
 
     const embed = new EmbedBuilder()
       .setColor('#0099ff')
-      .setTitle(`Manage SME Group: ${group.name}`)
+      .setTitle(`Manage Reviewers Group: ${group.name}`)
       .setDescription(group.description)
       .addFields({ name: 'Members', value: (await SMEGroupLogic.getGroupMemberCount(group.id)).toString() });
 
     const removeButton = (this.screen as ManageSMEGroupsScreen).removeSMEGroupAction.getComponent(group.id);
     const manageMembersButton = (this.screen as ManageSMEGroupsScreen).manageMembersAction.getComponent(group.id);
 
-    const row = new ActionRowBuilder<ButtonBuilder>()
-      .addComponents(removeButton, manageMembersButton);
+    const row = new ActionRowBuilder<ButtonBuilder>().addComponents(removeButton, manageMembersButton);
 
     await interaction.update({ embeds: [embed], components: [row] });
   }
@@ -329,18 +337,20 @@ class SelectSMEGroupAction extends Action {
     if (groups.length === 0) {
       return new ButtonBuilder()
         .setCustomId('no_sme_groups')
-        .setLabel('🗑️ No SME Groups available')
+        .setLabel('🗑️ No Reviewer Groups available')
         .setStyle(ButtonStyle.Secondary)
         .setDisabled(true);
     } else {
       return new StringSelectMenuBuilder()
         .setCustomId(CustomIDOracle.addArgumentsToAction(this, SelectSMEGroupAction.Operations.SELECT_GROUP))
-        .setPlaceholder('Select an SME Group')
-        .addOptions(groups.map(group => ({
-          label: group.name,
-          value: group.id.toString(),
-          description: group.description.substring(0, 100)
-        })));
+        .setPlaceholder('Select a Reviewers Group')
+        .addOptions(
+          groups.map((group) => ({
+            label: group.name,
+            value: group.id.toString(),
+            description: group.description.substring(0, 100),
+          })),
+        );
     }
   }
 }
@@ -364,9 +374,7 @@ class AddSMEGroupAction extends Action {
       throw new EndUserError('🚫 This interaction does not support modals');
     }
     const customId = CustomIDOracle.addArgumentsToAction(this, AddSMEGroupAction.Operations.ADD_SME_GROUP_SUBMIT);
-    const modal = new ModalBuilder()
-      .setCustomId(customId)
-      .setTitle('Add New SME Group');
+    const modal = new ModalBuilder().setCustomId(customId).setTitle('Add New Reviewers Group');
 
     const nameInput = new TextInputBuilder()
       .setCustomId(AddSMEGroupAction.InputIds.NAME)
@@ -382,7 +390,7 @@ class AddSMEGroupAction extends Action {
 
     modal.addComponents(
       new ActionRowBuilder<TextInputBuilder>().addComponents(nameInput),
-      new ActionRowBuilder<TextInputBuilder>().addComponents(descriptionInput)
+      new ActionRowBuilder<TextInputBuilder>().addComponents(descriptionInput),
     );
 
     await rawInteraction.showModal(modal);
@@ -403,7 +411,7 @@ class AddSMEGroupAction extends Action {
 
     try {
       await SMEGroupLogic.createGroup(name, description);
-      const successMessage = `✅ SME Group '${name}' created successfully`;
+      const successMessage = `✅ Reviewers Group '${name}' created successfully`;
       await this.screen.reRender(interaction, { successMessage: successMessage });
     } catch (err) {
       logger.error(err);
@@ -429,10 +437,7 @@ class AddSMEGroupAction extends Action {
 
   getComponent(): ButtonBuilder {
     const customIdWithOperation = CustomIDOracle.addArgumentsToAction(this, AddSMEGroupAction.Operations.ADD_SME_GROUP_FORM);
-    return new ButtonBuilder()
-      .setCustomId(customIdWithOperation)
-      .setLabel('Add New SME Group')
-      .setStyle(ButtonStyle.Success);
+    return new ButtonBuilder().setCustomId(customIdWithOperation).setLabel('Add New Reviewers Group').setStyle(ButtonStyle.Success);
   }
 }
 
@@ -471,11 +476,11 @@ class RemoveSMEGroupAction extends Action {
 
       const embed = new EmbedBuilder()
         .setColor('#FF0000')
-        .setTitle(`Confirm Removal of SME Group: ${groupDetails.name}`)
-        .setDescription('Are you sure you want to remove this SME Group?')
+        .setTitle(`Confirm Removal of Reviewers Group: ${groupDetails.name}`)
+        .setDescription('Are you sure you want to remove this Reviewers Group?')
         .addFields(
           { name: 'Members', value: groupDetails.memberCount.toString(), inline: true },
-          { name: 'Dependencies', value: groupDetails.dependencies.length > 0 ? groupDetails.dependencies.join(', ') : 'None', inline: true }
+          { name: 'Dependencies', value: groupDetails.dependencies.length > 0 ? groupDetails.dependencies.join(', ') : 'None', inline: true },
         );
 
       const confirmButton = new ButtonBuilder()
@@ -486,21 +491,22 @@ class RemoveSMEGroupAction extends Action {
       const localScreen: ManageSMEGroupsScreen = this.screen as ManageSMEGroupsScreen;
 
       const cancelButton = new ButtonBuilder()
-        .setCustomId(CustomIDOracle.addArgumentsToAction(localScreen.selectSMEGroupAction, SelectSMEGroupAction.Operations.SELECT_GROUP, 'groupId', groupId))
+        .setCustomId(
+          CustomIDOracle.addArgumentsToAction(localScreen.selectSMEGroupAction, SelectSMEGroupAction.Operations.SELECT_GROUP, 'groupId', groupId),
+        )
         .setLabel('Cancel')
         .setStyle(ButtonStyle.Secondary);
 
-      const row = new ActionRowBuilder<ButtonBuilder>()
-        .addComponents(confirmButton, cancelButton);
+      const row = new ActionRowBuilder<ButtonBuilder>().addComponents(confirmButton, cancelButton);
 
       await interaction.update({
         embeds: [embed],
         components: [row],
-        ephemeral: true
+        ephemeral: true,
       });
     } catch (error) {
       logger.error('Error fetching group details:', error);
-      throw new EndUserError('An error occurred while fetching group details. Please try again later.')
+      throw new EndUserError('An error occurred while fetching group details. Please try again later.');
     }
   }
 
@@ -512,11 +518,11 @@ class RemoveSMEGroupAction extends Action {
 
     try {
       await SMEGroupLogic.deleteGroupWithDependencies(parseInt(groupId));
-      const successMessage = 'SME Group has been successfully removed along with all its dependencies.';
+      const successMessage = 'Reviewers Group has been successfully removed along with all its dependencies.';
       await this.screen.render(interaction, { successMessage });
     } catch (error) {
-      logger.error('Error removing SME Group:', error);
-      const errorMessage = 'An error occurred while removing the SME Group. Please try again later.';
+      logger.error('Error removing Reviewers Group:', error);
+      const errorMessage = 'An error occurred while removing the Reviewers Group. Please try again later.';
       await this.screen.render(interaction, { errorMessage });
     }
   }
@@ -524,7 +530,7 @@ class RemoveSMEGroupAction extends Action {
   getComponent(groupId: number): ButtonBuilder {
     return new ButtonBuilder()
       .setCustomId(CustomIDOracle.addArgumentsToAction(this, RemoveSMEGroupAction.Operations.CONFIRM_REMOVE, 'groupId', groupId.toString()))
-      .setLabel('Remove SME Group')
+      .setLabel('Remove Reviewers Group')
       .setStyle(ButtonStyle.Danger);
   }
 }
@@ -621,7 +627,6 @@ class ManageMembersAction extends PaginationComponent {
 
     const allGroupMemberDuids = await SMEGroupLogic.getGroupMembers(parseInt(groupId));
 
-
     const embed = new EmbedBuilder()
       .setColor('#0099ff')
       .setTitle(`Manage Members: ${group.name}`)
@@ -637,8 +642,7 @@ class ManageMembersAction extends PaginationComponent {
       .setLabel('Remove Member')
       .setStyle(ButtonStyle.Danger);
 
-    const row = new ActionRowBuilder<ButtonBuilder>()
-      .addComponents(addMembersButton, removeMemberButton);
+    const row = new ActionRowBuilder<ButtonBuilder>().addComponents(addMembersButton, removeMemberButton);
 
     const components: ActionRowBuilder<MessageActionRowComponentBuilder>[] = [row];
 
@@ -649,9 +653,7 @@ class ManageMembersAction extends PaginationComponent {
 
     let embeds = [];
     if (successMessage) {
-      const successEmbed = new EmbedBuilder()
-        .setColor('#28a745')
-        .setDescription(successMessage);
+      const successEmbed = new EmbedBuilder().setColor('#28a745').setDescription(successMessage);
       embeds.push(successEmbed);
     }
     embeds.push(embed);
@@ -671,13 +673,12 @@ class ManageMembersAction extends PaginationComponent {
       .setPlaceholder('Select users to add (up to 25)')
       .setMaxValues(25);
 
-    const row = new ActionRowBuilder<UserSelectMenuBuilder>()
-      .addComponents(userSelect);
+    const row = new ActionRowBuilder<UserSelectMenuBuilder>().addComponents(userSelect);
 
     await interaction.update({
       content: 'Select users to add to the group:',
       components: [row],
-      ephemeral: true
+      ephemeral: true,
     });
   }
 
@@ -721,14 +722,13 @@ class ManageMembersAction extends PaginationComponent {
       .setCustomId(CustomIDOracle.addArgumentsToAction(this, ManageMembersAction.Operations.REMOVE_MEMBERS_SUBMIT, 'groupId', groupId))
       .setPlaceholder('Select users to remove (up to 15)')
       .setMaxValues(Math.min(15, members.length));
- 
-    const row = new ActionRowBuilder<UserSelectMenuBuilder>()
-      .addComponents(userSelect);
+
+    const row = new ActionRowBuilder<UserSelectMenuBuilder>().addComponents(userSelect);
 
     await interaction.update({
       content: 'Select users to remove from the group:',
       components: [row],
-      ephemeral: true
+      ephemeral: true,
     });
   }
 

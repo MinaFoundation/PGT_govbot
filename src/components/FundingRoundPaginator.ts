@@ -49,6 +49,15 @@ export class EditFundingRoundPaginator extends FundingRoundPaginator {
   }
 }
 
+export class EditAllFundingRoundsPaginator extends FundingRoundPaginator {
+  public static readonly ID = 'editAllFRPag';
+  public title: string = 'Select A Funding Round To Edit';
+  public args: string[] = [];
+  public async getItems(interaction: TrackedInteraction): Promise<FundingRound[]> {
+    return await FundingRoundLogic.getAllFundingRounds();
+  }
+}
+
 export class SetCommitteeFundingRoundPaginator extends FundingRoundPaginator {
   public args: string[] = [];
   public title: string = 'Select A Funding Round To Set Committee For';
