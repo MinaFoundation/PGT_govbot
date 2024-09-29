@@ -61,7 +61,9 @@ export class ProposalHomeScreen extends Screen implements IHomeScreen {
     const embed = new EmbedBuilder()
       .setColor('#0099ff')
       .setTitle('Proposal Management')
-      .setDescription('Welcome to the Proposal Management channel. Here you can create, manage, and submit proposals for funding rounds.');
+      .setDescription(
+        'Welcome to the Proposal Management channel. Here you can: create a proposal draft, manage the drafts, submit proposals to funding rounds, and manage the submitted proposals.',
+      );
 
     const manageSubmittedButton = this.manageSubmittedProposalsAction.getComponent();
     const manageDraftsButton = this.manageDraftsAction.getComponent();
@@ -69,10 +71,10 @@ export class ProposalHomeScreen extends Screen implements IHomeScreen {
     const submitToFundingRoundButton = this.submitProposalToFundingRoundAction.getComponent();
 
     const row = new ActionRowBuilder<MessageActionRowComponentBuilder>().addComponents(
-      manageSubmittedButton,
-      manageDraftsButton,
       createNewButton,
+      manageDraftsButton,
       submitToFundingRoundButton,
+      manageSubmittedButton,
     );
 
     const components = [row];
@@ -361,7 +363,7 @@ Status: ${fundingRound.status}`),
   getComponent(): ButtonBuilder {
     return new ButtonBuilder()
       .setCustomId(CustomIDOracle.addArgumentsToAction(this, ManageSubmittedProposalsAction.OPERATIONS.SHOW_FUNDING_ROUNDS))
-      .setLabel('Manage My Proposals')
+      .setLabel('Manage Proposals')
       .setStyle(ButtonStyle.Primary);
   }
 }
@@ -520,7 +522,7 @@ export class ManageDraftsAction extends PaginationComponent {
       .setLabel('Submit to Funding Round')
       .setStyle(ButtonStyle.Success);
 
-    const row = new ActionRowBuilder<ButtonBuilder>().addComponents(editButton, deleteButton, submitButton);
+    const row = new ActionRowBuilder<ButtonBuilder>().addComponents(editButton, submitButton, deleteButton);
 
     let embeds: EmbedBuilder[];
     if (successEmbed) {
@@ -765,7 +767,7 @@ export class CreateNewProposalAction extends Action {
 
     const modal = new ModalBuilder()
       .setCustomId(CustomIDOracle.addArgumentsToAction(this, CreateNewProposalAction.OPERATIONS.SUBMIT_CREATE_FORM))
-      .setTitle('Create New Proposal');
+      .setTitle('Create Proposal Draft');
 
     const nameInput = new TextInputBuilder()
       .setCustomId(CreateNewProposalAction.INPUT_IDS.NAME)
@@ -867,7 +869,7 @@ export class CreateNewProposalAction extends Action {
   getComponent(): ButtonBuilder {
     return new ButtonBuilder()
       .setCustomId(CustomIDOracle.addArgumentsToAction(this, CreateNewProposalAction.OPERATIONS.SHOW_CREATE_FORM))
-      .setLabel('Create New Proposal')
+      .setLabel('Create Proposal Draft')
       .setStyle(ButtonStyle.Success);
   }
 }
@@ -1060,7 +1062,7 @@ export class SubmitProposalToFundingRoundAction extends Action {
   getComponent(): ButtonBuilder {
     return new ButtonBuilder()
       .setCustomId(CustomIDOracle.addArgumentsToAction(this, SubmitProposalToFundingRoundAction.OPERATIONS.SHOW_DRAFT_PROPOSALS))
-      .setLabel('Submit Proposal To Funding Round')
+      .setLabel('Submit Proposal')
       .setStyle(ButtonStyle.Primary);
   }
 }

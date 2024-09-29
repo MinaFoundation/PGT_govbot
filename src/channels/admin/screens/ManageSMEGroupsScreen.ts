@@ -324,7 +324,7 @@ class SelectSMEGroupAction extends Action {
     const removeButton = (this.screen as ManageSMEGroupsScreen).removeSMEGroupAction.getComponent(group.id);
     const manageMembersButton = (this.screen as ManageSMEGroupsScreen).manageMembersAction.getComponent(group.id);
 
-    const row = new ActionRowBuilder<ButtonBuilder>().addComponents(removeButton, manageMembersButton);
+    const row = new ActionRowBuilder<ButtonBuilder>().addComponents(manageMembersButton, removeButton);
 
     await interaction.update({ embeds: [embed], components: [row] });
   }

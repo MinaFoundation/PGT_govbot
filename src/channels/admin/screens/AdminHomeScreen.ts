@@ -61,6 +61,8 @@ export class AdminHomeScreen extends Screen implements IHomeScreen {
         { name: '👥 Manage Reviewers', value: 'Manage Reviewers and Users' },
         { name: '📋 Manage Discussion Topics', value: 'Manage Discussion Topics and Committees' },
         { name: '💰 Manage Funding Rounds', value: 'Manage Funding Rounds and Phases' },
+        { name: '📊 Manage Proposal Status', value: 'Set/Override Proposal Status' },
+        { name: '🗳️ Count Votes', value: 'Count Votes for a Funding Round.' },
       );
   }
 
