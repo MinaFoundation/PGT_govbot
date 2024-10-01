@@ -12,7 +12,7 @@ import {
   ModalSubmitInteraction,
 } from 'discord.js';
 import { Topic, SMEGroup, TopicSMEGroupProposalCreationLimiter, sequelize, TopicCommittee } from '../../../models';
-import { CustomIDOracle } from '../../../CustomIDOracle';
+import { ArgumentOracle, CustomIDOracle } from '../../../CustomIDOracle';
 import { PaginationComponent } from '../../../components/PaginationComponent';
 import { AnyModalMessageComponent } from '../../../types/common';
 import { InteractionProperties } from '../../../core/Interaction';
@@ -159,12 +159,7 @@ class SelectTopicAction extends Action {
   }
 
   private async handleSelectTopic(interaction: TrackedInteraction): Promise<void> {
-    const rawInteraction = interaction.interaction;
-    if (!('values' in rawInteraction)) {
-      throw new EndUserError('Invalid interaction type.');
-    }
-
-    const topicId = parseInt(rawInteraction.values[0]);
+    const topicId = parseInt(ArgumentOracle.getNamedArgument(interaction, 'topicId', 0));
     const topicDetails = await TopicLogic.getTopicDetails(topicId);
 
     if (!topicDetails) {
@@ -524,7 +519,7 @@ class EditTopicAction extends Action {
 
     const allowedSMEGroupsInput = new TextInputBuilder()
       .setCustomId(EditTopicAction.InputIds.ALLOWED_SME_GROUPS)
-      .setLabel('Allowed Reviewer Groups (comma-separated names)')
+      .setLabel('Allowed Reviewer Groups (comma-separated)')
       .setStyle(TextInputStyle.Short)
       .setRequired(false)
       .setValue(allAllowedSMEGroups.join(', '));

@@ -14,7 +14,7 @@ import {
   UserSelectMenuBuilder,
 } from 'discord.js';
 import { SMEGroup, SMEGroupMembership, User } from '../../../models';
-import { CustomIDOracle } from '../../../CustomIDOracle';
+import { ArgumentOracle, CustomIDOracle } from '../../../CustomIDOracle';
 import { AnyInteraction, AnyInteractionWithValues, AnyModalMessageComponent } from '../../../types/common';
 import { PaginationComponent } from '../../../components/PaginationComponent';
 import { PaginationLogic } from '../../../utils/Pagination';
@@ -170,6 +170,13 @@ export class SMEGroupLogic {
       // TODO: later, delete/clear out all dependencies with cascading
     });
   }
+
+  static async getRequiredGroupMembers(groupId: number): Promise<string[]> {
+    // Implement logic to get required members
+    // This could be based on roles, minimum required members, etc.
+    // For now, we'll return an empty array as a placeholder
+    return [];
+  }
 }
 
 class SMEGroupsPaginationAction extends PaginationComponent {
@@ -301,14 +308,7 @@ class SelectSMEGroupAction extends Action {
   }
 
   private async handleSelectGroup(interaction: TrackedInteraction): Promise<void> {
-    const rawInteraction = interaction.interaction;
-    const interactionWithValues = InteractionProperties.toInteractionWithValuesOrUndefined(rawInteraction);
-
-    if (!interactionWithValues) {
-      throw new EndUserError('Invalid interaction type.');
-    }
-
-    const groupId = parseInt(interactionWithValues.values[0]);
+    const groupId = parseInt(ArgumentOracle.getNamedArgument(interaction, 'groupId', 0));
     const group = await SMEGroupLogic.getGroupById(groupId);
 
     if (!group) {
@@ -712,21 +712,42 @@ class ManageMembersAction extends PaginationComponent {
       throw new EndUserError('Invalid group ID.');
     }
 
-    const members = await SMEGroupLogic.getGroupMembers(parseInt(groupId));
+    const allMembers = await SMEGroupLogic.getGroupMembers(parseInt(groupId));
+    const requiredMembers = await SMEGroupLogic.getRequiredGroupMembers(parseInt(groupId));
 
-    if (members.length === 0) {
-      throw new EndUserInfo('This group has no members to remove.');
+    // Filter out required members
+    const removableMembers = allMembers.filter((member) => !requiredMembers.includes(member));
+
+    if (removableMembers.length === 0) {
+      throw new EndUserInfo('There are no members that can be removed from this group.');
     }
 
     const userSelect = new UserSelectMenuBuilder()
       .setCustomId(CustomIDOracle.addArgumentsToAction(this, ManageMembersAction.Operations.REMOVE_MEMBERS_SUBMIT, 'groupId', groupId))
-      .setPlaceholder('Select users to remove (up to 15)')
-      .setMaxValues(Math.min(15, members.length));
+      .setPlaceholder('Select users to remove')
+      .setMinValues(1)
+      .setMaxValues(Math.min(25, removableMembers.length));
+
+    // Only set removable members as default users
+    if (removableMembers.length > 0) {
+      userSelect.setDefaultUsers(removableMembers);
+    }
 
     const row = new ActionRowBuilder<UserSelectMenuBuilder>().addComponents(userSelect);
 
+    const embed = new EmbedBuilder()
+      .setColor('#FF0000')
+      .setTitle('Remove Members')
+      .setDescription(
+        `Select the members you want to remove from the group. All of the members that can be removed are pre-selected. This means you must unselect the members that you do not want to remove, by pressing the X next to their username.`,
+      )
+      .addFields(
+        { name: 'Total Members', value: allMembers.length.toString(), inline: true },
+        { name: 'Removable Members', value: removableMembers.length.toString(), inline: true },
+      );
+
     await interaction.update({
-      content: 'Select users to remove from the group:',
+      embeds: [embed],
       components: [row],
       ephemeral: true,
     });
