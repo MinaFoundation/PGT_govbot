@@ -25,7 +25,7 @@ export abstract class FundingRoundPaginator extends ORMModelPaginator<FundingRou
    * Override this method to customize the list of Funding Rounds which should be presented/paginated.
    */
   public async getItems(interaction: TrackedInteraction): Promise<FundingRound[]> {
-    return await FundingRoundLogic.getPresentAndFutureFundingRounds();
+    return await FundingRoundLogic.getAllFundingRounds();
   }
 
   protected async getOptions(interaction: TrackedInteraction, items: FundingRound[]): Promise<any> {
@@ -106,7 +106,7 @@ export class ActiveFundingRoundPaginator extends FundingRoundPaginator {
   public title: string = 'Select an Active Funding Round';
 
   public async getItems(interaction: TrackedInteraction): Promise<FundingRound[]> {
-    return await FundingRoundLogic.getActiveFundingRounds();
+    return await FundingRoundLogic.getAllFundingRounds();
   }
 }
 
