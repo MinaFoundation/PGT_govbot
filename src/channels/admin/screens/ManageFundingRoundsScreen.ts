@@ -26,6 +26,7 @@ import { FundingRoundMI, FundingRoundMIPhaseValue } from '../../../models/Interf
 import { InputDate } from '../../../dates/Input';
 import {
   ApproveRejectFundingRoundPaginator,
+  EditAllFundingRoundsPaginator,
   EditFundingRoundPaginator,
   FundingRoundPaginator,
   RemoveCommiteeFundingRoundPaginator,
@@ -40,6 +41,7 @@ export class ManageFundingRoundsScreen extends Screen {
 
   public readonly createFundingRoundAction: CreateOrEditFundingRoundAction;
   public readonly modifyFundingRoundAction: ModifyFundingRoundAction;
+  public readonly modifyAllFundingRoundsAction: ModifyAllFundingRoundsAction;
   public readonly setFundingRoundCommitteeAction: SetFundingRoundCommitteeAction;
   public readonly removeFundingRoundCommitteeAction: RemoveFundingRoundCommitteeAction;
   public readonly approveFundingRoundAction: ApproveFundingRoundAction;
@@ -54,6 +56,7 @@ export class ManageFundingRoundsScreen extends Screen {
   public readonly selectForumChannelAction: SelectForumChannelAction;
 
   public readonly crudFRPaginatorAction: EditFundingRoundPaginator;
+  public readonly crudAllFRPaginatorAction: EditAllFundingRoundsPaginator;
   public readonly committeeFRPaginator: SetCommitteeFundingRoundPaginator;
   public readonly committeeDeleteFRPaginator: RemoveCommiteeFundingRoundPaginator;
   public readonly approveRejectFRPaginator: ApproveRejectFundingRoundPaginator;
@@ -62,6 +65,7 @@ export class ManageFundingRoundsScreen extends Screen {
     super(dashboard, screenId);
     this.createFundingRoundAction = new CreateOrEditFundingRoundAction(this, CreateOrEditFundingRoundAction.ID);
     this.modifyFundingRoundAction = new ModifyFundingRoundAction(this, ModifyFundingRoundAction.ID);
+    this.modifyAllFundingRoundsAction = new ModifyAllFundingRoundsAction(this, ModifyAllFundingRoundsAction.ID);
     this.setFundingRoundCommitteeAction = new SetFundingRoundCommitteeAction(this, SetFundingRoundCommitteeAction.ID);
     this.removeFundingRoundCommitteeAction = new RemoveFundingRoundCommitteeAction(this, RemoveFundingRoundCommitteeAction.ID);
     this.approveFundingRoundAction = new ApproveFundingRoundAction(this, ApproveFundingRoundAction.ID);
@@ -81,6 +85,12 @@ export class ManageFundingRoundsScreen extends Screen {
       this.createFundingRoundAction,
       CreateOrEditFundingRoundAction.OPERATIONS.SHOW_PROGRESS,
       EditFundingRoundPaginator.ID,
+    );
+    this.crudAllFRPaginatorAction = new EditAllFundingRoundsPaginator(
+      this,
+      this.createFundingRoundAction,
+      CreateOrEditFundingRoundAction.OPERATIONS.SHOW_PROGRESS,
+      EditAllFundingRoundsPaginator.ID,
     );
     this.committeeFRPaginator = new SetCommitteeFundingRoundPaginator(
       this,
@@ -110,6 +120,7 @@ export class ManageFundingRoundsScreen extends Screen {
     return [
       this.createFundingRoundAction,
       this.modifyFundingRoundAction,
+      this.modifyAllFundingRoundsAction,
       this.setFundingRoundCommitteeAction,
       this.removeFundingRoundCommitteeAction,
       this.approveFundingRoundAction,
@@ -124,6 +135,7 @@ export class ManageFundingRoundsScreen extends Screen {
       this.selectForumChannelAction,
 
       this.crudFRPaginatorAction,
+      this.crudAllFRPaginatorAction,
     ];
   }
 
@@ -134,7 +146,7 @@ export class ManageFundingRoundsScreen extends Screen {
       .setDescription('Select an action to manage funding rounds:');
 
     const createButton = this.createFundingRoundAction.getComponent();
-    const modifyButton = this.modifyFundingRoundAction.getComponent();
+    const modifyButton = this.modifyAllFundingRoundsAction.getComponent();
     const addCommitteeButton = this.setFundingRoundCommitteeAction.getComponent();
     const removeCommitteeButton = this.removeFundingRoundCommitteeAction.getComponent();
     const approveButton = this.approveFundingRoundAction.getComponent();
@@ -996,7 +1008,7 @@ export class ModifyFundingRoundAction extends Action {
   public static readonly ID = 'modifyFundingRound';
 
   public static readonly OPERATIONS = {
-    SHOW_FUNDING_ROUNDS: 'showFundingRounds',
+    SHOW_FUNDING_ROUNDS: 'shFR',
   };
 
   constructor(screen: Screen, actionId: string) {
@@ -1015,6 +1027,50 @@ export class ModifyFundingRoundAction extends Action {
 
   private async handleShowFundingRounds(interaction: TrackedInteraction): Promise<void> {
     await (this.screen as ManageFundingRoundsScreen).crudFRPaginatorAction.handlePagination(interaction);
+  }
+
+  public allSubActions(): Action[] {
+    return [];
+  }
+
+  getComponent(): ButtonBuilder {
+    return new ButtonBuilder()
+      .setCustomId(
+        CustomIDOracle.addArgumentsToAction(
+          this,
+          ModifyFundingRoundAction.OPERATIONS.SHOW_FUNDING_ROUNDS,
+          FundingRoundPaginator.BOOLEAN.ARGUMENTS.FORCE_REPLY,
+          FundingRoundPaginator.BOOLEAN.TRUE,
+        ),
+      )
+      .setLabel('Edit Funding Round')
+      .setStyle(ButtonStyle.Primary);
+  }
+}
+
+export class ModifyAllFundingRoundsAction extends Action {
+  public static readonly ID = 'modAllFR';
+
+  public static readonly OPERATIONS = {
+    SHOW_FUNDING_ROUNDS: 'shFR',
+  };
+
+  constructor(screen: Screen, actionId: string) {
+    super(screen, actionId);
+  }
+
+  protected async handleOperation(interaction: TrackedInteraction, operationId: string): Promise<void> {
+    switch (operationId) {
+      case ModifyFundingRoundAction.OPERATIONS.SHOW_FUNDING_ROUNDS:
+        await this.handleShowFundingRounds(interaction);
+        break;
+      default:
+        await this.handleInvalidOperation(interaction, operationId);
+    }
+  }
+
+  private async handleShowFundingRounds(interaction: TrackedInteraction): Promise<void> {
+    await (this.screen as ManageFundingRoundsScreen).crudAllFRPaginatorAction.handlePagination(interaction);
   }
 
   public allSubActions(): Action[] {
@@ -1229,7 +1285,7 @@ export class SetFundingRoundCommitteeAction extends PaginationComponent {
         .setColor('#FF0000')
         .setTitle(`Incomplete Committe Selection For ${fundingRound.name}`)
         .setDescription(
-          `New Members Added: ${numCreatedRecords}. The selected members do not meet the requirements for each SME group. Please add them.`,
+          `New Members Added: ${numCreatedRecords}. The selected members do not meet the requirements for each Reviewer group. Please add them.`,
         );
 
       for (const committee of topicCommittees) {
@@ -1258,7 +1314,7 @@ export class SetFundingRoundCommitteeAction extends PaginationComponent {
       .setColor('#00FF00')
       .setTitle(`Full Committee Selected For ${fundingRound.name}`)
       .setDescription(
-        `New members assigned: ${numCreatedRecords}. Assinged Funding Round deliberation phase committee members meet the requirements for each SME group.`,
+        `New members assigned: ${numCreatedRecords}. Assinged Funding Round deliberation phase committee members meet the requirements for each Reviewer group.`,
       );
 
     for (const committee of topicCommittees) {

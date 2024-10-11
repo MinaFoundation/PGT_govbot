@@ -164,20 +164,25 @@ export class ProposalLogic {
     return updatedProposal;
   }
 
-  static async updateProposalStatus(proposalId: number, status: ProposalStatus, screen?: Screen) {
+  static async updateProposalStatus(proposalId: number, newStatus: ProposalStatus, screen?: Screen): Promise<Proposal> {
     const proposal = await Proposal.findByPk(proposalId);
     if (!proposal) {
       throw new EndUserError('Proposal not found');
     }
 
-    await proposal.update({ status });
+    const oldStatus = proposal.status;
+    await proposal.update({ status: newStatus });
 
     if (screen && proposal.fundingRoundId && proposal.forumThreadId) {
       try {
         const { ProposalsForumManager } = await import('../channels/proposals/ProposalsForumManager');
-        await ProposalsForumManager.refreshThread(proposal, screen);
+        if (newStatus === ProposalStatus.CANCELLED) {
+          await ProposalsForumManager.deleteThread(proposal);
+        } else {
+          await ProposalsForumManager.refreshThread(proposal, screen);
+        }
       } catch (error) {
-        logger.error('Error refreshing forum thread:', error);
+        logger.error('Error updating forum thread:', error);
       }
     }
 

@@ -58,9 +58,11 @@ export class AdminHomeScreen extends Screen implements IHomeScreen {
       .setTitle('🛠️ Admin Dashboard')
       .setDescription('Welcome to the Admin Dashboard. Please select a category to manage:')
       .addFields(
-        { name: '👥 SME Management', value: 'Manage SME Groups and Users' },
-        { name: '📋 Topic Management', value: 'Manage Topics and Committees' },
-        { name: '💰 Funding Round Management', value: 'Manage Funding Rounds and Phases' },
+        { name: '👥 Manage Reviewers', value: 'Manage Reviewers and Users' },
+        { name: '📋 Manage Discussion Topics', value: 'Manage Discussion Topics and Committees' },
+        { name: '💰 Manage Funding Rounds', value: 'Manage Funding Rounds and Phases' },
+        { name: '📊 Manage Proposal Status', value: 'Set/Override Proposal Status' },
+        { name: '🗳️ Count Votes', value: 'Count Votes for a Funding Round.' },
       );
   }
 
@@ -68,18 +70,22 @@ export class AdminHomeScreen extends Screen implements IHomeScreen {
     return new ActionRowBuilder<ButtonBuilder>().addComponents(
       new ButtonBuilder()
         .setCustomId(this.manageSMEGroupsScreen.fullCustomId)
-        .setLabel('SME Management')
+        .setLabel('Manage Reviewers ')
         .setStyle(ButtonStyle.Primary)
         .setEmoji('👥'),
-      new ButtonBuilder().setCustomId(this.manageTopicsScreen.fullCustomId).setLabel('Topic Management').setStyle(ButtonStyle.Primary).setEmoji('📋'),
+      new ButtonBuilder()
+        .setCustomId(this.manageTopicsScreen.fullCustomId)
+        .setLabel('Manage Discussion Topics')
+        .setStyle(ButtonStyle.Primary)
+        .setEmoji('📋'),
       new ButtonBuilder()
         .setCustomId(this.manageFundingRoundsScreen.fullCustomId)
-        .setLabel('Funding Round Management')
+        .setLabel('Manage Funding Rounds')
         .setStyle(ButtonStyle.Primary)
         .setEmoji('💰'),
       new ButtonBuilder()
         .setCustomId(this.manageProposalStatusesScreen.fullCustomId)
-        .setLabel('Proposal Status Management')
+        .setLabel('Manage Proposal Status')
         .setStyle(ButtonStyle.Primary)
         .setEmoji('📊'),
       new ButtonBuilder().setCustomId(this.countVotesScreen.fullCustomId).setLabel('Count Votes').setStyle(ButtonStyle.Primary).setEmoji('🗳️'),

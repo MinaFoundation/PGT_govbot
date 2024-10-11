@@ -15,6 +15,7 @@ import { ActiveFundingRoundPaginator } from '../../../components/FundingRoundPag
 import { ManageProposalStatusesPaginator } from '../../../components/ProposalsPaginator';
 import { ArgumentOracle } from '../../../CustomIDOracle';
 import { DiscordLimiter } from '../../../utils/DiscordLimiter';
+import logger from '../../../logging';
 
 export class ManageProposalStatusesScreen extends Screen {
   public static readonly ID = 'manageProposalStatuses';

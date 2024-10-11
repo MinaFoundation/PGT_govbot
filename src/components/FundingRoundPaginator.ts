@@ -25,7 +25,7 @@ export abstract class FundingRoundPaginator extends ORMModelPaginator<FundingRou
    * Override this method to customize the list of Funding Rounds which should be presented/paginated.
    */
   public async getItems(interaction: TrackedInteraction): Promise<FundingRound[]> {
-    return await FundingRoundLogic.getPresentAndFutureFundingRounds();
+    return await FundingRoundLogic.getAllFundingRounds();
   }
 
   protected async getOptions(interaction: TrackedInteraction, items: FundingRound[]): Promise<any> {
@@ -46,6 +46,15 @@ export class EditFundingRoundPaginator extends FundingRoundPaginator {
   public async getItems(interaction: TrackedInteraction): Promise<FundingRound[]> {
     const duid: string = interaction.discordUserId;
     return await FundingRoundLogic.getFundingRoundsForUser(duid);
+  }
+}
+
+export class EditAllFundingRoundsPaginator extends FundingRoundPaginator {
+  public static readonly ID = 'editAllFRPag';
+  public title: string = 'Select A Funding Round To Edit';
+  public args: string[] = [];
+  public async getItems(interaction: TrackedInteraction): Promise<FundingRound[]> {
+    return await FundingRoundLogic.getAllFundingRounds();
   }
 }
 
@@ -97,7 +106,7 @@ export class ActiveFundingRoundPaginator extends FundingRoundPaginator {
   public title: string = 'Select an Active Funding Round';
 
   public async getItems(interaction: TrackedInteraction): Promise<FundingRound[]> {
-    return await FundingRoundLogic.getActiveFundingRounds();
+    return await FundingRoundLogic.getAllFundingRounds();
   }
 }
 
