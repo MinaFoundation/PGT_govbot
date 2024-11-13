@@ -23,6 +23,7 @@ import { CONSIDERATION_CONSTANTS } from '../Constants';
 import { EndUserError } from '../../../Errors';
 import { ConsiderationFundingRoundPaginator } from '../../../components/FundingRoundPaginator';
 import { DiscordLimiter } from '../../../utils/DiscordLimiter';
+import { GenerateLoginTokenAction } from '../actions/GenerateLoginTokenAction';
 
 export class ConsiderationHomeScreen extends Screen implements IHomeScreen {
   public static readonly ID = CONSIDERATION_CONSTANTS.SCREEN_IDS.HOME;
@@ -33,6 +34,7 @@ export class ConsiderationHomeScreen extends Screen implements IHomeScreen {
   public readonly selectVoteTypeAction: SelectVoteTypeAction;
   public readonly selectProjectAction: SelectProjectAction;
   public readonly smeConsiderationVoteAction: SMEConsiderationVoteAction;
+  public readonly generateLoginTokenAction: GenerateLoginTokenAction;
 
   constructor(dashboard: Dashboard, screenId: string) {
     super(dashboard, screenId);
@@ -40,6 +42,7 @@ export class ConsiderationHomeScreen extends Screen implements IHomeScreen {
     this.selectVoteTypeAction = new SelectVoteTypeAction(this, CONSIDERATION_CONSTANTS.ACTION_IDS.SELECT_VOTE_TYPE);
     this.selectProjectAction = new SelectProjectAction(this, CONSIDERATION_CONSTANTS.ACTION_IDS.SELECT_PROJECT);
     this.smeConsiderationVoteAction = new SMEConsiderationVoteAction(this, CONSIDERATION_CONSTANTS.ACTION_IDS.SME_CONSIDERATION_VOTE);
+    this.generateLoginTokenAction = new GenerateLoginTokenAction(this, CONSIDERATION_CONSTANTS.ACTION_IDS.GENERATE_LOGIN_TOKEN);
   }
 
   public async renderToTextChannel(channel: TextChannel): Promise<void> {
@@ -52,7 +55,13 @@ export class ConsiderationHomeScreen extends Screen implements IHomeScreen {
   }
 
   protected allActions(): Action[] {
-    return [this.selectFundingRoundAction, this.selectVoteTypeAction, this.selectProjectAction, this.smeConsiderationVoteAction];
+    return [
+      this.selectFundingRoundAction,
+      this.selectVoteTypeAction,
+      this.selectProjectAction,
+      this.smeConsiderationVoteAction,
+      this.generateLoginTokenAction,
+    ];
   }
 
   protected async getResponse(interaction?: TrackedInteraction, args?: RenderArgs): Promise<any> {
@@ -68,7 +77,9 @@ export class ConsiderationHomeScreen extends Screen implements IHomeScreen {
       .setLabel('Select Funding Round')
       .setStyle(ButtonStyle.Primary);
 
-    const row = new ActionRowBuilder<MessageActionRowComponentBuilder>().addComponents(selectFundingRoundButton);
+    const loginButton = this.generateLoginTokenAction.getComponent();
+
+    const row = new ActionRowBuilder<MessageActionRowComponentBuilder>().addComponents(selectFundingRoundButton, loginButton);
 
     return {
       embeds: [embed],
