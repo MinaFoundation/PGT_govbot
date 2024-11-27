@@ -1,4 +1,4 @@
-import { CacheType, Client, GatewayIntentBits, Interaction, TextChannel } from 'discord.js';
+import { CacheType, Client, GatewayIntentBits, Interaction, TextChannel, ChannelType } from 'discord.js';
 import { config } from 'dotenv';
 import { DashboardManager } from './core/DashboardManager';
 import { AdminDashboard } from './channels/admin/dashboard';
@@ -20,6 +20,9 @@ import { DiscordStatus } from './channels/DiscordStatus';
 import { TrackedInteraction } from './core/BaseClasses';
 import { networkInterfaces } from 'os';
 import { startServer } from './app';
+import { LoginDashboard } from './channels/login/LoginDashboard';
+import { LoginScreen } from './channels/login/screens/LoginScreen';
+import { LoginForumManager } from './channels/login/LoginForumManager';
 
 config();
 
@@ -69,8 +72,26 @@ client.once('ready', async () => {
   considerDashboard.homeScreen = considerHomeScreen;
   dashboardManager.registerDashboard('consider', considerDashboard);
 
-  // Render initial screen in #admin channel
+  // Initialize login dashboard
+  const loginDashboard = new LoginDashboard();
+  const loginScreen = new LoginScreen(loginDashboard, LoginScreen.ID);
+  loginDashboard.homeScreen = loginScreen;
+  dashboardManager.registerDashboard('login', loginDashboard);
+
+  // Initialize login forum through renderToTextChannel
   const guild = client.guilds.cache.first();
+  if (guild) {
+    const loginForumId = process.env.LOGIN_FORUM_CHANNEL_ID || LoginScreen.DEFAULT_FORUM_CHANNEL_ID;
+    const loginForumChannel = await guild.channels.fetch(loginForumId);
+    if (loginForumChannel && loginForumChannel.type === ChannelType.GuildForum) {
+      // We don't actually need to call renderToTextChannel since we're dealing with a forum
+      await LoginForumManager.initialize(loginForumId, loginScreen);
+    } else {
+      logger.error('Login forum channel not found or is not a forum channel');
+    }
+  }
+
+  // Render initial screen in #admin channel
   if (guild) {
     const adminChannel = guild.channels.cache.find((channel) => channel.name === 'admin') as TextChannel | undefined;
     if (adminChannel) {
