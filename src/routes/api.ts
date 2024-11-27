@@ -1,11 +1,11 @@
-import express from 'express';
+import express, { Request, Response } from 'express';
 import { ProposalLogic } from '../logic/ProposalLogic';
 import { EndUserError } from '../Errors';
 import logger from '../logging';
 
 const router = express.Router();
 
-router.get('/projects/:id', async (req, res) => {
+router.get('/projects/:id', async (req: Request, res: Response) => {
   try {
     const projectId = parseInt(req.params.id);
     if (isNaN(projectId)) {
