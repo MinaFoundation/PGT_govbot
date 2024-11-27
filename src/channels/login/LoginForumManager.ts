@@ -1,4 +1,4 @@
-import { ForumChannel, ThreadChannel, EmbedBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle, ChannelType } from 'discord.js';
+import { ForumChannel, ThreadChannel, EmbedBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle, ChannelType, PublicThreadChannel } from 'discord.js';
 import { EndUserError } from '../../Errors';
 import { Screen } from '../../core/BaseClasses';
 import { DiscordLimiter } from '../../utils/DiscordLimiter';
@@ -36,37 +36,73 @@ export class LoginForumManager {
   }
 
   private static async ensureLoginThread(forumChannel: ForumChannel, screen: LoginScreen): Promise<void> {
-    // Find existing login thread
-    const threads = await forumChannel.threads.fetch();
-    const loginThread = threads.threads.find(thread => thread.name === this.LOGIN_THREAD_TITLE);
+    logger.debug('Ensuring login thread exists and is up to date...');
 
-    if (loginThread) {
-      // Update existing thread
-      await this.updateThreadContent(loginThread, screen);
-    } else {
-      // Create new thread
-      const thread = await forumChannel.threads.create({
+    // Fetch all active threads
+    const activeThreads = await forumChannel.threads.fetchActive();
+    logger.debug(`Found ${activeThreads.threads.size} active threads`);
+
+    // Find the login thread among active threads
+    let loginThread = activeThreads.threads.find(thread => 
+      thread.name === this.LOGIN_THREAD_TITLE && 
+      thread.type === ChannelType.PublicThread
+    ) as PublicThreadChannel | undefined;
+
+    if (!loginThread) {
+      // If not found in active threads, check archived threads
+      const archivedThreads = await forumChannel.threads.fetchArchived();
+      logger.debug(`Found ${archivedThreads.threads.size} archived threads`);
+
+      loginThread = archivedThreads.threads.find(thread => 
+        thread.name === this.LOGIN_THREAD_TITLE && 
+        thread.type === ChannelType.PublicThread
+      ) as PublicThreadChannel | undefined;
+
+      if (loginThread) {
+        // If found in archived threads, unarchive it
+        logger.debug('Found login thread in archives, unarchiving...');
+        await loginThread.setArchived(false);
+      }
+    }
+
+    if (!loginThread) {
+      // If not found anywhere, create a new thread
+      logger.debug('No login thread found, creating new one...');
+      const newThread = await forumChannel.threads.create({
         name: this.LOGIN_THREAD_TITLE,
         message: { content: 'Initializing login interface...' },
       });
-      await this.updateThreadContent(thread, screen);
+
+      // Cast the new thread to PublicThreadChannel
+      loginThread = newThread as PublicThreadChannel;
+    }
+
+    // Update the thread content
+    logger.debug('Updating thread content...');
+    if (loginThread) {
+      await this.updateThreadContent(loginThread, screen);
+    } else {
+      logger.error('Failed to create or find login thread');
     }
   }
 
-  private static async updateThreadContent(thread: ThreadChannel, screen: LoginScreen): Promise<void> {
+  private static async updateThreadContent(thread: PublicThreadChannel, screen: LoginScreen): Promise<void> {
     const embed = this.createLoginEmbed();
     const loginButton = this.createLoginButton(screen, thread.parentId!);
 
-    const messages = await thread.messages.fetch({ limit: 1 });
-    const firstMessage = messages.first();
+    // Fetch all messages in the thread
+    const messages = await thread.messages.fetch();
+    const firstMessage = messages.last(); // Get the oldest message (the initial post)
 
     if (firstMessage) {
+      logger.debug(`Updating first message ${firstMessage.id} in thread ${thread.id}`);
       await firstMessage.edit({
         content: '',
         embeds: [embed],
         components: [loginButton]
       });
     } else {
+      logger.debug(`No messages found in thread ${thread.id}, creating new message`);
       await thread.send({
         embeds: [embed],
         components: [loginButton]
@@ -78,7 +114,8 @@ export class LoginForumManager {
     return new EmbedBuilder()
       .setTitle('🔐 Login to MEF')
       .setDescription(
-        'Welcome to the MEF Login Portal!\n\n' +
+        'Welcome to the MEF Login Dashboard!\n\n' +
+        'Here, you can authenticate to the MEF web application, where you can create, view & vote on proposals\n\n' +
         '**How to Login:**\n' +
         '1. Click the "Login to MEF" button below\n' +
         '2. You\'ll receive a secure login link (valid for 30 seconds)\n' +
