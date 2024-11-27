@@ -115,7 +115,7 @@ export class LoginForumManager {
       .setTitle('🔐 Login to MEF')
       .setDescription(
         'Welcome to the MEF Login Dashboard!\n\n' +
-        'Here, you can authenticate to the MEF web application, where you can create, view & vote on proposals\n\n' +
+        'Here, you can authenticate to the MEF web application, where you can create, view & vote on proposals.\n\n' +
         '**How to Login:**\n' +
         '1. Click the "Login to MEF" button below\n' +
         '2. You\'ll receive a secure login link (valid for 30 seconds)\n' +
